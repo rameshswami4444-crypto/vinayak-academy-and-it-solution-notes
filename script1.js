@@ -397,7 +397,7 @@ function closeModal() {
 // Open PDF in new tab
 function openPDF(link) {
     if (link.includes('YOUR_FILE_ID')) {
-        alert('❌ This PDF link has not been configured yet.\n\nPlease add the Google Drive file ID to the script.js file.');
+        alert('we are cooking your notes😊');
         return;
     }
     window.open(link, '_blank');

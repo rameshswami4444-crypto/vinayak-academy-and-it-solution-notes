@@ -5,13 +5,13 @@
 }
 
 :root {
-    --primary-color: #6366f1;
-    --secondary-color: #8b5cf6;
+    --primary-color: #e58641;
+    --secondary-color: #e22517;
     --accent-color: #ec4899;
     --light-bg: #f8fafc;
-    --card-bg: #ffffff;
-    --text-dark: #1e293b;
-    --text-light: #64748b;
+    --card-bg: #ffffff55;
+    --text-dark: #f12a31;
+    --text-light: #e61c12;
     --border-color: #e2e8f0;
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
@@ -26,12 +26,13 @@ body {
 
 /* Header */
 .header {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    background: linear-gradient(135deg, var(--primary-color) 5%, var(--secondary-color) 95%);
     color: white;
-    padding: 3rem 2rem;
+    padding: 0rem 0rem;
     text-align: center;
     box-shadow: var(--shadow);
 }
+
 
 .header h1 {
     font-size: 2.5rem;
@@ -56,7 +57,17 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
+   
 }
+.video-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2; /* पीछे रहेगा */
+}s
 
 /* Main Grid */
 main {
@@ -106,7 +117,9 @@ main {
     font-size: 1.5rem;
     margin-bottom: 0.5rem;
     color: var(--text-dark);
+    text-decoration: underline;
 }
+
 
 .subject-card p {
     color: var(--text-light);
@@ -344,3 +357,8 @@ main {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--secondary-color);
 }
+.h2 {
+    color: var(--accent-color);
+    transition: color 0.3s ease;
+
+}       
