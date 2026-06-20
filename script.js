@@ -12,6 +12,10 @@ const notesData = [
                 name: "case studies",
                 link: "/adfa.html"
             },
+            {
+                name: "NOTES",
+                link: "/ADFANOTES.HTML"
+            },
           
         ]
     },
