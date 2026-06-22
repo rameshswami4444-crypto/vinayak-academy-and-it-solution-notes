@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Notes Sharing - Study Resources</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <header class="header">
@@ -16,26 +16,32 @@
     </header>
 
     <main class="container">
-        <section class="subjects-grid" id="subjectsGrid1">
+        <section class="subjects-grid" id="subjectsGridDECE">
             <!-- Subjects will be rendered here by JavaScript -->
         </section>
     </main>
 
     <!-- Modal for viewing topics -->
-    <div id="modal1" class="modal">
+    <div id="modalDECE" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2 id="modalTitle1"></h2>
-            <div id="topicsContainer1" class="topics-list">
+            <h2 id="modalTitleDECE"></h2>
+            <div id="topicsContainerDECE" class="topics-list">
                 <!-- Topics will be rendered here -->
             </div>
         </div>
     </div>
-
+<marquee class="student-marquee" behavior="scroll" direction="left">
+        Vinayak Academy - Notes are for enrolled students only | Do not share
+    </marquee>
     <footer class="footer">
         <p>&copy; 2026 Notes Sharing. All rights reserved.</p>
     </footer>
-
-    <script src="script1.js"></script>
+    <script> 
+    if (localStorage.getItem("loggedIn") !== "true") {
+            window.location.href = "/HTML/login.html";
+        }
+        </script>
+    <script src="/JS/DECE.JS"></script>
 </body>
 </html>

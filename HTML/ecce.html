@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECCE Notes - Vinayak Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1><i class="fas fa-book"></i>Vinayak Academy And IT Solutions</h1>
+            <p>Access all your study materials in one place</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="ecce-header-row">
+            <div class="ecce-title">
+                <h2>ECCE Notes</h2>
+                <p>IGNOU Diploma in Early Childhood Care and Education</p>
+            </div>
+            <button type="button" class="logout-btn" id="logoutBtn">
+                <i class="fas fa-right-from-bracket"></i> Logout
+            </button>
+        </div>
+
+        <section class="viewer-layout">
+            <aside class="notes-list">
+                <h3>PDF Notes</h3>
+                <button class="note-btn active" data-file-id="1MkGwWsricmy_UNgAynD6A0kmAWR4Fetf">
+                    <i class="fas fa-file-pdf"></i> Assignment 1
+                </button>
+                <button class="note-btn" data-file-id="YOUR_FILE_ID_19">
+                    <i class="fas fa-file-pdf"></i> Assignment 2
+                </button>
+                <button class="note-btn" data-file-id="YOUR_FILE_ID_20">
+                    <i class="fas fa-file-pdf"></i> Assignment 3
+                </button>
+            </aside>
+
+            <section class="pdf-panel">
+                <iframe
+                    id="pdfViewer"
+                    class="pdf-viewer"
+                    src="https://drive.google.com/file/d/1MkGwWsricmy_UNgAynD6A0kmAWR4Fetf/preview"
+                    title="ECCE PDF Viewer"
+                    allow="autoplay">
+                </iframe>
+            </section>
+        </section>
+    </main>
+
+    
+
+    <script>
+        
+    </script>
+    <script src="/JS/ecce.js"></script>
+</body>
+</html>

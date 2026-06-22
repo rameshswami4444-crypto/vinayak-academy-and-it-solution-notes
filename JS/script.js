@@ -8,14 +8,20 @@ const notesData = [
         name: "ADFA",
         icon: "fas fa-calculator",
         description: "advanced deploma in finacial accounting ",
-        topics: [{
+        topics: [
+              {
+                name: "basic accounting",
+                link: "/HTML/basicnotes.html"
+            },
+{
                 name: "case studies",
-                link: "/adfa.html"
+                link: "/HTML/adfa.html"
             },
             {
                 name: "NOTES",
-                link: "/ADFANOTES.HTML"
+                link: "/HTML/adfanotes.html"
             },
+           
           
         ]
     },
@@ -96,23 +102,16 @@ const notesData = [
             }
         ]
     },
-    {
+     {
         id: 6,
-        name: "",
-        icon: "fas fa-money-bill-wave",
-        description: "Financial management and planning",
+        name: "ECCE {IGNOU}",
+        icon: "fa-solid fa-book",
+        description: "Diploma in early childhood care and education",
+        protected: true,
         topics: [
             {
-                name: "Time Value of Money",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_19/view?usp=sharing"
-            },
-            {
-                name: "Investment Analysis",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_20/view?usp=sharing"
-            },
-            {
-                name: "Financial Planning",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_21/view?usp=sharing"
+                name: "login",
+                link: "/HTML/login.html"
             }
         ]
     }
@@ -150,10 +149,19 @@ function renderSubjects() {
             <span class="topic-count">${subject.topics.length} topics</span>
         `;
         
-        subjectCard.addEventListener('click', () => openModal(subject));
+       subjectCard.addEventListener('click', () => {
+            if (subject.protected) {
+                window.location.href = subject.topics[0].link;
+                return;
+            }
+
+            openModal(subject);
+        });
         subjectsGrid.appendChild(subjectCard);
     });
 }
+
+
 
 // Open modal with topics
 function openModal(subject) {
