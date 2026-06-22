@@ -110,8 +110,8 @@ const notesData = [
         protected: true,
         topics: [
             {
-                name: "login",
-                link: "/HTML/login.html"
+                name: "open",
+                link: "/HTML/ecce.html"
             }
         ]
     }

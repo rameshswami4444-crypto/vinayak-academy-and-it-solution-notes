@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Vinayak Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="auth-pending auth-page">
+    <main class="login-shell">
+        <section class="login-panel">
+            <div class="login-brand">
+                <img src="/logo.png" alt="Vinayak Academy logo" class="login-logo">
+                <p class="login-badge">Vinayak Academy And IT Solutions</p>
+                <h1>Secure Access Portal</h1>
+                <p class="login-subtitle">Choose your role and sign in to continue.</p>
+            </div>
+
+            <div class="login-tabs" role="tablist" aria-label="Login type">
+                <button type="button" class="login-tab active" data-auth-tab="student" aria-selected="true">
+                    <i class="fas fa-user-graduate"></i> Student Login
+                </button>
+                <button type="button" class="login-tab" data-auth-tab="admin" aria-selected="false">
+                    <i class="fas fa-shield-halved"></i> Admin Login
+                </button>
+            </div>
+
+            <section class="login-tab-panel" data-auth-panel="student">
+                <form id="studentLoginForm" class="login-form">
+                    <div class="login-field">
+                        <label for="studentIdentifier">Student ID</label>
+                        <input
+                            type="text"
+                            id="studentIdentifier"
+                            autocomplete="username"
+                            placeholder="Enter your student ID"
+                            required>
+                    </div>
+
+                    <div class="login-field">
+                        <label for="studentPassword">Password</label>
+                        <input
+                            type="password"
+                            id="studentPassword"
+                            autocomplete="current-password"
+                            placeholder="Enter your password"
+                            required>
+                    </div>
+
+                    <p id="studentAuthMessage" class="auth-message" hidden></p>
+
+                    <button type="submit" class="login-btn" id="studentLoginButton">
+                        <i class="fas fa-right-to-bracket"></i> Login as Student
+                    </button>
+                </form>
+
+                <p class="login-help">
+                    Student login is validated directly from the Supabase <code>students</code> table.
+                </p>
+            </section>
+
+            <section class="login-tab-panel" data-auth-panel="admin" hidden>
+                <form id="adminLoginForm" class="login-form">
+                    <div class="login-field">
+                        <label for="adminId">Admin ID</label>
+                        <input
+                            type="text"
+                            id="adminId"
+                            autocomplete="username"
+                            placeholder="Enter admin ID"
+                            required>
+                    </div>
+
+                    <div class="login-field">
+                        <label for="adminPassword">Password</label>
+                        <input
+                            type="password"
+                            id="adminPassword"
+                            autocomplete="current-password"
+                            placeholder="Enter admin password"
+                            required>
+                    </div>
+
+                    <p id="adminAuthMessage" class="auth-message" hidden></p>
+
+                    <button type="submit" class="login-btn" id="adminLoginButton">
+                        <i class="fas fa-shield-halved"></i> Login as Admin
+                    </button>
+                </form>
+
+                <p class="login-help">
+                    Default admin credentials come from <code>JS/supabase-config.js</code>.
+                </p>
+            </section>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/JS/supabase-config.js"></script>
+    <script src="/JS/auth.js"></script>
+    <script>
+        window.VinayakAuth.initLoginPage();
+    </script>
+</body>
+</html>

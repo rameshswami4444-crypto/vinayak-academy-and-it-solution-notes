@@ -32,7 +32,7 @@ const notesData = [
         protected: true,
         topics: [
             {
-                name: "login",
+                name: "open",
                 link: "/HTML/ecce.html"
             }
         ]

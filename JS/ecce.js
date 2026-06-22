@@ -19,10 +19,4 @@
                 pdfViewer.src = "https://drive.google.com/file/d/" + fileId + "/preview";
             });
         });
-
-        document.getElementById("logoutBtn").addEventListener("click", function () {
-            localStorage.removeItem("loggedIn");
-            localStorage.removeItem("studentId");
-            window.location.href = "/HTML/login.html";
-        });
     

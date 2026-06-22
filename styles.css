@@ -18,21 +18,24 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: var(--light-bg);
     color: var(--text-dark);
     line-height: 1.6;
 }
 
-/* Header */
+body.auth-pending {
+    visibility: hidden;
+}
+
 .header {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: white;
-    padding: 0rem 0rem;
+    padding: 0;
     text-align: center;
     box-shadow: var(--shadow);
 }
-
 
 .header h1 {
     font-size: 2.5rem;
@@ -52,30 +55,33 @@ body {
     opacity: 0.9;
 }
 
-/* Container */
 .container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
-   
 }
-.video-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: -2; /* पीछे रहेगा */
-}s
 
-/* Main Grid */
+.top-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.video-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -2;
+}
+
 main {
     min-height: 70vh;
     padding: 3rem 2rem;
 }
 
-/* Subjects Grid */
 .subjects-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -83,7 +89,6 @@ main {
     padding: 2rem 0;
 }
 
-/* Subject Card */
 .subject-card {
     background: var(--card-bg);
     border-radius: 12px;
@@ -120,7 +125,6 @@ main {
     text-decoration: underline;
 }
 
-
 .subject-card p {
     color: var(--text-light);
     font-size: 0.95rem;
@@ -137,7 +141,6 @@ main {
     font-weight: 600;
 }
 
-/* Topics List */
 .topics-list {
     display: flex;
     flex-direction: column;
@@ -166,15 +169,20 @@ main {
     color: var(--text-dark);
 }
 
-.pdf-btn {
+.pdf-btn,
+.logout-btn,
+.login-btn {
     background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     color: white;
     border: none;
+    cursor: pointer;
+    font-weight: 700;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pdf-btn {
     padding: 0.6rem 1.4rem;
     border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -182,16 +190,33 @@ main {
     white-space: nowrap;
 }
 
-.pdf-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 12px rgba(99, 102, 241, 0.4);
+.pdf-btn:hover,
+.logout-btn:hover,
+.login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
 }
 
 .pdf-btn:active {
     transform: scale(0.98);
 }
 
-/* Modal */
+.logout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    white-space: nowrap;
+}
+
+.logout-btn:disabled,
+.login-btn:disabled {
+    cursor: wait;
+    opacity: 0.75;
+}
+
 .modal {
     display: none;
     position: fixed;
@@ -214,6 +239,7 @@ main {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -236,6 +262,7 @@ main {
         transform: translateY(-50px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -261,17 +288,377 @@ main {
     font-size: 1.8rem;
 }
 
-/* Footer */
 .footer {
     background: var(--text-dark);
     color: white;
     text-align: center;
     padding: 2rem;
- 
-    
 }
 
-/* Responsive Design */
+.ecce-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.ecce-title h2 {
+    color: var(--primary-color);
+    font-size: 2rem;
+    line-height: 1.2;
+}
+
+.ecce-title p {
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.viewer-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1rem;
+    min-height: 70vh;
+}
+
+.notes-list {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 1rem;
+    overflow: auto;
+}
+
+.notes-list h3 {
+    color: var(--primary-color);
+    margin-bottom: 0.8rem;
+}
+
+.note-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: white;
+    color: var(--text-dark);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    margin-bottom: 0.65rem;
+    padding: 0.75rem;
+    text-align: left;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.note-btn:hover,
+.note-btn.active {
+    border-color: var(--primary-color);
+    transform: translateX(3px);
+}
+
+.pdf-panel {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    min-height: 70vh;
+}
+
+.pdf-viewer {
+    width: 100%;
+    height: 100%;
+    min-height: 70vh;
+    border: 0;
+    display: block;
+    background: white;
+}
+
+.student-marquee {
+    position: relative;
+    left: 0;
+    right: 0;
+    z-index: 1001;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    font-weight: 700;
+    padding: 0.55rem 0;
+}
+
+.auth-page {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top, rgba(229, 134, 65, 0.18), transparent 35%),
+        linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
+}
+
+.login-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+
+.login-panel {
+    width: 100%;
+    max-width: 440px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    padding: 2rem;
+}
+
+.login-brand {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.login-logo {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+    margin-bottom: 0.9rem;
+}
+
+.login-badge {
+    color: var(--secondary-color);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+
+.login-brand h1 {
+    color: var(--primary-color);
+    font-size: 2rem;
+    margin-bottom: 0.35rem;
+}
+
+.login-subtitle,
+.login-help {
+    color: #7c2d12;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.login-field label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: #7c2d12;
+    font-weight: 700;
+}
+
+.login-field input {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font: inherit;
+    color: #1f2937;
+    background: white;
+    outline: none;
+}
+
+.login-field input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(229, 134, 65, 0.2);
+}
+
+.login-btn {
+    width: 100%;
+    border-radius: 10px;
+    font-size: 1rem;
+    padding: 0.9rem 1rem;
+}
+
+.auth-message {
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.auth-message.error {
+    background: #fff1f2;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+}
+
+.auth-message.success {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.login-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.login-tab {
+    border: 1px solid rgba(229, 134, 65, 0.25);
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #9a3412;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    padding: 0.85rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.login-tab.active {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    box-shadow: var(--shadow);
+}
+
+.login-tab-panel {
+    animation: fadeIn 0.2s ease;
+}
+
+.admin-page {
+    background:
+        radial-gradient(circle at top right, rgba(226, 37, 23, 0.08), transparent 30%),
+        linear-gradient(180deg, #fff7ed 0%, #f8fafc 100%);
+}
+
+.admin-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.admin-hero h2 {
+    color: var(--primary-color);
+    font-size: 2rem;
+    margin-bottom: 0.35rem;
+}
+
+.admin-hero-copy,
+.admin-note {
+    color: #7c2d12;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.admin-card {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+}
+
+.admin-card h3 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.admin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.danger-btn {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.admin-table-card {
+    overflow: hidden;
+}
+
+.admin-table-header {
+    margin-bottom: 1rem;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.95rem 0.75rem;
+    text-align: left;
+}
+
+.admin-table th {
+    color: #7c2d12;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.admin-empty {
+    color: #7c2d12;
+    text-align: center;
+}
+
+.resource-placeholder {
+    max-width: 720px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 2rem;
+    text-align: center;
+}
+
+.resource-placeholder h2 {
+    color: var(--primary-color);
+    margin-bottom: 0.75rem;
+}
+
+.resource-placeholder p {
+    color: #7c2d12;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--light-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
 @media (max-width: 768px) {
     .header h1 {
         font-size: 2rem;
@@ -306,6 +693,32 @@ main {
     #modalTitle {
         font-size: 1.5rem;
     }
+
+    .ecce-header-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .viewer-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .pdf-panel,
+    .pdf-viewer {
+        min-height: 62vh;
+    }
+
+    .ecce-title h2 {
+        font-size: 1.6rem;
+    }
+
+    .top-actions {
+        justify-content: flex-start;
+    }
+
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 480px) {
@@ -339,162 +752,25 @@ main {
     .modal-content {
         padding: 1.5rem;
     }
+
+    .login-panel {
+        padding: 1.5rem;
+        border-radius: 16px;
+    }
+
+    .login-brand h1 {
+        font-size: 1.7rem;
+    }
+
+    .login-tabs {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-card {
+        padding: 1.2rem;
+    }
+
+    .admin-hero h2 {
+        font-size: 1.6rem;
+    }
 }
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--light-bg);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--primary-color);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--secondary-color);
-}
-.h2 {
-    color: var(--accent-color);
-    transition: color 0.3s ease;
-
-}       
-
-
-        body {
-            min-height: 100vh;
-            padding-bottom: 0px;
-        }
-
-        .ecce-header-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .ecce-title h2 {
-            color: var(--primary-color);
-            font-size: 2rem;
-            line-height: 1.2;
-        }
-
-        .ecce-title p {
-            color: var(--text-light);
-            font-weight: 600;
-        }
-
-        .logout-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.45rem;
-            border: 0;
-            border-radius: 6px;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-            cursor: pointer;
-            font-weight: 700;
-            padding: 0.7rem 1rem;
-            white-space: nowrap;
-        }
-
-        .viewer-layout {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 1rem;
-            min-height: 70vh;
-        }
-
-        .notes-list {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-            padding: 1rem;
-            overflow: auto;
-        }
-
-        .notes-list h3 {
-            color: var(--primary-color);
-            margin-bottom: 0.8rem;
-        }
-
-        .note-btn {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background: white;
-            color: var(--text-dark);
-            cursor: pointer;
-            font: inherit;
-            font-weight: 700;
-            margin-bottom: 0.65rem;
-            padding: 0.75rem;
-            text-align: left;
-            transition: border-color 0.2s ease, transform 0.2s ease;
-        }
-
-        .note-btn:hover,
-        .note-btn.active {
-            border-color: var(--primary-color);
-            transform: translateX(3px);
-        }
-
-        .pdf-panel {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            min-height: 70vh;
-        }
-
-        .pdf-viewer {
-            width: 100%;
-            height: 100%;
-            min-height: 70vh;
-            border: 0;
-            display: block;
-            background: white;
-        }
-
-        .student-marquee {
-            position:relative;
-            left: 0;
-            right: 0;
-            bottom: 5;
-            z-index: 1001;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-            font-weight: 700;
-            padding: 0.55rem 0;
-        }
-
-        @media (max-width: 768px) {
-            .ecce-header-row {
-                align-items: flex-start;
-                flex-direction: column;
-            }
-
-            .viewer-layout {
-                grid-template-columns: 1fr;
-            }
-
-            .pdf-panel,
-            .pdf-viewer {
-                min-height: 62vh;
-            }
-
-            .ecce-title h2 {
-                font-size: 1.6rem;
-            }
-        }

@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
+<body class="auth-pending">
     <header class="header">
         <div class="container">
             <h1><i class="fas fa-book"></i>Vinayak Academy And It Soultions</h1>
@@ -16,19 +16,14 @@
     </header>
 
     <main class="container">
-        <section class="subjects-grid" id="subjectsGrid1">
-            <!-- Subjects will be rendered here by JavaScript -->
-        </section>
+        <section class="subjects-grid" id="subjectsGrid1"></section>
     </main>
 
-    <!-- Modal for viewing topics -->
     <div id="modal1" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2 id="modalTitle1"></h2>
-            <div id="topicsContainer1" class="topics-list">
-                <!-- Topics will be rendered here -->
-            </div>
+            <div id="topicsContainer1" class="topics-list"></div>
         </div>
     </div>
 
@@ -36,6 +31,12 @@
         <p>&copy; 2026 Notes Sharing. All rights reserved.</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/JS/supabase-config.js"></script>
+    <script src="/JS/auth.js"></script>
+    <script>
+        window.VinayakAuth.initProtectedPage();
+    </script>
     <script src="/JS/script1.js"></script>
 </body>
 </html>

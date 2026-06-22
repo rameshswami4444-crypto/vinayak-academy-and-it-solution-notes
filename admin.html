@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Vinayak Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="auth-pending admin-page">
+    <header class="header">
+        <div class="container">
+            <h1><i class="fas fa-book"></i>Vinayak Academy And IT Solutions</h1>
+            <p>Admin dashboard for student access management</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="admin-hero">
+            <div>
+                <p class="login-badge">Admin Panel</p>
+                <h2>Manage student access</h2>
+                <p class="admin-hero-copy">Create students, rotate passwords, and maintain course access from one place.</p>
+            </div>
+        </section>
+
+        <p id="adminPanelMessage" class="auth-message" hidden></p>
+
+        <section class="admin-grid">
+            <article class="admin-card">
+                <h3><i class="fas fa-user-plus"></i> Add Student</h3>
+                <form id="addStudentForm" class="admin-form">
+                    <div class="login-field">
+                        <label for="newStudentId">Student ID</label>
+                        <input type="text" id="newStudentId" placeholder="e.g. monika01" required>
+                    </div>
+                    <div class="login-field">
+                        <label for="newStudentPassword">Password</label>
+                        <input type="text" id="newStudentPassword" placeholder="Create a password" required>
+                    </div>
+                    <div class="login-field">
+                        <label for="newStudentCourse">Course</label>
+                        <input type="text" id="newStudentCourse" placeholder="e.g. ECCE / ADFA" required>
+                    </div>
+                    <button type="submit" class="login-btn">
+                        <i class="fas fa-floppy-disk"></i> Save Student
+                    </button>
+                </form>
+            </article>
+
+            <article class="admin-card">
+                <h3><i class="fas fa-key"></i> Update Student Password</h3>
+                <form id="updateStudentPasswordForm" class="admin-form">
+                    <div class="login-field">
+                        <label for="updateStudentId">Student ID</label>
+                        <input type="text" id="updateStudentId" placeholder="Enter student ID" required>
+                    </div>
+                    <div class="login-field">
+                        <label for="updateStudentPassword">New Password</label>
+                        <input type="text" id="updateStudentPassword" placeholder="Enter new password" required>
+                    </div>
+                    <button type="submit" class="login-btn">
+                        <i class="fas fa-rotate"></i> Update Password
+                    </button>
+                </form>
+                <p class="admin-note">This updates the <code>password</code> column directly in your Supabase <code>students</code> table.</p>
+            </article>
+
+            <article class="admin-card">
+                <h3><i class="fas fa-user-minus"></i> Delete Student</h3>
+                <form id="deleteStudentForm" class="admin-form">
+                    <div class="login-field">
+                        <label for="deleteStudentId">Student ID</label>
+                        <input type="text" id="deleteStudentId" placeholder="Enter student ID" required>
+                    </div>
+                    <button type="submit" class="login-btn danger-btn">
+                        <i class="fas fa-trash"></i> Delete Student
+                    </button>
+                </form>
+                <p class="admin-note">This removes the selected row from the Supabase <code>students</code> table.</p>
+            </article>
+        </section>
+
+        <section class="admin-card admin-table-card">
+            <div class="admin-table-header">
+                <h3><i class="fas fa-users"></i> Student Records</h3>
+            </div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Course</th>
+                            <th>Password State</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/JS/supabase-config.js"></script>
+    <script src="/JS/auth.js"></script>
+    <script src="/JS/admin.js"></script>
+</body>
+</html>

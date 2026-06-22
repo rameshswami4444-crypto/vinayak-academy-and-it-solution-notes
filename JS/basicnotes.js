@@ -7,7 +7,7 @@ const notesData = [
         id: 1,
         name: "VOUCHER ENTRIES",
         icon: "fas fa-calculator",
-        description: "journal entries",
+        description: "journal entries   ",
         topics: [
             {
                 name: "vouture entries",

@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
+<body class="auth-pending">
     <header class="header">
         <div class="container">
             <h1><i class="fas fa-book"></i>Vinayak Academy And It Soultions</h1>
@@ -16,32 +16,31 @@
     </header>
 
     <main class="container">
-        <section class="subjects-grid" id="subjectsGridDECE">
-            <!-- Subjects will be rendered here by JavaScript -->
-        </section>
+        <section class="subjects-grid" id="subjectsGridDECE"></section>
     </main>
 
-    <!-- Modal for viewing topics -->
     <div id="modalDECE" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2 id="modalTitleDECE"></h2>
-            <div id="topicsContainerDECE" class="topics-list">
-                <!-- Topics will be rendered here -->
-            </div>
+            <div id="topicsContainerDECE" class="topics-list"></div>
         </div>
     </div>
-<marquee class="student-marquee" behavior="scroll" direction="left">
+
+    <marquee class="student-marquee" behavior="scroll" direction="left">
         Vinayak Academy - Notes are for enrolled students only | Do not share
     </marquee>
+
     <footer class="footer">
         <p>&copy; 2026 Notes Sharing. All rights reserved.</p>
     </footer>
-    <script> 
-    if (localStorage.getItem("loggedIn") !== "true") {
-            window.location.href = "/HTML/login.html";
-        }
-        </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/JS/supabase-config.js"></script>
+    <script src="/JS/auth.js"></script>
+    <script>
+        window.VinayakAuth.initProtectedPage();
+    </script>
     <script src="/JS/DECE.JS"></script>
 </body>
 </html>
