@@ -33,7 +33,7 @@ const notesData = [
         topics: [
             {
                 name: "open",
-                link: "/HTML/ecce.html"
+                link: "/HTML/DECE.HTML"
             }
         ]
     }
