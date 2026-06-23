@@ -57,11 +57,12 @@ body.auth-pending {
 }
 
 .logo {
-    height: 45px;
+    height: 49px;
     width: auto;
     margin-right: 0.15rem;
     flex: 0 0 auto;
     object-fit: contain;
+    border-radius: 15px;
 }
 
 .header p {
