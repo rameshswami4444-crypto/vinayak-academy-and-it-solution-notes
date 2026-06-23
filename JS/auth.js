@@ -18,8 +18,8 @@
         return Boolean(
             config.url &&
             config.publishableKey &&
-            !config.url.includes("YOUR_PROJECT_ID") &&
-            !config.publishableKey.includes("YOUR_SUPABASE_PUBLISHABLE_KEY")
+            !config.url.includes("https://aptuynimvcllzbbqfmoj.supabase.co") &&
+            !config.publishableKey.includes("sb_publishable_DsBlz0MNKxBzterSVTqC_Q_0OMVWVb7")
         );
     }
 
