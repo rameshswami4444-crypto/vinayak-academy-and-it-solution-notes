@@ -1,8 +1,8 @@
 (function () {
     const config = window.VINAYAK_SUPABASE_CONFIG || {};
-    const LOGIN_PATH = "/login.html";
-    const HOME_PATH = config.loginRedirect || "/index.html";
-    const ADMIN_PATH = config.adminRedirect || "/admin.html";
+    const LOGIN_PATH = "login.html";
+    const HOME_PATH = config.loginRedirect || "index.html";
+    const ADMIN_PATH = config.adminRedirect || "admin.html";
     const SESSION_KEY = "vinayak_session";
     const LEGACY_KEYS = [
         "vinayak_is_admin",
@@ -18,8 +18,8 @@
         return Boolean(
             config.url &&
             config.publishableKey &&
-            !config.url.includes("https://aptuynimvcllzbbqfmoj.supabase.co") &&
-            !config.publishableKey.includes("sb_publishable_DsBlz0MNKxBzterSVTqC_Q_0OMVWVb7")
+            !config.url.includes("YOUR_PROJECT_ID") &&
+            !config.publishableKey.includes("YOUR_SUPABASE_PUBLISHABLE_KEY")
         );
     }
 
@@ -123,17 +123,31 @@
     }
 
     function getCurrentPath() {
-        return window.location.pathname + window.location.search + window.location.hash;
+        const path = window.location.pathname || "";
+        const normalizedPath = path.charAt(0) === "/" ? path.slice(1) : path;
+        return normalizedPath + window.location.search + window.location.hash;
+    }
+
+    function normalizePagePath(path) {
+        return String(path || "").replace(/^\/+/, "");
+    }
+
+    function getProjectRootPrefix() {
+        return window.location.pathname.toLowerCase().includes("/html/") ? "../" : "";
+    }
+
+    function toPageUrl(path) {
+        return getProjectRootPrefix() + normalizePagePath(path);
     }
 
     function getLoginRedirectUrl() {
-        return LOGIN_PATH + "?next=" + encodeURIComponent(getCurrentPath());
+        return toPageUrl(LOGIN_PATH) + "?next=" + encodeURIComponent(getCurrentPath());
     }
 
     function getPostLoginRedirect() {
         const params = new URLSearchParams(window.location.search);
         const next = params.get("next");
-        return next && next.startsWith("/") ? next : HOME_PATH;
+        return next && !next.startsWith("http") ? normalizePagePath(next) : normalizePagePath(HOME_PATH);
     }
 
     function showBody() {
@@ -188,7 +202,7 @@
 
     async function logoutAndRedirect() {
         clearSession();
-        window.location.replace(LOGIN_PATH);
+        window.location.replace(toPageUrl(LOGIN_PATH));
     }
 
     function bindLogoutButton() {
@@ -354,7 +368,7 @@
 
             clearSession();
             startStudentSession(data, password);
-            window.location.replace(getPostLoginRedirect());
+            window.location.replace(toPageUrl(getPostLoginRedirect()));
         } catch (error) {
             console.error("Student login failed", error);
             showMessage("Invalid ID or Password", "error", "studentAuthMessage");
@@ -397,7 +411,7 @@
 
             clearSession();
             startAdminSession(adminId, password);
-            window.location.replace(ADMIN_PATH);
+            window.location.replace(toPageUrl(ADMIN_PATH));
         } catch (error) {
             console.error("Admin login failed", error);
             showMessage(error.message || "Admin login failed.", "error", "adminAuthMessage");
@@ -446,11 +460,11 @@
         const session = await getValidatedSession();
         if (session) {
             if (session.role === "admin") {
-                window.location.replace(ADMIN_PATH);
+                window.location.replace(toPageUrl(ADMIN_PATH));
                 return;
             }
 
-            window.location.replace(getPostLoginRedirect());
+            window.location.replace(toPageUrl(getPostLoginRedirect()));
             return;
         }
 
