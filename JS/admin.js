@@ -3,7 +3,7 @@
         const client = window.VinayakAuth.getClient();
         const { data, error } = await client
             .from(window.VinayakAuth.getStudentsTableName())
-            .select("*")
+            .select("id, course, password")
             .order("id", { ascending: true });
 
         if (error) {
@@ -81,7 +81,7 @@
 
         try {
             const client = window.VinayakAuth.getClient();
-            const { error } = await client.from("students").insert([
+            const { error } = await client.from(window.VinayakAuth.getStudentsTableName()).insert([
                 {
                     id: studentId,
                     password: studentPassword,

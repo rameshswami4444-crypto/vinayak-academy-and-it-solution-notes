@@ -1,14 +1,11 @@
-// ============================================
-// EDIT THIS SECTION TO ADD OR MODIFY SUBJECTS AND TOPICS
-// ============================================
-
 const notesData = [
     {
         id: 1,
         name: "Case study 1",
         icon: "fas fa-calculator",
         description: "basic accounting ",
-        topics: [{
+        topics: [
+            {
                 name: "case study 1 part 1",
                 link: "https://drive.google.com/file/d/1ly8BOFm5l2ZOOYSllDGIVVqu314m7NWl/view?usp=sharing"
             },
@@ -36,7 +33,6 @@ const notesData = [
                 name: "case study 1 part 7",
                 link: "https://drive.google.com/file/d/1U440wuAvqdHZJ2D_0o4n1s5d3rAMOEOQ/view?usp=sharing"
             },
-            
             {
                 name: "case study 1  part 8",
                 link: "https://drive.google.com/file/d/1JudCszfGvAYLVs58DjH90-AyA-TVu4yc/view?usp=sharing"
@@ -56,9 +52,7 @@ const notesData = [
             {
                 name: "case study 1 part 12",
                 link: "https://drive.google.com/file/d/1krpYveUA2azMKgbn3FMHEVfMTusoMy7n/view?usp=sharing"
-            },
-
-           
+            }
         ]
     },
     {
@@ -66,7 +60,8 @@ const notesData = [
         name: "Case study 2",
         icon: "fas fa-file-invoice-dollar",
         description: "Accounting with inventroy",
-        topics: [{
+        topics: [
+            {
                 name: "case study 2 part 1",
                 link: "https://drive.google.com/file/d/1l69UaUUFUAu0EOyUBh6g9Vs5NueN5CE_/view?usp=sharing"
             },
@@ -94,7 +89,6 @@ const notesData = [
                 name: "case study 2 part 7",
                 link: "https://drive.google.com/file/d/1jCkjCyl75wTnfYRxJL_ZC7_TjJj4VCCh/view?usp=sharing"
             },
-            
             {
                 name: "case study 2 part 8",
                 link: "https://drive.google.com/file/d/1RKi3W7ic2YVdVmceMruE2tvGihQFJAeH/view?usp=sharing"
@@ -115,12 +109,10 @@ const notesData = [
                 name: "case study 2 part 12",
                 link: "https://drive.google.com/file/d/1Hjv8sKLUI4h_pE8x4uc7N09WyO8LB4oM/view?usp=sharing"
             },
-              {
+            {
                 name: "case study 2 part 12",
                 link: "https://drive.google.com/file/d/1sGSvnza4nn1RvKN1ISmEFMaiO_OszLSE/view?usp=sharing"
-            },
-
-            
+            }
         ]
     },
     {
@@ -129,7 +121,7 @@ const notesData = [
         icon: "fas fa-table",
         description: "Inventory management with gst ",
         topics: [
-           {
+            {
                 name: "case study 3 part 1",
                 link: "https://drive.google.com/file/d/185pOjewzjMoGJVv2vf6V-tDP7fgPF5OP/view?usp=sharing"
             },
@@ -157,7 +149,6 @@ const notesData = [
                 name: "case study 3 part 7",
                 link: "https://drive.google.com/file/d/1cNX1udHmupCkLJKEIFfL8P5AsnY0BXHv/view?usp=sharing"
             },
-            
             {
                 name: "case study 3  part 8",
                 link: "https://drive.google.com/file/d/1xg-PVJoEmt8IY9n5O3BhROh5xwe4M_0c/view?usp=sharing"
@@ -173,9 +164,7 @@ const notesData = [
             {
                 name: "case study 3 part 11",
                 link: "https://drive.google.com/file/d/1dZuDNUYI5wnN-93bxRcxW2EmU3nlI1La/view?usp=sharinghttps://drive.google.com/file/d/1DMtVMX_pEqRj61QyJCLoW9bD926jIvoL/view?usp=sharing"
-            },
-           
-           
+            }
         ]
     },
     {
@@ -184,7 +173,7 @@ const notesData = [
         icon: "fas fa-briefcase",
         description: "Service Organization with GST",
         topics: [
-           {
+            {
                 name: "case study 4 part 1",
                 link: "https://drive.google.com/file/d/1iB5jwH7SwlwSyu0uxVdOGpdaQoUg2fSy/view?usp=sharing"
             },
@@ -212,7 +201,6 @@ const notesData = [
                 name: "case study 4 part 7",
                 link: "https://drive.google.com/file/d/14kEWRnbFmmEsY23iQvCG_MAOXviq47Rz/view?usp=sharing"
             },
-            
             {
                 name: "case study 4 part 8",
                 link: "https://drive.google.com/file/d/1MjWfWiOb3OdNHK1zlRdswMVSppT-CXX5/view?usp=sharing"
@@ -220,9 +208,7 @@ const notesData = [
             {
                 name: "case study 4 part 9",
                 link: "https://drive.google.com/file/d/1yrqStX_aQHpt46yjqXckLqjQLGPaaJgD/view?usp=sharing"
-            },
-           
-
+            }
         ]
     },
     {
@@ -231,7 +217,7 @@ const notesData = [
         icon: "fas fa-chart-line",
         description: "Manufacturing with GST",
         topics: [
-             {
+            {
                 name: "case study 5 part 1",
                 link: "https://drive.google.com/file/d/1iiRkiidD8jZZR95S9iKy8gIlRAeZ2lrE/view?usp=sharing"
             },
@@ -259,7 +245,6 @@ const notesData = [
                 name: "case study 5 part 7",
                 link: "https://drive.google.com/file/d/1M-R31NT0-_4pTYHhfokn8nL_NXbK-Ysd/view?usp=sharing"
             },
-            
             {
                 name: "case study 5 part 8",
                 link: "https://drive.google.com/file/d/1Mhs3eDUWnvfy6paPc_5EoPh-24voqJUn/view?usp=sharing   "
@@ -267,7 +252,7 @@ const notesData = [
             {
                 name: "case study 5 part 9",
                 link: "https://drive.google.com/file/d/1uoDyxDygugdUw5yQhugDtmeYgSMywvFn/view?usp=sharing"
-            },
+            }
         ]
     },
     {
@@ -276,7 +261,7 @@ const notesData = [
         icon: "fas fa-money-bill-wave",
         description: "Payroll Management",
         topics: [
-           {
+            {
                 name: "case study 2 part 1",
                 link: "https://drive.google.com/file/d/1ly8BOFm5l2ZOOYSllDGIVVqu314m7NWl/view?usp=sharing"
             },
@@ -304,7 +289,6 @@ const notesData = [
                 name: "case study 2 part 7",
                 link: "https://drive.google.com/file/d/1U440wuAvqdHZJ2D_0o4n1s5d3rAMOEOQ/view?usp=sharing"
             },
-            
             {
                 name: "case study 2 part 8",
                 link: "https://drive.google.com/file/d/1JudCszfGvAYLVs58DjH90-AyA-TVu4yc/view?usp=sharing"
@@ -324,98 +308,18 @@ const notesData = [
             {
                 name: "case study 2 part 12",
                 link: "https://drive.google.com/file/d/1krpYveUA2azMKgbn3FMHEVfMTusoMy7n/view?usp=sharing"
-            },
-
+            }
         ]
     }
 ];
 
-// ============================================
-// NO NEED TO EDIT BELOW THIS LINE
-// ============================================
-
-// DOM Elements
-const subjectsGrid = document.getElementById('subjectsGrid1');
-const modal = document.getElementById('modal1');
-const modalTitle = document.getElementById('modalTitle1');
-const topicsContainer = document.getElementById('topicsContainer1');
-const closeBtn = document.querySelector('.close');
-
-// Render subjects on page load
-document.addEventListener('DOMContentLoaded', () => {
-    renderSubjects();
-});
-
-// Render all subjects
-function renderSubjects() {
-    subjectsGrid.innerHTML = '';
-    
-    notesData.forEach(subject => {
-        const subjectCard = document.createElement('div');
-        subjectCard.className = 'subject-card';
-        subjectCard.innerHTML = `
-            <div class="subject-icon">
-                <i class="${subject.icon}"></i>
-            </div>
-            <h2>${subject.name}</h2>
-            <p>${subject.description}</p>
-            <span class="topic-count">${subject.topics.length} topics</span>
-        `;
-        
-        subjectCard.addEventListener('click', () => openModal(subject));
-        subjectsGrid.appendChild(subjectCard);
+document.addEventListener("DOMContentLoaded", function () {
+    window.VinayakNotesPage.initNotesPage({
+        notesData: notesData,
+        gridId: "subjectsGrid1",
+        modalId: "modal1",
+        modalTitleId: "modalTitle1",
+        topicsContainerId: "topicsContainer1",
+        comingSoonMessage: "we are cooking your notes"
     });
-}
-
-// Open modal with topics
-function openModal(subject) {
-    modalTitle.textContent = subject.name;
-    topicsContainer.innerHTML = '';
-    
-    subject.topics.forEach(topic => {
-        const topicItem = document.createElement('div');
-        topicItem.className = 'topic-item';
-        topicItem.innerHTML = `
-            <span class="topic-name">${topic.name}</span>
-            <button class="pdf-btn" onclick="openPDF('${topic.link}')">
-                <i class="fas fa-file-pdf"></i> View PDF
-            </button>
-        `;
-        topicsContainer.appendChild(topicItem);
-    });
-    
-    modal.classList.add('show');
-    document.body.style.overflow = 'hidden';
-}
-
-// Close modal
-function closeModal() {
-    modal.classList.remove('show');
-    document.body.style.overflow = 'auto';
-}
-
-// Open PDF in new tab
-function openPDF(link) {
-    if (link.includes('YOUR_FILE_ID')) {
-        alert('we are cooking your notes😊');
-        return;
-    }
-    window.open(link, '_blank');
-}
-
-// Close modal when clicking the X button
-closeBtn.addEventListener('click', closeModal);
-
-// Close modal when clicking outside the modal content
-modal.addEventListener('click', (event) => {
-    if (event.target === modal) {
-        closeModal();
-    }
-});
-
-// Close modal with Escape key
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-        closeModal();
-    }
 });

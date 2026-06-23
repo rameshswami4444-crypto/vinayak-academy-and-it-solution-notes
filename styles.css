@@ -23,6 +23,7 @@ body {
     background-color: var(--light-bg);
     color: var(--text-dark);
     line-height: 1.6;
+    overflow-x: hidden;
 }
 
 body.auth-pending {
@@ -59,6 +60,7 @@ body.auth-pending {
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
+    width: 100%;
 }
 
 .top-actions {
@@ -97,6 +99,7 @@ main {
     transition: all 0.3s ease;
     cursor: pointer;
     border: 2px solid transparent;
+    min-width: 0;
 }
 
 .subject-card:hover {
@@ -123,12 +126,14 @@ main {
     margin-bottom: 0.5rem;
     color: var(--text-dark);
     text-decoration: underline;
+    overflow-wrap: anywhere;
 }
 
 .subject-card p {
     color: var(--text-light);
     font-size: 0.95rem;
     margin-bottom: 1rem;
+    overflow-wrap: anywhere;
 }
 
 .topic-count {
@@ -152,6 +157,7 @@ main {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
     padding: 1.2rem;
     background: var(--light-bg);
     border-radius: 8px;
@@ -167,6 +173,8 @@ main {
 .topic-name {
     font-weight: 500;
     color: var(--text-dark);
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .pdf-btn,
@@ -319,6 +327,7 @@ main {
     grid-template-columns: 280px 1fr;
     gap: 1rem;
     min-height: 70vh;
+    align-items: stretch;
 }
 
 .notes-list {
@@ -328,6 +337,7 @@ main {
     box-shadow: var(--shadow);
     padding: 1rem;
     overflow: auto;
+    min-width: 0;
 }
 
 .notes-list h3 {
@@ -366,6 +376,7 @@ main {
     box-shadow: var(--shadow);
     overflow: hidden;
     min-height: 70vh;
+    min-width: 0;
 }
 
 .pdf-viewer {
@@ -540,6 +551,7 @@ main {
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
 }
 
 .admin-hero h2 {
@@ -566,6 +578,7 @@ main {
     border-radius: 18px;
     box-shadow: var(--shadow);
     padding: 1.5rem;
+    min-width: 0;
 }
 
 .admin-card h3 {
@@ -608,6 +621,7 @@ main {
     border-bottom: 1px solid var(--border-color);
     padding: 0.95rem 0.75rem;
     text-align: left;
+    overflow-wrap: anywhere;
 }
 
 .admin-table th {
@@ -640,6 +654,7 @@ main {
 
 .resource-placeholder p {
     color: #7c2d12;
+    overflow-wrap: anywhere;
 }
 
 ::-webkit-scrollbar {
@@ -688,6 +703,7 @@ main {
     .modal-content {
         padding: 2rem;
         width: 95%;
+        max-height: 85vh;
     }
 
     #modalTitle {
@@ -703,6 +719,10 @@ main {
         grid-template-columns: 1fr;
     }
 
+    .notes-list {
+        max-height: none;
+    }
+
     .pdf-panel,
     .pdf-viewer {
         min-height: 62vh;
@@ -716,8 +736,26 @@ main {
         justify-content: flex-start;
     }
 
+    .top-actions,
+    .logout-btn {
+        width: 100%;
+    }
+
+    .logout-btn {
+        max-width: 220px;
+    }
+
     .admin-grid {
         grid-template-columns: 1fr;
+    }
+
+    .admin-hero {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .admin-table {
+        min-width: 560px;
     }
 }
 
@@ -739,8 +777,10 @@ main {
     }
 
     .pdf-btn {
+        justify-content: center;
         padding: 0.5rem 1rem;
         font-size: 0.85rem;
+        width: 100%;
     }
 
     .topic-item {
@@ -749,8 +789,13 @@ main {
         gap: 0.8rem;
     }
 
+    .topic-item .pdf-btn {
+        align-self: stretch;
+    }
+
     .modal-content {
         padding: 1.5rem;
+        width: calc(100% - 1rem);
     }
 
     .login-panel {
@@ -772,5 +817,22 @@ main {
 
     .admin-hero h2 {
         font-size: 1.6rem;
+    }
+
+    .notes-list,
+    .pdf-panel,
+    .resource-placeholder,
+    .admin-card {
+        border-radius: 14px;
+    }
+
+    .pdf-panel,
+    .pdf-viewer {
+        min-height: 56vh;
+    }
+
+    .student-marquee {
+        font-size: 0.9rem;
+        padding-inline: 0.75rem;
     }
 }

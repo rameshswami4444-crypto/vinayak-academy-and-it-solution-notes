@@ -3,11 +3,15 @@
     const LOGIN_PATH = "/login.html";
     const HOME_PATH = config.loginRedirect || "/index.html";
     const ADMIN_PATH = config.adminRedirect || "/admin.html";
-    const ADMIN_FLAG_KEY = "vinayak_is_admin";
-    const ADMIN_ID_KEY = "vinayak_admin_id";
-    const STUDENT_FLAG_KEY = "loggedIn";
-    const STUDENT_ID_KEY = "studentId";
-    const STUDENT_COURSE_KEY = "studentCourse";
+    const SESSION_KEY = "vinayak_session";
+    const LEGACY_KEYS = [
+        "vinayak_is_admin",
+        "vinayak_admin_id",
+        "loggedIn",
+        "studentId",
+        "studentCourse"
+    ];
+    const SESSION_DURATION_MS = 6 * 60 * 60 * 1000;
     let logoutBound = false;
 
     function isConfigured() {
@@ -38,34 +42,84 @@
         return config.studentsTable || "students";
     }
 
-    function isAdminSessionActive() {
-        return window.localStorage.getItem(ADMIN_FLAG_KEY) === "true";
+    function now() {
+        return Date.now();
     }
 
-    function isStudentSessionActive() {
-        return window.localStorage.getItem(STUDENT_FLAG_KEY) === "true";
+    function clearLegacySessionFlags() {
+        LEGACY_KEYS.forEach(function (key) {
+            window.localStorage.removeItem(key);
+            window.sessionStorage.removeItem(key);
+        });
     }
 
-    function startAdminSession(adminId) {
-        window.localStorage.setItem(ADMIN_FLAG_KEY, "true");
-        window.localStorage.setItem(ADMIN_ID_KEY, adminId || "admin");
+    function getStoredSession() {
+        const raw = window.sessionStorage.getItem(SESSION_KEY);
+        if (!raw) {
+            return null;
+        }
+
+        try {
+            const session = JSON.parse(raw);
+            if (!session || typeof session !== "object") {
+                return null;
+            }
+
+            return session;
+        } catch (error) {
+            console.error("Invalid session payload", error);
+            return null;
+        }
     }
 
-    function clearAdminSession() {
-        window.localStorage.removeItem(ADMIN_FLAG_KEY);
-        window.localStorage.removeItem(ADMIN_ID_KEY);
+    function persistSession(session) {
+        window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        clearLegacySessionFlags();
     }
 
-    function startStudentSession(student) {
-        window.localStorage.setItem(STUDENT_FLAG_KEY, "true");
-        window.localStorage.setItem(STUDENT_ID_KEY, student.id || "");
-        window.localStorage.setItem(STUDENT_COURSE_KEY, student.course || "");
+    function clearSession() {
+        window.sessionStorage.removeItem(SESSION_KEY);
+        clearLegacySessionFlags();
     }
 
-    function clearStudentSession() {
-        window.localStorage.removeItem(STUDENT_FLAG_KEY);
-        window.localStorage.removeItem(STUDENT_ID_KEY);
-        window.localStorage.removeItem(STUDENT_COURSE_KEY);
+    function isSessionExpired(session) {
+        return !session || !session.expiresAt || Number(session.expiresAt) <= now();
+    }
+
+    function createBaseSession(role) {
+        const createdAt = now();
+        return {
+            role: role,
+            createdAt: createdAt,
+            expiresAt: createdAt + SESSION_DURATION_MS
+        };
+    }
+
+    function startAdminSession(adminId, password) {
+        persistSession({
+            role: "admin",
+            adminId: adminId,
+            password: password,
+            createdAt: now(),
+            expiresAt: now() + SESSION_DURATION_MS
+        });
+    }
+
+    function startStudentSession(student, password) {
+        const session = createBaseSession("student");
+        session.studentId = student.id || "";
+        session.course = student.course || "";
+        session.password = password;
+        persistSession(session);
+    }
+
+    function refreshSession(session) {
+        const updatedSession = Object.assign({}, session, {
+            expiresAt: now() + SESSION_DURATION_MS
+        });
+
+        persistSession(updatedSession);
+        return updatedSession;
     }
 
     function getCurrentPath() {
@@ -133,8 +187,7 @@
     }
 
     async function logoutAndRedirect() {
-        clearAdminSession();
-        clearStudentSession();
+        clearSession();
         window.location.replace(LOGIN_PATH);
     }
 
@@ -203,6 +256,69 @@
         });
     }
 
+    async function validateAdminSession(session) {
+        if (!session || session.role !== "admin" || isSessionExpired(session)) {
+            return null;
+        }
+
+        const expectedId = String(config.adminId || "admin");
+        const expectedPassword = String(config.adminPassword || "admin123");
+
+        if (session.adminId !== expectedId || session.password !== expectedPassword) {
+            return null;
+        }
+
+        return refreshSession(session);
+    }
+
+    async function validateStudentSession(session) {
+        if (!session || session.role !== "student" || isSessionExpired(session)) {
+            return null;
+        }
+
+        if (!session.studentId || !session.password) {
+            return null;
+        }
+
+        const { data, error } = await getClient()
+            .from(getStudentsTableName())
+            .select("id, course")
+            .eq("id", session.studentId)
+            .eq("password", session.password)
+            .maybeSingle();
+
+        if (error || !data) {
+            return null;
+        }
+
+        return refreshSession({
+            role: "student",
+            studentId: data.id,
+            course: data.course || "",
+            password: session.password,
+            createdAt: session.createdAt || now()
+        });
+    }
+
+    async function getValidatedSession() {
+        clearLegacySessionFlags();
+
+        const session = getStoredSession();
+        if (!session) {
+            return null;
+        }
+
+        if (session.role === "admin") {
+            return validateAdminSession(session);
+        }
+
+        if (session.role === "student") {
+            return validateStudentSession(session);
+        }
+
+        return null;
+    }
+
     async function handleStudentLogin(event) {
         event.preventDefault();
         clearMessage("studentAuthMessage");
@@ -225,10 +341,9 @@
         }
 
         try {
-            clearAdminSession();
             const { data, error } = await getClient()
                 .from(getStudentsTableName())
-                .select("*")
+                .select("id, course, password")
                 .eq("id", studentId)
                 .eq("password", password)
                 .single();
@@ -237,7 +352,8 @@
                 throw new Error("Invalid ID or Password");
             }
 
-            startStudentSession(data);
+            clearSession();
+            startStudentSession(data, password);
             window.location.replace(getPostLoginRedirect());
         } catch (error) {
             console.error("Student login failed", error);
@@ -279,8 +395,8 @@
                 throw new Error("Invalid admin credentials.");
             }
 
-            clearStudentSession();
-            startAdminSession(adminId);
+            clearSession();
+            startAdminSession(adminId, password);
             window.location.replace(ADMIN_PATH);
         } catch (error) {
             console.error("Admin login failed", error);
@@ -298,24 +414,25 @@
 
         if (!isConfigured()) {
             renderConfigError();
-            return;
+            return null;
         }
 
-        const adminActive = isAdminSessionActive();
-        const studentActive = isStudentSessionActive();
-
-        if (settings.adminOnly) {
-            if (!adminActive) {
-                window.location.replace(LOGIN_PATH);
-                return;
-            }
-        } else if (!adminActive && !studentActive) {
+        const session = await getValidatedSession();
+        if (!session) {
+            clearSession();
             window.location.replace(getLoginRedirectUrl());
-            return;
+            return null;
+        }
+
+        if (settings.adminOnly && session.role !== "admin") {
+            clearSession();
+            window.location.replace(getLoginRedirectUrl());
+            return null;
         }
 
         ensureLogoutButton();
         showBody();
+        return session;
     }
 
     async function initLoginPage() {
@@ -326,15 +443,18 @@
 
         bindLoginTabs();
 
-        if (isAdminSessionActive()) {
-            window.location.replace(ADMIN_PATH);
-            return;
-        }
+        const session = await getValidatedSession();
+        if (session) {
+            if (session.role === "admin") {
+                window.location.replace(ADMIN_PATH);
+                return;
+            }
 
-        if (isStudentSessionActive()) {
             window.location.replace(getPostLoginRedirect());
             return;
         }
+
+        clearSession();
 
         const studentForm = document.getElementById("studentLoginForm");
         const adminForm = document.getElementById("adminLoginForm");
@@ -352,16 +472,12 @@
     }
 
     window.VinayakAuth = {
-        ADMIN_FLAG_KEY: ADMIN_FLAG_KEY,
-        STUDENT_FLAG_KEY: STUDENT_FLAG_KEY,
-        clearAdminSession: clearAdminSession,
-        clearStudentSession: clearStudentSession,
+        clearSession: clearSession,
         getClient: getClient,
         getStudentsTableName: getStudentsTableName,
+        getValidatedSession: getValidatedSession,
         initLoginPage: initLoginPage,
         initProtectedPage: initProtectedPage,
-        isAdminSessionActive: isAdminSessionActive,
-        isStudentSessionActive: isStudentSessionActive,
         logoutAndRedirect: logoutAndRedirect,
         showMessage: showMessage
     };
