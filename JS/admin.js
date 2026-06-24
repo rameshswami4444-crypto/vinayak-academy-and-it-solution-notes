@@ -89,12 +89,11 @@
 
         try {
             const client = window.VinayakAuth.getClient();
-            const identifierColumn = window.VinayakAuth.getStudentIdentifierColumn();
             const payload = {
+                id: studentId,
                 password: studentPassword,
                 course: selectedCourse
             };
-            payload[identifierColumn] = studentId;
             const { error } = await client.from(window.VinayakAuth.getStudentsTableName()).insert([
                 payload
             ]);
@@ -126,11 +125,10 @@
 
         try {
             const client = window.VinayakAuth.getClient();
-            const identifierColumn = window.VinayakAuth.getStudentIdentifierColumn();
             const { error } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .update({ password: newPassword })
-                .eq(identifierColumn, studentId);
+                .eq("id", studentId);
 
             if (error) {
                 throw error;
@@ -158,11 +156,10 @@
 
         try {
             const client = window.VinayakAuth.getClient();
-            const identifierColumn = window.VinayakAuth.getStudentIdentifierColumn();
             const { error } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .delete()
-                .eq(identifierColumn, studentId);
+                .eq("id", studentId);
 
             if (error) {
                 throw error;

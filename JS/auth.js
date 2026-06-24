@@ -18,7 +18,7 @@
     }
 
     function getHomePath() {
-        return getConfig().loginRedirect || "index.html";
+        return getConfig().loginRedirect || "/index.html";
     }
 
     function getAdminPath() {
@@ -43,10 +43,11 @@
         }
 
         if (!window.__vinayakSupabaseClient) {
-            window.__vinayakSupabaseClient = window.supabase.createClient(
+            const supabaseClient = window.supabase.createClient(
                 config.url,
                 config.publishableKey
             );
+            window.__vinayakSupabaseClient = supabaseClient;
         }
 
         return window.__vinayakSupabaseClient;
@@ -57,7 +58,7 @@
     }
 
     function getStudentIdentifierColumn() {
-        return getConfig().studentIdentifierColumn || "name";
+        return getConfig().studentIdentifierColumn || "id";
     }
 
     function getStudentIdentifierValue(student) {
@@ -67,8 +68,8 @@
 
         return String(
             student[getStudentIdentifierColumn()] ||
-            student.name ||
             student.id ||
+            student.name ||
             ""
         ).trim();
     }
@@ -565,16 +566,17 @@
         }
 
         try {
-            const client = getClient();
+            const supabaseClient = getClient();
             const sessionId = Date.now().toString();
-            const { data, error } = await client
+            const { data, error } = await supabaseClient
                 .from(getStudentsTableName())
                 .select("*")
-                .eq(getStudentIdentifierColumn(), studentId)
+                .eq("id", studentId)
                 .eq("password", password)
                 .limit(1);
 
             if (error) {
+                console.log(error);
                 console.error("Student login query failed", error);
                 showMessage("Database error. Check Supabase table access or RLS policy.", "error", "studentAuthMessage");
                 return;
@@ -587,13 +589,14 @@
 
             const student = data[0];
 
-            const { error: sessionError } = await client
+            const { error: updateError } = await supabaseClient
                 .from(getStudentsTableName())
                 .update({ session_id: sessionId })
-                .eq(getStudentIdentifierColumn(), studentId);
+                .eq("id", studentId);
 
-            if (sessionError) {
-                console.error("Session update failed", sessionError);
+            if (updateError) {
+                console.log(updateError);
+                console.error("Session update failed", updateError);
                 showMessage("Database error. Could not start student session.", "error", "studentAuthMessage");
                 return;
             }

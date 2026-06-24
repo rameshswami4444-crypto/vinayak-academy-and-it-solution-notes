@@ -6,7 +6,7 @@ window.VINAYAK_SUPABASE_CONFIG = {
     adminId: "admin",
     adminPassword: "admin123",
     studentsTable: "students",
-    studentIdentifierColumn: "name"
+    studentIdentifierColumn: "id"
 };
 
 console.log("CONFIG:", window.VINAYAK_SUPABASE_CONFIG);
