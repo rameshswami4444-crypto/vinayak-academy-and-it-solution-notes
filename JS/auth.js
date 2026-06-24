@@ -1,10 +1,8 @@
 (function () {
-    const config = window.VINAYAK_SUPABASE_CONFIG || {};
     const LOGIN_PATH = "login.html";
-    const HOME_PATH = config.loginRedirect || "index.html";
-    const ADMIN_PATH = config.adminRedirect || "admin.html";
     const SESSION_KEY = "vinayak_session";
     const COURSES_KEY = "courses";
+    const COURSE_KEY = "course";
     const LOCAL_SESSION_ID_KEY = "sessionId";
     const LOCAL_STUDENT_ID_KEY = "studentId";
     const LEGACY_KEYS = [
@@ -17,7 +15,20 @@
     const SESSION_DURATION_MS = 6 * 60 * 60 * 1000;
     let logoutBound = false;
 
+    function getConfig() {
+        return window.VINAYAK_SUPABASE_CONFIG || {};
+    }
+
+    function getHomePath() {
+        return getConfig().loginRedirect || "index.html";
+    }
+
+    function getAdminPath() {
+        return getConfig().adminRedirect || "admin.html";
+    }
+
     function isConfigured() {
+        const config = getConfig();
         return Boolean(
             config.url &&
             config.publishableKey &&
@@ -27,6 +38,8 @@
     }
 
     function getClient() {
+        const config = getConfig();
+
         if (!window.supabase || typeof window.supabase.createClient !== "function") {
             throw new Error("Supabase library failed to load.");
         }
@@ -42,7 +55,7 @@
     }
 
     function getStudentsTableName() {
-        return config.studentsTable || "students";
+        return getConfig().studentsTable || "students";
     }
 
     function now() {
@@ -66,6 +79,11 @@
 
     function normalizeCourseName(value) {
         return String(value || "").trim().toUpperCase();
+    }
+
+    function normalizeSingleCourse(value) {
+        const normalizedCourses = normalizeCourseValue(value);
+        return normalizedCourses.length ? normalizedCourses[0] : "";
     }
 
     function normalizeCourseValue(value) {
@@ -101,7 +119,14 @@
     }
 
     function persistCourses(courses) {
-        window.localStorage.setItem(COURSES_KEY, JSON.stringify(normalizeCourseValue(courses)));
+        const normalizedCourses = normalizeCourseValue(courses);
+        const normalizedCourse = normalizedCourses.length ? normalizedCourses[0] : "";
+        window.localStorage.setItem(COURSES_KEY, JSON.stringify(normalizedCourses));
+        if (normalizedCourse) {
+            window.localStorage.setItem(COURSE_KEY, normalizedCourse);
+        } else {
+            window.localStorage.removeItem(COURSE_KEY);
+        }
     }
 
     function persistStudentSession(sessionId, studentId) {
@@ -111,6 +136,7 @@
 
     function clearStoredCourses() {
         window.localStorage.removeItem(COURSES_KEY);
+        window.localStorage.removeItem(COURSE_KEY);
     }
 
     function clearStoredStudentSession() {
@@ -119,6 +145,11 @@
     }
 
     function getStoredCourses() {
+        const localCourse = window.localStorage.getItem(COURSE_KEY);
+        if (localCourse) {
+            return normalizeCourseValue(localCourse);
+        }
+
         const localCourses = window.localStorage.getItem(COURSES_KEY);
 
         if (localCourses) {
@@ -135,6 +166,10 @@
         }
 
         return normalizeCourseValue(session.courses || session.course);
+    }
+
+    function getStoredCourse() {
+        return normalizeSingleCourse(getStoredCourses());
     }
 
     function hasCourseAccess(courseKey, courseList) {
@@ -199,15 +234,18 @@
 
     function startStudentSession(student, password, sessionId) {
         const session = createBaseSession("student");
-        const courses = normalizeCourseValue(student.course);
+        const course = normalizeSingleCourse(student.course);
         session.studentId = student.id || "";
-        session.course = student.course || "";
-        session.courses = courses;
+        session.course = course;
+        session.courses = course ? [course] : [];
         session.password = password;
         session.sessionId = String(sessionId || student.session_id || "");
         persistSession(session);
-        persistCourses(courses);
+        persistCourses(course);
         persistStudentSession(session.sessionId, session.studentId);
+        window.localStorage.setItem("loggedIn", "true");
+        window.localStorage.setItem("studentId", session.studentId);
+        window.localStorage.setItem("course", course);
     }
 
     function refreshSession(session) {
@@ -217,8 +255,11 @@
 
         persistSession(updatedSession);
         if (updatedSession.role === "student") {
-            persistCourses(updatedSession.courses || updatedSession.course);
+            persistCourses(updatedSession.course || updatedSession.courses);
             persistStudentSession(updatedSession.sessionId, updatedSession.studentId);
+            window.localStorage.setItem("loggedIn", "true");
+            window.localStorage.setItem("studentId", updatedSession.studentId || "");
+            window.localStorage.setItem("course", normalizeSingleCourse(updatedSession.course || updatedSession.courses));
         }
         return updatedSession;
     }
@@ -248,7 +289,7 @@
     function getPostLoginRedirect() {
         const params = new URLSearchParams(window.location.search);
         const next = params.get("next");
-        return next && !next.startsWith("http") ? normalizePagePath(next) : normalizePagePath(HOME_PATH);
+        return next && !next.startsWith("http") ? normalizePagePath(next) : normalizePagePath(getHomePath());
     }
 
     function showBody() {
@@ -299,6 +340,13 @@
             "Supabase config missing. Update JS/supabase-config.js with your project URL and publishable key.",
             "error"
         );
+    }
+
+    function clearFallbackMessage() {
+        const fallback = document.getElementById("authFallbackMessage");
+        if (fallback) {
+            fallback.remove();
+        }
     }
 
     async function logoutAndRedirect() {
@@ -380,6 +428,8 @@
     }
 
     async function validateAdminSession(session) {
+        const config = getConfig();
+
         if (!session || session.role !== "admin" || isSessionExpired(session)) {
             return null;
         }
@@ -411,27 +461,29 @@
             .select("id, course, session_id")
             .eq("id", session.studentId)
             .eq("password", session.password)
-            .maybeSingle();
+            .limit(1);
 
-        if (error || !data) {
+        if (error || !data || !data.length) {
             return null;
         }
 
+        const student = data[0];
+
         if (
-            String(data.session_id || "") !== String(localSessionId) ||
+            String(student.session_id || "") !== String(localSessionId) ||
             String(session.sessionId || "") !== String(localSessionId) ||
-            String(data.id || "") !== String(localStudentId)
+            String(student.id || "") !== String(localStudentId)
         ) {
             return { invalidSession: true };
         }
 
         return refreshSession({
             role: "student",
-            studentId: data.id,
-            course: data.course || "",
-            courses: normalizeCourseValue(data.course),
+            studentId: student.id,
+            course: normalizeSingleCourse(student.course),
+            courses: normalizeCourseValue(student.course),
             password: session.password,
-            sessionId: data.session_id || localSessionId,
+            sessionId: student.session_id || localSessionId,
             createdAt: session.createdAt || now()
         });
     }
@@ -482,33 +534,45 @@
         }
 
         try {
+            const client = getClient();
             const sessionId = Date.now().toString();
-            const { data, error } = await getClient()
+            const { data, error } = await client
                 .from(getStudentsTableName())
-                .select("id, course, password")
+                .select("*")
                 .eq("id", studentId)
                 .eq("password", password)
-                .single();
+                .limit(1);
 
-            if (error || !data) {
-                throw new Error("Invalid ID or Password");
+            if (error) {
+                console.error("Student login query failed", error);
+                showMessage("Database error. Check Supabase table access or RLS policy.", "error", "studentAuthMessage");
+                return;
             }
 
-            const { error: sessionError } = await getClient()
+            if (!data || !data.length) {
+                showMessage("Invalid ID or Password", "error", "studentAuthMessage");
+                return;
+            }
+
+            const student = data[0];
+
+            const { error: sessionError } = await client
                 .from(getStudentsTableName())
                 .update({ session_id: sessionId })
                 .eq("id", studentId);
 
             if (sessionError) {
-                throw sessionError;
+                console.error("Session update failed", sessionError);
+                showMessage("Database error. Could not start student session.", "error", "studentAuthMessage");
+                return;
             }
 
             clearSession();
-            startStudentSession(data, password, sessionId);
+            startStudentSession(student, password, sessionId);
             window.location.replace(toPageUrl(getPostLoginRedirect()));
         } catch (error) {
             console.error("Student login failed", error);
-            showMessage("Invalid ID or Password", "error", "studentAuthMessage");
+            showMessage(error.message || "Login failed.", "error", "studentAuthMessage");
         } finally {
             if (submitButton) {
                 submitButton.disabled = false;
@@ -521,6 +585,7 @@
         event.preventDefault();
         clearMessage("studentAuthMessage");
         clearMessage("adminAuthMessage");
+        const config = getConfig();
 
         const adminIdField = document.getElementById("adminId");
         const passwordField = document.getElementById("adminPassword");
@@ -548,7 +613,7 @@
 
             clearSession();
             startAdminSession(adminId, password);
-            window.location.replace(toPageUrl(ADMIN_PATH));
+            window.location.replace(toPageUrl(getAdminPath()));
         } catch (error) {
             console.error("Admin login failed", error);
             showMessage(error.message || "Admin login failed.", "error", "adminAuthMessage");
@@ -562,6 +627,7 @@
 
     async function initProtectedPage(options) {
         const settings = options || {};
+        console.log("CONFIG:", getConfig());
 
         if (!isConfigured()) {
             renderConfigError();
@@ -582,16 +648,19 @@
         }
 
         if (settings.requiredCourse && !hasCourseAccess(settings.requiredCourse, session.courses || session.course)) {
-            window.location.replace(toPageUrl(HOME_PATH));
+            window.location.replace(toPageUrl(getHomePath()));
             return null;
         }
 
+        clearFallbackMessage();
         ensureLogoutButton();
         showBody();
         return session;
     }
 
     async function initLoginPage() {
+        console.log("CONFIG:", getConfig());
+
         if (!isConfigured()) {
             renderConfigError();
             return;
@@ -602,7 +671,7 @@
         const session = await getValidatedSession();
         if (session) {
             if (session.role === "admin") {
-                window.location.replace(toPageUrl(ADMIN_PATH));
+                window.location.replace(toPageUrl(getAdminPath()));
                 return;
             }
 
@@ -624,6 +693,7 @@
         }
 
         setLoginTab("student");
+        clearFallbackMessage();
         showBody();
     }
 
@@ -631,6 +701,7 @@
         clearSession: clearSession,
         getClient: getClient,
         getStoredCourses: getStoredCourses,
+        getStoredCourse: getStoredCourse,
         getStoredStudentId: getStoredStudentId,
         getStoredStudentSessionId: getStoredStudentSessionId,
         getStudentsTableName: getStudentsTableName,
@@ -640,6 +711,7 @@
         initProtectedPage: initProtectedPage,
         logoutAndRedirect: logoutAndRedirect,
         normalizeCourseValue: normalizeCourseValue,
+        normalizeSingleCourse: normalizeSingleCourse,
         showMessage: showMessage
     };
 }());

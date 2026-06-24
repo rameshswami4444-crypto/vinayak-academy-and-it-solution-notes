@@ -45,23 +45,23 @@
         window.VinayakAuth.initProtectedPage();
 
         document.addEventListener("DOMContentLoaded", function () {
-            const courses = window.VinayakAuth.getStoredCourses();
+            const course = window.VinayakAuth.getStoredCourse();
 
-            if (!courses.includes("ECCE")) {
+            if (course !== "ECCE") {
                 const ecceCard = document.getElementById("ecce-card");
                 if (ecceCard) {
                     ecceCard.style.display = "none";
                 }
             }
 
-            if (!courses.includes("ADFA")) {
+            if (course !== "ADFA") {
                 const adfaCard = document.getElementById("adfa-card");
                 if (adfaCard) {
                     adfaCard.style.display = "none";
                 }
             }
 
-            if (!courses.includes("DCFA")) {
+            if (course !== "DCFA") {
                 const dcfaCard = document.getElementById("dcfa-card");
                 if (dcfaCard) {
                     dcfaCard.style.display = "none";

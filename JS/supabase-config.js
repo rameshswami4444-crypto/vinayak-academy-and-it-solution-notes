@@ -8,4 +8,4 @@ window.VINAYAK_SUPABASE_CONFIG = {
     studentsTable: "students"
 };
 
-console.log(window.VINAYAK_SUPABASE_CONFIG);
+console.log("CONFIG:", window.VINAYAK_SUPABASE_CONFIG);

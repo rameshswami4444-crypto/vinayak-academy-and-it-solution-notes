@@ -493,7 +493,23 @@ main {
     outline: none;
 }
 
+.login-field select {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font: inherit;
+    color: #1f2937;
+    background: white;
+    outline: none;
+}
+
 .login-field input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(229, 134, 65, 0.2);
+}
+
+.login-field select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(229, 134, 65, 0.2);
 }

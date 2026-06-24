@@ -51,50 +51,25 @@
         }
 
         students.forEach(function (student) {
-            const courses = window.VinayakAuth.normalizeCourseValue(student.course);
+            const course = window.VinayakAuth.normalizeSingleCourse(student.course);
             const row = document.createElement("tr");
             row.innerHTML = [
                 "<td>" + (student.id || "-") + "</td>",
-                "<td>" + (courses.length ? courses.join(", ") : "-") + "</td>",
+                "<td>" + (course || "-") + "</td>",
                 "<td>" + (student.password ? "Saved" : "-") + "</td>"
             ].join("");
             tbody.appendChild(row);
         });
     }
 
-    function getSelectedCourses() {
-        return Array.prototype.slice.call(document.querySelectorAll('input[name="studentCourses"]:checked'))
-            .map(function (field) {
-                return field.value;
-            });
+    function getSelectedCourse() {
+        const courseField = document.getElementById("newStudentCourse");
+        return window.VinayakAuth.normalizeSingleCourse(courseField ? courseField.value : "");
     }
 
     async function refreshStudents() {
         const students = await fetchStudents();
         renderStudents(students);
-    }
-
-    async function insertStudentRecord(student) {
-        const client = window.VinayakAuth.getClient();
-        let result = await client
-            .from(window.VinayakAuth.getStudentsTableName())
-            .insert([student]);
-
-        if (!result.error) {
-            return result;
-        }
-
-        if (Array.isArray(student.course)) {
-            result = await client
-                .from(window.VinayakAuth.getStudentsTableName())
-                .insert([
-                    Object.assign({}, student, {
-                        course: student.course.join(", ")
-                    })
-                ]);
-        }
-
-        return result;
     }
 
     async function addStudent(event) {
@@ -103,19 +78,22 @@
 
         const studentId = document.getElementById("newStudentId").value.trim();
         const studentPassword = document.getElementById("newStudentPassword").value.trim();
-        const selectedCourses = getSelectedCourses();
+        const selectedCourse = getSelectedCourse();
 
-        if (!studentId || !studentPassword || !selectedCourses.length) {
-            setPanelMessage("Fill student ID, password, and select at least one course before saving.", "error");
+        if (!studentId || !studentPassword || !selectedCourse) {
+            setPanelMessage("Fill student ID, password, and select a course before saving.", "error");
             return;
         }
 
         try {
-            const { error } = await insertStudentRecord({
-                id: studentId,
-                password: studentPassword,
-                course: selectedCourses
-            });
+            const client = window.VinayakAuth.getClient();
+            const { error } = await client.from(window.VinayakAuth.getStudentsTableName()).insert([
+                {
+                    id: studentId,
+                    password: studentPassword,
+                    course: selectedCourse
+                }
+            ]);
 
             if (error) {
                 throw error;

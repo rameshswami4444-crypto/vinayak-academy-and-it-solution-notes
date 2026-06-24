@@ -21,7 +21,7 @@
             return;
         }
 
-        const allowedCourses = window.VinayakAuth.getStoredCourses();
+        const allowedCourse = window.VinayakAuth.getStoredCourse();
 
         notesData.forEach(function (subject) {
             if (!subject.cardId || !subject.courseKey) {
@@ -33,7 +33,7 @@
                 return;
             }
 
-            if (!window.VinayakAuth.hasCourseAccess(subject.courseKey, allowedCourses)) {
+            if (window.VinayakAuth.normalizeSingleCourse(subject.courseKey) !== allowedCourse) {
                 card.style.display = "none";
             }
         });
