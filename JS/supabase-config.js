@@ -5,7 +5,8 @@ window.VINAYAK_SUPABASE_CONFIG = {
     adminRedirect: "admin.html",
     adminId: "admin",
     adminPassword: "admin123",
-    studentsTable: "students"
+    studentsTable: "students",
+    studentIdentifierColumn: "name"
 };
 
 console.log("CONFIG:", window.VINAYAK_SUPABASE_CONFIG);

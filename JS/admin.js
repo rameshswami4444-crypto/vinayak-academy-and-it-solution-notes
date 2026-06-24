@@ -1,10 +1,11 @@
 (function () {
     async function fetchStudents() {
         const client = window.VinayakAuth.getClient();
+        const identifierColumn = window.VinayakAuth.getStudentIdentifierColumn();
         const { data, error } = await client
             .from(window.VinayakAuth.getStudentsTableName())
-            .select("id, course, password")
-            .order("id", { ascending: true });
+            .select(identifierColumn + ", course, password")
+            .order(identifierColumn, { ascending: true });
 
         if (error) {
             throw error;
@@ -52,9 +53,10 @@
 
         students.forEach(function (student) {
             const course = window.VinayakAuth.normalizeSingleCourse(student.course);
+            const identifier = student[window.VinayakAuth.getStudentIdentifierColumn()] || student.id || student.name || "-";
             const row = document.createElement("tr");
             row.innerHTML = [
-                "<td>" + (student.id || "-") + "</td>",
+                "<td>" + identifier + "</td>",
                 "<td>" + (course || "-") + "</td>",
                 "<td>" + (student.password ? "Saved" : "-") + "</td>"
             ].join("");
@@ -87,12 +89,14 @@
 
         try {
             const client = window.VinayakAuth.getClient();
+            const identifierColumn = window.VinayakAuth.getStudentIdentifierColumn();
+            const payload = {
+                password: studentPassword,
+                course: selectedCourse
+            };
+            payload[identifierColumn] = studentId;
             const { error } = await client.from(window.VinayakAuth.getStudentsTableName()).insert([
-                {
-                    id: studentId,
-                    password: studentPassword,
-                    course: selectedCourse
-                }
+                payload
             ]);
 
             if (error) {
@@ -122,10 +126,11 @@
 
         try {
             const client = window.VinayakAuth.getClient();
+            const identifierColumn = window.VinayakAuth.getStudentIdentifierColumn();
             const { error } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .update({ password: newPassword })
-                .eq("id", studentId);
+                .eq(identifierColumn, studentId);
 
             if (error) {
                 throw error;
@@ -153,10 +158,11 @@
 
         try {
             const client = window.VinayakAuth.getClient();
+            const identifierColumn = window.VinayakAuth.getStudentIdentifierColumn();
             const { error } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .delete()
-                .eq("id", studentId);
+                .eq(identifierColumn, studentId);
 
             if (error) {
                 throw error;

@@ -8,8 +8,6 @@
     const LEGACY_KEYS = [
         "vinayak_is_admin",
         "vinayak_admin_id",
-        "loggedIn",
-        "studentId",
         "studentCourse"
     ];
     const SESSION_DURATION_MS = 6 * 60 * 60 * 1000;
@@ -56,6 +54,23 @@
 
     function getStudentsTableName() {
         return getConfig().studentsTable || "students";
+    }
+
+    function getStudentIdentifierColumn() {
+        return getConfig().studentIdentifierColumn || "name";
+    }
+
+    function getStudentIdentifierValue(student) {
+        if (!student || typeof student !== "object") {
+            return "";
+        }
+
+        return String(
+            student[getStudentIdentifierColumn()] ||
+            student.name ||
+            student.id ||
+            ""
+        ).trim();
     }
 
     function now() {
@@ -179,7 +194,7 @@
     }
 
     function getStoredSession() {
-        const raw = window.sessionStorage.getItem(SESSION_KEY);
+        const raw = window.localStorage.getItem(SESSION_KEY);
         if (!raw) {
             return null;
         }
@@ -198,15 +213,17 @@
     }
 
     function persistSession(session) {
-        window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
         clearLegacySessionFlags();
     }
 
     function clearSession() {
-        window.sessionStorage.removeItem(SESSION_KEY);
+        window.localStorage.removeItem(SESSION_KEY);
         clearStoredCourses();
         clearStoredStudentSession();
         clearLegacySessionFlags();
+        window.localStorage.removeItem("loggedIn");
+        window.localStorage.removeItem("studentId");
     }
 
     function isSessionExpired(session) {
@@ -235,7 +252,7 @@
     function startStudentSession(student, password, sessionId) {
         const session = createBaseSession("student");
         const course = normalizeSingleCourse(student.course);
-        session.studentId = student.id || "";
+        session.studentId = getStudentIdentifierValue(student);
         session.course = course;
         session.courses = course ? [course] : [];
         session.password = password;
@@ -246,6 +263,8 @@
         window.localStorage.setItem("loggedIn", "true");
         window.localStorage.setItem("studentId", session.studentId);
         window.localStorage.setItem("course", course);
+        console.log("LOGIN SUCCESS", student);
+        console.log("SESSION:", session.sessionId);
     }
 
     function refreshSession(session) {
@@ -359,7 +378,7 @@
         if (message) {
             window.alert(message);
         }
-        window.location.replace(toPageUrl(LOGIN_PATH));
+        window.location.href = toPageUrl(LOGIN_PATH);
     }
 
     function bindLogoutButton() {
@@ -451,35 +470,49 @@
 
         const localSessionId = getStoredStudentSessionId();
         const localStudentId = getStoredStudentId();
+        const isLoggedIn = window.localStorage.getItem("loggedIn");
 
-        if (!session.studentId || !session.password || !session.sessionId || !localSessionId || !localStudentId) {
+        if (
+            isLoggedIn !== "true" ||
+            !session.studentId ||
+            !session.password ||
+            !session.sessionId ||
+            !localSessionId ||
+            !localStudentId
+        ) {
             return null;
         }
 
         const { data, error } = await getClient()
             .from(getStudentsTableName())
-            .select("id, course, session_id")
-            .eq("id", session.studentId)
+            .select("*")
+            .eq(getStudentIdentifierColumn(), session.studentId)
             .eq("password", session.password)
             .limit(1);
 
-        if (error || !data || !data.length) {
+        if (error) {
+            console.error("Session validation failed", error);
+            return null;
+        }
+
+        if (!data || !data.length) {
             return null;
         }
 
         const student = data[0];
+        const dbStudentId = getStudentIdentifierValue(student);
 
         if (
             String(student.session_id || "") !== String(localSessionId) ||
             String(session.sessionId || "") !== String(localSessionId) ||
-            String(student.id || "") !== String(localStudentId)
+            String(dbStudentId || "") !== String(localStudentId)
         ) {
             return { invalidSession: true };
         }
 
         return refreshSession({
             role: "student",
-            studentId: student.id,
+            studentId: dbStudentId,
             course: normalizeSingleCourse(student.course),
             courses: normalizeCourseValue(student.course),
             password: session.password,
@@ -489,8 +522,6 @@
     }
 
     async function getValidatedSession() {
-        clearLegacySessionFlags();
-
         const session = getStoredSession();
         if (!session) {
             return null;
@@ -503,7 +534,7 @@
         if (session.role === "student") {
             const validatedStudentSession = await validateStudentSession(session);
             if (validatedStudentSession && validatedStudentSession.invalidSession) {
-                await forceStudentLogout("You have been logged out. Another device logged in.");
+                await forceStudentLogout("Session expired. Logged in from another device.");
                 return null;
             }
             return validatedStudentSession;
@@ -539,7 +570,7 @@
             const { data, error } = await client
                 .from(getStudentsTableName())
                 .select("*")
-                .eq("id", studentId)
+                .eq(getStudentIdentifierColumn(), studentId)
                 .eq("password", password)
                 .limit(1);
 
@@ -559,7 +590,7 @@
             const { error: sessionError } = await client
                 .from(getStudentsTableName())
                 .update({ session_id: sessionId })
-                .eq("id", studentId);
+                .eq(getStudentIdentifierColumn(), studentId);
 
             if (sessionError) {
                 console.error("Session update failed", sessionError);
@@ -569,7 +600,7 @@
 
             clearSession();
             startStudentSession(student, password, sessionId);
-            window.location.replace(toPageUrl(getPostLoginRedirect()));
+            window.location.href = toPageUrl(getPostLoginRedirect());
         } catch (error) {
             console.error("Student login failed", error);
             showMessage(error.message || "Login failed.", "error", "studentAuthMessage");
@@ -634,21 +665,27 @@
             return null;
         }
 
+        if (!settings.adminOnly && window.localStorage.getItem("loggedIn") !== "true") {
+            clearSession();
+            window.location.href = getLoginRedirectUrl();
+            return null;
+        }
+
         const session = await getValidatedSession();
         if (!session) {
             clearSession();
-            window.location.replace(getLoginRedirectUrl());
+            window.location.href = getLoginRedirectUrl();
             return null;
         }
 
         if (settings.adminOnly && session.role !== "admin") {
             clearSession();
-            window.location.replace(getLoginRedirectUrl());
+            window.location.href = getLoginRedirectUrl();
             return null;
         }
 
         if (settings.requiredCourse && !hasCourseAccess(settings.requiredCourse, session.courses || session.course)) {
-            window.location.replace(toPageUrl(getHomePath()));
+            window.location.href = toPageUrl(getHomePath());
             return null;
         }
 
@@ -671,11 +708,11 @@
         const session = await getValidatedSession();
         if (session) {
             if (session.role === "admin") {
-                window.location.replace(toPageUrl(getAdminPath()));
+                window.location.href = toPageUrl(getAdminPath());
                 return;
             }
 
-            window.location.replace(toPageUrl(getPostLoginRedirect()));
+            window.location.href = toPageUrl(getPostLoginRedirect());
             return;
         }
 
@@ -704,6 +741,7 @@
         getStoredCourse: getStoredCourse,
         getStoredStudentId: getStoredStudentId,
         getStoredStudentSessionId: getStoredStudentSessionId,
+        getStudentIdentifierColumn: getStudentIdentifierColumn,
         getStudentsTableName: getStudentsTableName,
         getValidatedSession: getValidatedSession,
         hasCourseAccess: hasCourseAccess,
