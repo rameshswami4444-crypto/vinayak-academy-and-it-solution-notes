@@ -4,6 +4,9 @@
     const HOME_PATH = config.loginRedirect || "index.html";
     const ADMIN_PATH = config.adminRedirect || "admin.html";
     const SESSION_KEY = "vinayak_session";
+    const COURSES_KEY = "courses";
+    const LOCAL_SESSION_ID_KEY = "sessionId";
+    const LOCAL_STUDENT_ID_KEY = "studentId";
     const LEGACY_KEYS = [
         "vinayak_is_admin",
         "vinayak_admin_id",
@@ -53,6 +56,93 @@
         });
     }
 
+    function getStoredStudentSessionId() {
+        return window.localStorage.getItem(LOCAL_SESSION_ID_KEY) || "";
+    }
+
+    function getStoredStudentId() {
+        return window.localStorage.getItem(LOCAL_STUDENT_ID_KEY) || "";
+    }
+
+    function normalizeCourseName(value) {
+        return String(value || "").trim().toUpperCase();
+    }
+
+    function normalizeCourseValue(value) {
+        let list = [];
+
+        if (Array.isArray(value)) {
+            list = value;
+        } else if (typeof value === "string") {
+            const raw = value.trim();
+
+            if (!raw) {
+                list = [];
+            } else if (raw.charAt(0) === "[") {
+                try {
+                    const parsed = JSON.parse(raw);
+                    list = Array.isArray(parsed) ? parsed : [raw];
+                } catch (error) {
+                    list = raw.split(/\s*[,/|]\s*/);
+                }
+            } else {
+                list = raw.split(/\s*[,/|]\s*/);
+            }
+        } else if (value) {
+            list = [value];
+        }
+
+        return list
+            .map(normalizeCourseName)
+            .filter(Boolean)
+            .filter(function (course, index, courses) {
+                return courses.indexOf(course) === index;
+            });
+    }
+
+    function persistCourses(courses) {
+        window.localStorage.setItem(COURSES_KEY, JSON.stringify(normalizeCourseValue(courses)));
+    }
+
+    function persistStudentSession(sessionId, studentId) {
+        window.localStorage.setItem(LOCAL_SESSION_ID_KEY, String(sessionId || ""));
+        window.localStorage.setItem(LOCAL_STUDENT_ID_KEY, String(studentId || ""));
+    }
+
+    function clearStoredCourses() {
+        window.localStorage.removeItem(COURSES_KEY);
+    }
+
+    function clearStoredStudentSession() {
+        window.localStorage.removeItem(LOCAL_SESSION_ID_KEY);
+        window.localStorage.removeItem(LOCAL_STUDENT_ID_KEY);
+    }
+
+    function getStoredCourses() {
+        const localCourses = window.localStorage.getItem(COURSES_KEY);
+
+        if (localCourses) {
+            try {
+                return normalizeCourseValue(JSON.parse(localCourses));
+            } catch (error) {
+                return normalizeCourseValue(localCourses);
+            }
+        }
+
+        const session = getStoredSession();
+        if (!session) {
+            return [];
+        }
+
+        return normalizeCourseValue(session.courses || session.course);
+    }
+
+    function hasCourseAccess(courseKey, courseList) {
+        const normalizedCourseKey = normalizeCourseName(courseKey);
+        const normalizedCourseList = normalizeCourseValue(courseList || getStoredCourses());
+        return normalizedCourseList.includes(normalizedCourseKey);
+    }
+
     function getStoredSession() {
         const raw = window.sessionStorage.getItem(SESSION_KEY);
         if (!raw) {
@@ -79,6 +169,8 @@
 
     function clearSession() {
         window.sessionStorage.removeItem(SESSION_KEY);
+        clearStoredCourses();
+        clearStoredStudentSession();
         clearLegacySessionFlags();
     }
 
@@ -105,12 +197,17 @@
         });
     }
 
-    function startStudentSession(student, password) {
+    function startStudentSession(student, password, sessionId) {
         const session = createBaseSession("student");
+        const courses = normalizeCourseValue(student.course);
         session.studentId = student.id || "";
         session.course = student.course || "";
+        session.courses = courses;
         session.password = password;
+        session.sessionId = String(sessionId || student.session_id || "");
         persistSession(session);
+        persistCourses(courses);
+        persistStudentSession(session.sessionId, session.studentId);
     }
 
     function refreshSession(session) {
@@ -119,6 +216,10 @@
         });
 
         persistSession(updatedSession);
+        if (updatedSession.role === "student") {
+            persistCourses(updatedSession.courses || updatedSession.course);
+            persistStudentSession(updatedSession.sessionId, updatedSession.studentId);
+        }
         return updatedSession;
     }
 
@@ -202,6 +303,14 @@
 
     async function logoutAndRedirect() {
         clearSession();
+        window.location.replace(toPageUrl(LOGIN_PATH));
+    }
+
+    async function forceStudentLogout(message) {
+        clearSession();
+        if (message) {
+            window.alert(message);
+        }
         window.location.replace(toPageUrl(LOGIN_PATH));
     }
 
@@ -290,13 +399,16 @@
             return null;
         }
 
-        if (!session.studentId || !session.password) {
+        const localSessionId = getStoredStudentSessionId();
+        const localStudentId = getStoredStudentId();
+
+        if (!session.studentId || !session.password || !session.sessionId || !localSessionId || !localStudentId) {
             return null;
         }
 
         const { data, error } = await getClient()
             .from(getStudentsTableName())
-            .select("id, course")
+            .select("id, course, session_id")
             .eq("id", session.studentId)
             .eq("password", session.password)
             .maybeSingle();
@@ -305,11 +417,21 @@
             return null;
         }
 
+        if (
+            String(data.session_id || "") !== String(localSessionId) ||
+            String(session.sessionId || "") !== String(localSessionId) ||
+            String(data.id || "") !== String(localStudentId)
+        ) {
+            return { invalidSession: true };
+        }
+
         return refreshSession({
             role: "student",
             studentId: data.id,
             course: data.course || "",
+            courses: normalizeCourseValue(data.course),
             password: session.password,
+            sessionId: data.session_id || localSessionId,
             createdAt: session.createdAt || now()
         });
     }
@@ -327,7 +449,12 @@
         }
 
         if (session.role === "student") {
-            return validateStudentSession(session);
+            const validatedStudentSession = await validateStudentSession(session);
+            if (validatedStudentSession && validatedStudentSession.invalidSession) {
+                await forceStudentLogout("You have been logged out. Another device logged in.");
+                return null;
+            }
+            return validatedStudentSession;
         }
 
         return null;
@@ -355,6 +482,7 @@
         }
 
         try {
+            const sessionId = Date.now().toString();
             const { data, error } = await getClient()
                 .from(getStudentsTableName())
                 .select("id, course, password")
@@ -366,8 +494,17 @@
                 throw new Error("Invalid ID or Password");
             }
 
+            const { error: sessionError } = await getClient()
+                .from(getStudentsTableName())
+                .update({ session_id: sessionId })
+                .eq("id", studentId);
+
+            if (sessionError) {
+                throw sessionError;
+            }
+
             clearSession();
-            startStudentSession(data, password);
+            startStudentSession(data, password, sessionId);
             window.location.replace(toPageUrl(getPostLoginRedirect()));
         } catch (error) {
             console.error("Student login failed", error);
@@ -444,6 +581,11 @@
             return null;
         }
 
+        if (settings.requiredCourse && !hasCourseAccess(settings.requiredCourse, session.courses || session.course)) {
+            window.location.replace(toPageUrl(HOME_PATH));
+            return null;
+        }
+
         ensureLogoutButton();
         showBody();
         return session;
@@ -488,11 +630,16 @@
     window.VinayakAuth = {
         clearSession: clearSession,
         getClient: getClient,
+        getStoredCourses: getStoredCourses,
+        getStoredStudentId: getStoredStudentId,
+        getStoredStudentSessionId: getStoredStudentSessionId,
         getStudentsTableName: getStudentsTableName,
         getValidatedSession: getValidatedSession,
+        hasCourseAccess: hasCourseAccess,
         initLoginPage: initLoginPage,
         initProtectedPage: initProtectedPage,
         logoutAndRedirect: logoutAndRedirect,
+        normalizeCourseValue: normalizeCourseValue,
         showMessage: showMessage
     };
 }());

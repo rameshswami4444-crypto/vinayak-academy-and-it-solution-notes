@@ -16,6 +16,39 @@
         window.alert(message);
     }
 
+    function applyCourseVisibility(notesData, subjectsGrid) {
+        if (!window.VinayakAuth || typeof window.VinayakAuth.getStoredCourses !== "function") {
+            return;
+        }
+
+        const allowedCourses = window.VinayakAuth.getStoredCourses();
+
+        notesData.forEach(function (subject) {
+            if (!subject.cardId || !subject.courseKey) {
+                return;
+            }
+
+            const card = document.getElementById(subject.cardId);
+            if (!card) {
+                return;
+            }
+
+            if (!window.VinayakAuth.hasCourseAccess(subject.courseKey, allowedCourses)) {
+                card.style.display = "none";
+            }
+        });
+
+        const visibleCards = subjectsGrid.querySelectorAll('.subject-card:not([style*="display: none"])');
+        if (!visibleCards.length) {
+            subjectsGrid.innerHTML = [
+                '<section class="resource-placeholder">',
+                "<h2>No courses assigned</h2>",
+                "<p>Your account does not have any course access yet. Please contact the admin.</p>",
+                "</section>"
+            ].join("");
+        }
+    }
+
     function initNotesPage(options) {
         const settings = options || {};
         const notesData = Array.isArray(settings.notesData) ? settings.notesData : [];
@@ -75,6 +108,14 @@
             notesData.forEach(function (subject) {
                 const subjectCard = document.createElement("div");
                 subjectCard.className = "subject-card";
+                if (subject.cardId) {
+                    subjectCard.id = subject.cardId;
+                }
+
+                if (subject.courseKey) {
+                    subjectCard.setAttribute("data-course-key", subject.courseKey);
+                }
+
                 subjectCard.innerHTML = [
                     '<div class="subject-icon"><i class="',
                     escapeAttribute(subject.icon),
@@ -98,6 +139,8 @@
 
                 subjectsGrid.appendChild(subjectCard);
             });
+
+            applyCourseVisibility(notesData, subjectsGrid);
         }
 
         closeBtn.addEventListener("click", closeModal);

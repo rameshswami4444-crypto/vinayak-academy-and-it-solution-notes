@@ -2,6 +2,8 @@ const notesData = [
     {
         id: 1,
         name: "ADFA",
+        cardId: "adfa-card",
+        courseKey: "ADFA",
         icon: "fas fa-calculator",
         description: "advanced deploma in finacial accounting ",
         topics: [
@@ -22,6 +24,8 @@ const notesData = [
     {
         id: 2,
         name: "DCFA",
+        cardId: "dcfa-card",
+        courseKey: "DCFA",
         icon: "fas fa-file-invoice-dollar",
         description: "deploma in computerized financial accounting",
         topics: [
@@ -46,6 +50,8 @@ const notesData = [
     {
         id: 3,
         name: "Excel",
+        cardId: "excel-card",
+        courseKey: "EXCEL",
         icon: "fas fa-table",
         description: "Microsoft Excel tutorials and tips",
         topics: [
@@ -58,6 +64,8 @@ const notesData = [
     {
         id: 4,
         name: "Rs-cit",
+        cardId: "rscit-card",
+        courseKey: "RS-CIT",
         icon: "fas fa-briefcase",
         description: "Rs-cit ",
         topics: [
@@ -78,6 +86,8 @@ const notesData = [
     {
         id: 5,
         name: "CCC",
+        cardId: "ccc-card",
+        courseKey: "CCC",
         icon: "fas fa-chart-line",
         description: "CCC",
         topics: [
@@ -98,6 +108,8 @@ const notesData = [
     {
         id: 6,
         name: "ECCE {IGNOU}",
+        cardId: "ecce-card",
+        courseKey: "ECCE",
         icon: "fa-solid fa-book",
         description: "Diploma in early childhood care and education",
         protected: true,

@@ -43,6 +43,31 @@
     <script src="JS/auth.js"></script>
     <script>
         window.VinayakAuth.initProtectedPage();
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const courses = window.VinayakAuth.getStoredCourses();
+
+            if (!courses.includes("ECCE")) {
+                const ecceCard = document.getElementById("ecce-card");
+                if (ecceCard) {
+                    ecceCard.style.display = "none";
+                }
+            }
+
+            if (!courses.includes("ADFA")) {
+                const adfaCard = document.getElementById("adfa-card");
+                if (adfaCard) {
+                    adfaCard.style.display = "none";
+                }
+            }
+
+            if (!courses.includes("DCFA")) {
+                const dcfaCard = document.getElementById("dcfa-card");
+                if (dcfaCard) {
+                    dcfaCard.style.display = "none";
+                }
+            }
+        });
     </script>
     <script src="JS/notes-page.js"></script>
     <script src="JS/script.js"></script>

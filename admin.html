@@ -39,8 +39,33 @@
                         <input type="text" id="newStudentPassword" placeholder="Create a password" required>
                     </div>
                     <div class="login-field">
-                        <label for="newStudentCourse">Course</label>
-                        <input type="text" id="newStudentCourse" placeholder="e.g. ECCE / ADFA" required>
+                        <label>Courses</label>
+                        <div class="course-selector" role="group" aria-label="Select student courses">
+                            <label class="course-option">
+                                <input type="checkbox" name="studentCourses" value="ECCE">
+                                <span>ECCE</span>
+                            </label>
+                            <label class="course-option">
+                                <input type="checkbox" name="studentCourses" value="ADFA">
+                                <span>ADFA</span>
+                            </label>
+                            <label class="course-option">
+                                <input type="checkbox" name="studentCourses" value="DCFA">
+                                <span>DCFA</span>
+                            </label>
+                            <label class="course-option">
+                                <input type="checkbox" name="studentCourses" value="EXCEL">
+                                <span>Excel</span>
+                            </label>
+                            <label class="course-option">
+                                <input type="checkbox" name="studentCourses" value="RS-CIT">
+                                <span>RS-CIT</span>
+                            </label>
+                            <label class="course-option">
+                                <input type="checkbox" name="studentCourses" value="CCC">
+                                <span>CCC</span>
+                            </label>
+                        </div>
                     </div>
                     <button type="submit" class="login-btn">
                         <i class="fas fa-floppy-disk"></i> Save Student
