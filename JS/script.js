@@ -17,7 +17,7 @@ const notesData = [
             },
             {
                 name: "NOTES",
-                link: "/HTML/adfanotes.html"
+                link: "/HTML/ADFANOTES.HTML"
             }
         ]
     },
