@@ -5,13 +5,19 @@ create table if not exists public.students (
     id text primary key,
     password text not null,
     course text not null default '',
-    session_id text
+    session_id text,
+    fees_status text not null default 'paid',
+    due_date date,
+    payment_note text
 );
 
 alter table public.students
     add column if not exists password text,
     add column if not exists course text,
-    add column if not exists session_id text;
+    add column if not exists session_id text,
+    add column if not exists fees_status text,
+    add column if not exists due_date date,
+    add column if not exists payment_note text;
 
 do $$
 declare
@@ -60,7 +66,33 @@ end $$;
 alter table public.students
     alter column password set not null,
     alter column course set default '',
-    alter column course set not null;
+    alter column course set not null,
+    alter column fees_status set default 'paid';
+
+update public.students
+set fees_status = 'paid'
+where fees_status is null
+   or trim(fees_status) = '';
+
+update public.students
+set fees_status = lower(trim(fees_status))
+where fees_status is not null;
+
+alter table public.students
+    alter column fees_status set not null;
+
+do $$
+begin
+    if not exists (
+        select 1
+        from pg_constraint
+        where conname = 'students_fees_status_check'
+    ) then
+        alter table public.students
+            add constraint students_fees_status_check
+            check (fees_status in ('paid', 'due'));
+    end if;
+end $$;
 
 alter table public.students enable row level security;
 

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fee Pending - Vinayak Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-pending blocked-page">
+    <main class="blocked-shell">
+        <section class="blocked-card">
+            <p class="login-badge">Access Restricted</p>
+            <h1>Your account has been temporarily locked because your course fee is overdue.</h1>
+            <p class="blocked-copy">Please scan the QR code below and pay your pending fee.</p>
+            <p class="blocked-copy">After payment contact the institute administrator.</p>
+
+            <div class="blocked-layout">
+                <div class="blocked-qr">
+                    <img src="images/payment-qr.png" alt="Payment QR code" onerror="this.alt='Payment QR image not found'; this.style.opacity='0.45';">
+                </div>
+
+                <div>
+                    <div class="blocked-meta">
+                        <div class="blocked-meta-item">
+                            <strong>Student ID</strong>
+                            <span id="blockedStudentId">-</span>
+                        </div>
+                        <div class="blocked-meta-item">
+                            <strong>Due Date</strong>
+                            <span id="blockedDueDate">-</span>
+                        </div>
+                        <div class="blocked-meta-item">
+                            <strong>Payment Note</strong>
+                            <span id="blockedPaymentNote">No additional payment note from the admin.</span>
+                        </div>
+                    </div>
+
+                    <p class="blocked-copy" style="margin-top: 1rem;">Payment Received?<br>Please wait until the administrator verifies your payment.</p>
+                    <p id="blockedStatusMessage" class="auth-message" hidden></p>
+
+                    <div class="blocked-actions">
+                        <button type="button" class="login-btn" id="refreshStatusBtn">
+                            <i class="fas fa-rotate"></i> Refresh Status
+                        </button>
+                        <button type="button" class="logout-btn admin-secondary-btn" id="logoutBtn">
+                            <i class="fas fa-right-from-bracket"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="JS/supabase-config.js"></script>
+    <script src="JS/auth.js"></script>
+    <script>
+        window.VinayakAuth.initBlockedPage();
+    </script>
+</body>
+</html>

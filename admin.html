@@ -50,28 +50,75 @@
                             <option value="CCC">CCC</option>
                         </select>
                     </div>
+                    <div class="login-field">
+                        <label for="newFeesStatus">Fees Status</label>
+                        <select id="newFeesStatus" required>
+                            <option value="paid">Paid</option>
+                            <option value="due">Due</option>
+                        </select>
+                    </div>
+                    <div class="login-field">
+                        <label for="newDueDate">Due Date</label>
+                        <input type="date" id="newDueDate">
+                    </div>
+                    <div class="login-field">
+                        <label for="newPaymentNote">Payment Note</label>
+                        <textarea id="newPaymentNote" rows="3" placeholder="Optional admin note for the student"></textarea>
+                    </div>
                     <button type="submit" class="login-btn">
                         <i class="fas fa-floppy-disk"></i> Save Student
                     </button>
                 </form>
             </article>
 
-            <article class="admin-card">
-                <h3><i class="fas fa-key"></i> Update Student Password</h3>
-                <form id="updateStudentPasswordForm" class="admin-form">
+            <article class="admin-card" id="editStudentCard">
+                <h3><i class="fas fa-user-pen"></i> Edit Student</h3>
+                <form id="editStudentForm" class="admin-form">
                     <div class="login-field">
-                        <label for="updateStudentId">Student ID</label>
-                        <input type="text" id="updateStudentId" placeholder="Enter student ID" required>
+                        <label for="editStudentId">Student ID</label>
+                        <input type="text" id="editStudentId" placeholder="Select from table or enter ID" required>
                     </div>
                     <div class="login-field">
-                        <label for="updateStudentPassword">New Password</label>
-                        <input type="text" id="updateStudentPassword" placeholder="Enter new password" required>
+                        <label for="editStudentPassword">Password</label>
+                        <input type="text" id="editStudentPassword" placeholder="Enter new password" required>
                     </div>
-                    <button type="submit" class="login-btn">
-                        <i class="fas fa-rotate"></i> Update Password
-                    </button>
+                    <div class="login-field">
+                        <label for="editStudentCourse">Course</label>
+                        <select id="editStudentCourse" required>
+                            <option value="">Select a course</option>
+                            <option value="ECCE">ECCE</option>
+                            <option value="ADFA">ADFA</option>
+                            <option value="DCFA">DCFA</option>
+                            <option value="EXCEL">EXCEL</option>
+                            <option value="RS-CIT">RS-CIT</option>
+                            <option value="CCC">CCC</option>
+                        </select>
+                    </div>
+                    <div class="login-field">
+                        <label for="editFeesStatus">Fees Status</label>
+                        <select id="editFeesStatus" required>
+                            <option value="paid">Paid</option>
+                            <option value="due">Due</option>
+                        </select>
+                    </div>
+                    <div class="login-field">
+                        <label for="editDueDate">Due Date</label>
+                        <input type="date" id="editDueDate">
+                    </div>
+                    <div class="login-field">
+                        <label for="editPaymentNote">Payment Note</label>
+                        <textarea id="editPaymentNote" rows="3" placeholder="Optional payment verification note"></textarea>
+                    </div>
+                    <div class="admin-form-actions">
+                        <button type="submit" class="login-btn">
+                            <i class="fas fa-rotate"></i> Save Changes
+                        </button>
+                        <button type="button" class="logout-btn admin-secondary-btn" id="clearEditStudentBtn">
+                            <i class="fas fa-eraser"></i> Clear
+                        </button>
+                    </div>
                 </form>
-                <p class="admin-note">This updates the <code>password</code> column directly in your Supabase <code>students</code> table.</p>
+                <p class="admin-note">Edit course access, password, fee status, due date, and student payment notes directly in Supabase.</p>
             </article>
 
             <article class="admin-card">
@@ -92,6 +139,10 @@
         <section class="admin-card admin-table-card">
             <div class="admin-table-header">
                 <h3><i class="fas fa-users"></i> Student Records</h3>
+                <div class="login-field admin-search-field">
+                    <label for="studentSearchInput">Search Students</label>
+                    <input type="search" id="studentSearchInput" placeholder="Search by student ID, course, fee status, or note">
+                </div>
             </div>
             <div class="table-wrap">
                 <table class="admin-table">
@@ -99,7 +150,10 @@
                         <tr>
                             <th>Student ID</th>
                             <th>Course</th>
-                            <th>Password State</th>
+                            <th>Fees Status</th>
+                            <th>Due Date</th>
+                            <th>Payment Note</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="studentsTableBody"></tbody>

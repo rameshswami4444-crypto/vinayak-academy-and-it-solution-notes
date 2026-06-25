@@ -1,5 +1,6 @@
 (function () {
     const LOGIN_PATH = "login.html";
+    const BLOCKED_PATH = "blocked.html";
     const SESSION_KEY = "vinayak_session";
     const COURSES_KEY = "courses";
     const COURSE_KEY = "course";
@@ -43,11 +44,10 @@
         }
 
         if (!window.__vinayakSupabaseClient) {
-            const supabaseClient = window.supabase.createClient(
+            window.__vinayakSupabaseClient = window.supabase.createClient(
                 config.url,
                 config.publishableKey
             );
-            window.__vinayakSupabaseClient = supabaseClient;
         }
 
         return window.__vinayakSupabaseClient;
@@ -76,6 +76,80 @@
 
     function now() {
         return Date.now();
+    }
+
+    function getTodayDateString() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        return year + "-" + month + "-" + day;
+    }
+
+    function normalizeDateValue(value) {
+        if (!value) {
+            return "";
+        }
+
+        if (typeof value === "string") {
+            return value.slice(0, 10);
+        }
+
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, "0");
+            const day = String(value.getDate()).padStart(2, "0");
+            return year + "-" + month + "-" + day;
+        }
+
+        return String(value).slice(0, 10);
+    }
+
+    function normalizeFeesStatus(value) {
+        return String(value || "").trim().toLowerCase() === "paid" ? "paid" : "due";
+    }
+
+    function isStudentBlocked(student) {
+        return normalizeFeesStatus(student && (student.fees_status || student.feesStatus)) === "due";
+    }
+
+    async function syncStudentFeesStatus(student, client) {
+        if (!student || typeof student !== "object") {
+            return student;
+        }
+
+        const dueDate = normalizeDateValue(student.due_date);
+        const today = getTodayDateString();
+        const currentStatus = normalizeFeesStatus(student.fees_status);
+
+        if (!dueDate || today <= dueDate || currentStatus === "due") {
+            student.fees_status = currentStatus;
+            student.due_date = dueDate;
+            student.payment_note = student.payment_note || "";
+            return student;
+        }
+
+        const identifier = getStudentIdentifierValue(student);
+        if (!identifier) {
+            student.fees_status = "due";
+            return student;
+        }
+
+        const supabaseClient = client || getClient();
+        const { error } = await supabaseClient
+            .from(getStudentsTableName())
+            .update({ fees_status: "due" })
+            .eq(getStudentIdentifierColumn(), identifier);
+
+        if (error) {
+            console.error("Auto due update failed", error);
+            throw error;
+        }
+
+        student.fees_status = "due";
+        student.due_date = dueDate;
+        student.payment_note = student.payment_note || "";
+        return student;
     }
 
     function clearLegacySessionFlags() {
@@ -250,7 +324,7 @@
         });
     }
 
-    function startStudentSession(student, password, sessionId) {
+    function buildStudentSession(student, password, sessionId, createdAt) {
         const session = createBaseSession("student");
         const course = normalizeSingleCourse(student.course);
         session.studentId = getStudentIdentifierValue(student);
@@ -258,14 +332,26 @@
         session.courses = course ? [course] : [];
         session.password = password;
         session.sessionId = String(sessionId || student.session_id || "");
+        session.feesStatus = normalizeFeesStatus(student.fees_status);
+        session.dueDate = normalizeDateValue(student.due_date);
+        session.paymentNote = String(student.payment_note || "");
+        session.fees_status = session.feesStatus;
+        session.due_date = session.dueDate;
+        session.payment_note = session.paymentNote;
+        if (createdAt) {
+            session.createdAt = createdAt;
+        }
+        return session;
+    }
+
+    function startStudentSession(student, password, sessionId) {
+        const session = buildStudentSession(student, password, sessionId);
         persistSession(session);
-        persistCourses(course);
+        persistCourses(session.course);
         persistStudentSession(session.sessionId, session.studentId);
         window.localStorage.setItem("loggedIn", "true");
         window.localStorage.setItem("studentId", session.studentId);
-        window.localStorage.setItem("course", course);
-        console.log("LOGIN SUCCESS", student);
-        console.log("SESSION:", session.sessionId);
+        window.localStorage.setItem("course", session.course);
     }
 
     function refreshSession(session) {
@@ -306,10 +392,19 @@
         return toPageUrl(LOGIN_PATH) + "?next=" + encodeURIComponent(getCurrentPath());
     }
 
-    function getPostLoginRedirect() {
+    function getBlockedRedirectUrl(nextPath) {
+        const resolvedNextPath = nextPath || getCurrentPath();
+        return toPageUrl(BLOCKED_PATH) + "?next=" + encodeURIComponent(resolvedNextPath);
+    }
+
+    function getSafeNextPath() {
         const params = new URLSearchParams(window.location.search);
         const next = params.get("next");
         return next && !next.startsWith("http") ? normalizePagePath(next) : normalizePagePath(getHomePath());
+    }
+
+    function getPostLoginRedirect() {
+        return getSafeNextPath();
     }
 
     function showBody() {
@@ -464,6 +559,30 @@
         return refreshSession(session);
     }
 
+    async function fetchStudentRecord(studentId, password) {
+        const query = getClient()
+            .from(getStudentsTableName())
+            .select("*")
+            .eq(getStudentIdentifierColumn(), studentId);
+
+        if (password) {
+            query.eq("password", password);
+        }
+
+        const { data, error } = await query.limit(1);
+
+        if (error) {
+            console.error("Student fetch failed", error);
+            throw error;
+        }
+
+        if (!data || !data.length) {
+            return null;
+        }
+
+        return syncStudentFeesStatus(data[0], getClient());
+    }
+
     async function validateStudentSession(session) {
         if (!session || session.role !== "student" || isSessionExpired(session)) {
             return null;
@@ -484,23 +603,11 @@
             return null;
         }
 
-        const { data, error } = await getClient()
-            .from(getStudentsTableName())
-            .select("*")
-            .eq(getStudentIdentifierColumn(), session.studentId)
-            .eq("password", session.password)
-            .limit(1);
-
-        if (error) {
-            console.error("Session validation failed", error);
+        const student = await fetchStudentRecord(session.studentId, session.password);
+        if (!student) {
             return null;
         }
 
-        if (!data || !data.length) {
-            return null;
-        }
-
-        const student = data[0];
         const dbStudentId = getStudentIdentifierValue(student);
 
         if (
@@ -511,15 +618,14 @@
             return { invalidSession: true };
         }
 
-        return refreshSession({
-            role: "student",
-            studentId: dbStudentId,
-            course: normalizeSingleCourse(student.course),
-            courses: normalizeCourseValue(student.course),
-            password: session.password,
-            sessionId: student.session_id || localSessionId,
-            createdAt: session.createdAt || now()
-        });
+        return refreshSession(
+            buildStudentSession(
+                student,
+                session.password,
+                student.session_id || localSessionId,
+                session.createdAt || now()
+            )
+        );
     }
 
     async function getValidatedSession() {
@@ -567,42 +673,34 @@
 
         try {
             const supabaseClient = getClient();
+            const student = await fetchStudentRecord(studentId, password);
             const sessionId = Date.now().toString();
-            const { data, error } = await supabaseClient
-                .from(getStudentsTableName())
-                .select("*")
-                .eq("id", studentId)
-                .eq("password", password)
-                .limit(1);
 
-            if (error) {
-                console.log(error);
-                console.error("Student login query failed", error);
-                showMessage("Database error. Check Supabase table access or RLS policy.", "error", "studentAuthMessage");
-                return;
-            }
-
-            if (!data || !data.length) {
+            if (!student) {
                 showMessage("Invalid ID or Password", "error", "studentAuthMessage");
                 return;
             }
 
-            const student = data[0];
-
             const { error: updateError } = await supabaseClient
                 .from(getStudentsTableName())
                 .update({ session_id: sessionId })
-                .eq("id", studentId);
+                .eq(getStudentIdentifierColumn(), studentId);
 
             if (updateError) {
-                console.log(updateError);
                 console.error("Session update failed", updateError);
                 showMessage("Database error. Could not start student session.", "error", "studentAuthMessage");
                 return;
             }
 
+            student.session_id = sessionId;
             clearSession();
             startStudentSession(student, password, sessionId);
+
+            if (isStudentBlocked(student)) {
+                window.location.href = getBlockedRedirectUrl(getPostLoginRedirect());
+                return;
+            }
+
             window.location.href = toPageUrl(getPostLoginRedirect());
         } catch (error) {
             console.error("Student login failed", error);
@@ -661,7 +759,6 @@
 
     async function initProtectedPage(options) {
         const settings = options || {};
-        console.log("CONFIG:", getConfig());
 
         if (!isConfigured()) {
             renderConfigError();
@@ -687,6 +784,11 @@
             return null;
         }
 
+        if (session.role === "student" && isStudentBlocked(session)) {
+            window.location.href = getBlockedRedirectUrl();
+            return null;
+        }
+
         if (settings.requiredCourse && !hasCourseAccess(settings.requiredCourse, session.courses || session.course)) {
             window.location.href = toPageUrl(getHomePath());
             return null;
@@ -698,9 +800,99 @@
         return session;
     }
 
-    async function initLoginPage() {
-        console.log("CONFIG:", getConfig());
+    async function initBlockedPage() {
+        if (!isConfigured()) {
+            renderConfigError();
+            return null;
+        }
 
+        const session = await getValidatedSession();
+        if (!session) {
+            clearSession();
+            window.location.href = getLoginRedirectUrl();
+            return null;
+        }
+
+        if (session.role === "admin") {
+            window.location.href = toPageUrl(getAdminPath());
+            return null;
+        }
+
+        if (!isStudentBlocked(session)) {
+            window.location.href = toPageUrl(getSafeNextPath());
+            return session;
+        }
+
+        const dueDateBox = document.getElementById("blockedDueDate");
+        const noteBox = document.getElementById("blockedPaymentNote");
+        const studentBox = document.getElementById("blockedStudentId");
+
+        if (studentBox) {
+            studentBox.textContent = session.studentId || "-";
+        }
+
+        if (dueDateBox) {
+            dueDateBox.textContent = session.dueDate || "Not set";
+        }
+
+        if (noteBox) {
+            noteBox.textContent = session.paymentNote || "No additional payment note from the admin.";
+        }
+
+        const refreshButton = document.getElementById("refreshStatusBtn");
+        const statusMessageId = "blockedStatusMessage";
+
+        if (refreshButton && !refreshButton.dataset.bound) {
+            refreshButton.dataset.bound = "true";
+            refreshButton.addEventListener("click", async function () {
+                clearMessage(statusMessageId);
+                refreshButton.disabled = true;
+                refreshButton.textContent = "Checking...";
+
+                try {
+                    const refreshedSession = await getValidatedSession();
+
+                    if (!refreshedSession) {
+                        clearSession();
+                        window.location.href = getLoginRedirectUrl();
+                        return;
+                    }
+
+                    if (!isStudentBlocked(refreshedSession)) {
+                        window.location.href = toPageUrl(getSafeNextPath());
+                        return;
+                    }
+
+                    if (dueDateBox) {
+                        dueDateBox.textContent = refreshedSession.dueDate || "Not set";
+                    }
+
+                    if (noteBox) {
+                        noteBox.textContent = refreshedSession.paymentNote || "No additional payment note from the admin.";
+                    }
+
+                    showMessage(
+                        "Payment is still awaiting admin verification. Please try again after confirmation.",
+                        "error",
+                        statusMessageId
+                    );
+                } catch (error) {
+                    console.error("Blocked status refresh failed", error);
+                    showMessage(error.message || "Could not refresh fee status.", "error", statusMessageId);
+                } finally {
+                    refreshButton.disabled = false;
+                    refreshButton.innerHTML = '<i class="fas fa-rotate"></i> Refresh Status';
+                }
+            });
+        }
+
+        clearFallbackMessage();
+        ensureLogoutButton();
+        showBody();
+        return session;
+    }
+
+    async function initLoginPage() {
         if (!isConfigured()) {
             renderConfigError();
             return;
@@ -712,6 +904,11 @@
         if (session) {
             if (session.role === "admin") {
                 window.location.href = toPageUrl(getAdminPath());
+                return;
+            }
+
+            if (isStudentBlocked(session)) {
+                window.location.href = getBlockedRedirectUrl(getPostLoginRedirect());
                 return;
             }
 
@@ -739,6 +936,8 @@
 
     window.VinayakAuth = {
         clearSession: clearSession,
+        fetchStudentRecord: fetchStudentRecord,
+        getBlockedRedirectUrl: getBlockedRedirectUrl,
         getClient: getClient,
         getStoredCourses: getStoredCourses,
         getStoredCourse: getStoredCourse,
@@ -748,11 +947,16 @@
         getStudentsTableName: getStudentsTableName,
         getValidatedSession: getValidatedSession,
         hasCourseAccess: hasCourseAccess,
+        initBlockedPage: initBlockedPage,
         initLoginPage: initLoginPage,
         initProtectedPage: initProtectedPage,
+        isStudentBlocked: isStudentBlocked,
         logoutAndRedirect: logoutAndRedirect,
         normalizeCourseValue: normalizeCourseValue,
+        normalizeDateValue: normalizeDateValue,
+        normalizeFeesStatus: normalizeFeesStatus,
         normalizeSingleCourse: normalizeSingleCourse,
-        showMessage: showMessage
+        showMessage: showMessage,
+        syncStudentFeesStatus: syncStudentFeesStatus
     };
 }());
