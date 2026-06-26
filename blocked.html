@@ -10,10 +10,11 @@
 <body class="auth-pending blocked-page">
     <main class="blocked-shell">
         <section class="blocked-card">
+            <img src="logo.png" alt="Vinayak Academy logo" class="login-logo">
             <p class="login-badge">Access Restricted</p>
-            <h1>Your account has been temporarily locked because your course fee is overdue.</h1>
-            <p class="blocked-copy">Please scan the QR code below and pay your pending fee.</p>
-            <p class="blocked-copy">After payment contact the institute administrator.</p>
+            <h1>Your account has been temporarily locked because your fees are overdue.</h1>
+            <p class="blocked-copy">Please scan the QR code below to pay your pending fees.</p>
+            <p class="blocked-copy">After payment, share your payment details with the institute administrator for verification.</p>
 
             <div class="blocked-layout">
                 <div class="blocked-qr">
@@ -31,12 +32,12 @@
                             <span id="blockedDueDate">-</span>
                         </div>
                         <div class="blocked-meta-item">
-                            <strong>Due Amount</strong>
+                            <strong>Payment Note</strong>
                             <span id="blockedPaymentNote">No additional payment note from the admin.</span>
                         </div>
                     </div>
 
-                    <p class="blocked-copy" style="margin-top: 1rem;">Payment Received?<br>Please wait until the administrator verifies your payment.</p>
+                    <p class="blocked-copy" style="margin-top: 1rem;">Payment Instructions<br>Complete the payment, keep a screenshot or receipt ready, and wait for admin confirmation before refreshing your status.</p>
                     <p id="blockedStatusMessage" class="auth-message" hidden></p>
 
                     <div class="blocked-actions">

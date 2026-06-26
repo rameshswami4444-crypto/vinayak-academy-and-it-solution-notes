@@ -3,8 +3,8 @@ window.VINAYAK_SUPABASE_CONFIG = {
     publishableKey: "sb_publishable_DsBlz0MNKxBzterSVTqC_Q_0OMVWVb7",
     loginRedirect: "index.html",
     adminRedirect: "admin.html",
-    adminId: "admin",
-    adminPassword: "admin123",
+    adminId: "Vinayak_admin",
+    adminPassword: "Vinayak@8209",
     studentsTable: "students",
     studentIdentifierColumn: "id"
 };
