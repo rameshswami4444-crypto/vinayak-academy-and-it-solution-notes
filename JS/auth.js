@@ -123,8 +123,113 @@
         return "due";
     }
 
+    function normalizeAccountStatus(status) {
+        const normalizedStatus = String(status || "active").trim().toLowerCase();
+        if (normalizedStatus === "blocked" || normalizedStatus === "disabled") {
+            return normalizedStatus;
+        }
+        return "active";
+    }
+
+    function normalizeEmiStatus(status) {
+        const normalizedStatus = String(status || "pending").trim().toLowerCase();
+        if (normalizedStatus === "paid" || normalizedStatus === "overdue") {
+            return normalizedStatus;
+        }
+        return "pending";
+    }
+
     function isStudentBlocked(student) {
-        return normalizeFeesStatus(student && (student.fees_status || student.feesStatus)) === "due";
+        if (!student) {
+            return false;
+        }
+        return normalizeAccountStatus(student.account_status || student.accountStatus) !== "active" ||
+            normalizeFeesStatus(student.fees_status || student.feesStatus) === "due";
+    }
+
+    async function syncStudentEmiStatus(student, client) {
+        if (!student || typeof student !== "object") {
+            return student;
+        }
+
+        const identifier = getStudentIdentifierValue(student);
+        if (!identifier) {
+            return student;
+        }
+
+        const supabaseClient = client || getClient();
+        const { data, error } = await supabaseClient
+            .from("emis")
+            .select("*")
+            .eq("student_id", identifier);
+
+        if (error) {
+            console.error("EMI status check failed", error);
+            return student;
+        }
+
+        const today = getTodayDateString();
+        const emis = data || [];
+        if (!emis.length) {
+            return student;
+        }
+
+        const originalAccountStatus = normalizeAccountStatus(student.account_status || student.accountStatus);
+        const originalFeesStatus = normalizeFeesStatus(student.fees_status || student.feesStatus);
+        const overdueEmis = [];
+        const updates = [];
+
+        emis.forEach(function (emi) {
+            const status = normalizeEmiStatus(emi.status);
+            const dueDate = normalizeDateValue(emi.due_date);
+
+            if (status !== "paid" && dueDate && dueDate < today) {
+                overdueEmis.push(Object.assign({}, emi, { status: "overdue", due_date: dueDate }));
+                if (status !== "overdue") {
+                    let query = supabaseClient.from("emis").update({ status: "overdue" });
+                    query = emi.id ? query.eq("id", emi.id) : query.eq("student_id", identifier).eq("emi_number", emi.emi_number);
+                    updates.push(query);
+                }
+            }
+        });
+
+        if (updates.length) {
+            const results = await Promise.all(updates);
+            const updateError = results.find(function (result) {
+                return result.error;
+            });
+            if (updateError && updateError.error) {
+                console.error("EMI overdue update failed", updateError.error);
+            }
+        }
+
+        const shouldBlock = originalAccountStatus === "disabled" || overdueEmis.length > 0;
+        const nextStatus = shouldBlock ? (originalAccountStatus === "disabled" ? "disabled" : "blocked") : "active";
+        const nextFeesStatus = shouldBlock ? "due" : "paid";
+        const nextDueDate = overdueEmis.length ? normalizeDateValue(overdueEmis[0].due_date) : normalizeDateValue(student.due_date);
+        const nextPaymentNote = overdueEmis.length ? "Overdue EMI pending" : (student.payment_note || "");
+
+        student.account_status = nextStatus;
+        student.fees_status = nextFeesStatus;
+        student.due_date = nextDueDate;
+        student.payment_note = nextPaymentNote;
+
+        if (
+            nextStatus !== originalAccountStatus ||
+            nextFeesStatus !== originalFeesStatus
+        ) {
+            await supabaseClient
+                .from(getStudentsTableName())
+                .update({
+                    account_status: nextStatus,
+                    fees_status: nextFeesStatus,
+                    due_date: nextDueDate || null,
+                    payment_note: nextPaymentNote || null
+                })
+                .eq(getStudentIdentifierColumn(), identifier);
+        }
+
+        return student;
     }
 
     async function syncStudentFeesStatus(student, client) {
@@ -347,6 +452,8 @@
         session.feesStatus = normalizeFeesStatus(student.fees_status);
         session.dueDate = normalizeDateValue(student.due_date);
         session.paymentNote = String(student.payment_note || "");
+        session.accountStatus = normalizeAccountStatus(student.account_status);
+        session.account_status = session.accountStatus;
         session.fees_status = session.feesStatus;
         session.due_date = session.dueDate;
         session.payment_note = session.paymentNote;
@@ -605,7 +712,8 @@
             return null;
         }
 
-        const student = await syncStudentFeesStatus(data[0], getClient());
+        let student = await syncStudentFeesStatus(data[0], getClient());
+        student = await syncStudentEmiStatus(student, getClient());
         const dbStudentId = getStudentIdentifierValue(student);
 
         if (
@@ -703,7 +811,8 @@
                 return;
             }
 
-            const student = await syncStudentFeesStatus(data[0], client);
+            let student = await syncStudentFeesStatus(data[0], client);
+            student = await syncStudentEmiStatus(student, client);
 
             const { error: sessionError } = await client
                 .from(getStudentsTableName())
