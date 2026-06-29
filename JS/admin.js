@@ -1,4 +1,5 @@
 (function () {
+    window.__vinayakAdminLoadedAt = new Date().toISOString();
     const COURSES = ["ECCE", "ADFA", "DCFA", "EXCEL", "RS-CIT", "CCC"];
     let studentsCache = [];
     let feesCache = [];
@@ -75,11 +76,13 @@
     function setPanelMessage(message, type) {
         const box = document.getElementById("adminPanelMessage");
         if (!box) {
+            window.alert(message);
             return;
         }
         box.hidden = false;
         box.textContent = message;
         box.className = "auth-message " + (type || "success");
+        box.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     function clearPanelMessage() {
@@ -246,18 +249,41 @@
     async function addStudent(event) {
         event.preventDefault();
         clearPanelMessage();
-        updateRemainingFee();
-
-        const studentId = getValue("newStudentId");
-        const totalFee = toNumber(getValue("newTotalFee"));
-        const admissionFee = toNumber(getValue("newAdmissionFee"));
-        const remainingFee = toNumber(getValue("newRemainingFee"));
-        const emis = emiMode === "auto" ? buildAutoEmis() : readManualEmis();
+        console.group("Admission submit");
+        console.log("Submit event received", {
+            eventType: event.type,
+            submitter: event.submitter ? event.submitter.textContent.trim() : "",
+            viewportWidth: window.innerWidth,
+            emiMode: emiMode,
+            scriptLoadedAt: window.__vinayakAdminLoadedAt
+        });
 
         try {
+            updateRemainingFee();
+            console.log("Fee values recalculated");
+
+            const studentId = getValue("newStudentId");
+            const totalFee = toNumber(getValue("newTotalFee"));
+            const admissionFee = toNumber(getValue("newAdmissionFee"));
+            const remainingFee = toNumber(getValue("newRemainingFee"));
+            console.log("Admission values", {
+                studentId: studentId,
+                course: getValue("newStudentCourse"),
+                batch: getValue("newBatch"),
+                totalFee: totalFee,
+                admissionFee: admissionFee,
+                remainingFee: remainingFee,
+                firstDueDate: getValue("autoFirstDueDate")
+            });
+
+            const emis = emiMode === "auto" ? buildAutoEmis() : readManualEmis();
+            console.log("EMI rows prepared", emis);
+
             validateAdmission(studentId, getValue("newMobile"), getValue("newAlternateMobile"), totalFee, admissionFee, remainingFee, emis);
+            console.log("Admission validation passed");
 
             const client = window.VinayakAuth.getClient();
+            console.log("Checking duplicate student ID");
             const { data: existing, error: existingError } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .select(window.VinayakAuth.getStudentIdentifierColumn())
@@ -290,10 +316,12 @@
                 payment_note: remainingFee > 0 ? "EMI schedule created" : "Fee paid in full"
             };
 
+            console.log("Inserting student", studentPayload);
             const { error: studentError } = await client.from(window.VinayakAuth.getStudentsTableName()).insert([studentPayload]);
             if (studentError) {
                 throw studentError;
             }
+            console.log("Student inserted successfully");
 
             const feePayload = {
                 student_id: studentId,
@@ -303,10 +331,12 @@
                 paid_amount: admissionFee,
                 status: remainingFee > 0 ? "pending" : "paid"
             };
+            console.log("Inserting student fee", feePayload);
             const { error: feeError } = await client.from("student_fees").insert([feePayload]);
             if (feeError) {
                 throw feeError;
             }
+            console.log("Student fee inserted successfully");
 
             if (emis.length) {
                 const emiPayload = emis.map(function (emi) {
@@ -315,20 +345,25 @@
                         paid_date: emi.status === "paid" ? getTodayDateString() : null
                     });
                 });
+                console.log("Inserting EMI schedule", emiPayload);
                 const { error: emiError } = await client.from("emis").insert(emiPayload);
                 if (emiError) {
                     throw emiError;
                 }
+                console.log("EMI schedule inserted successfully");
             }
 
             document.getElementById("addStudentForm").reset();
             setupAdmissionDefaults();
             setPanelMessage("Admission completed and EMI schedule created.", "success");
             await refreshAll();
+            console.log("Admin data refreshed after admission");
             showAdminSection("students");
         } catch (error) {
             console.error("Admission failed", error);
-            setPanelMessage(error.message || "Could not complete admission.", "error");
+            setPanelMessage((error && error.message ? error.message : "Could not complete admission.") + " Check browser console for detailed admission logs.", "error");
+        } finally {
+            console.groupEnd();
         }
     }
 
@@ -639,7 +674,24 @@
         const addForm = document.getElementById("addStudentForm");
         const editForm = document.getElementById("editStudentForm");
         const deleteForm = document.getElementById("deleteStudentForm");
-        if (addForm) addForm.addEventListener("submit", addStudent);
+        console.log("Admin JS loaded", {
+            loadedAt: window.__vinayakAdminLoadedAt,
+            viewportWidth: window.innerWidth,
+            addStudentFormFound: Boolean(addForm),
+            admissionSubmitButtons: addForm ? addForm.querySelectorAll('[type="submit"]').length : 0
+        });
+        if (addForm) {
+            addForm.addEventListener("submit", addStudent);
+            addForm.addEventListener("invalid", function (event) {
+                console.warn("Admission form invalid field", {
+                    id: event.target.id,
+                    name: event.target.name,
+                    value: event.target.value,
+                    validationMessage: event.target.validationMessage
+                });
+                setPanelMessage(event.target.validationMessage || "Please complete the highlighted admission field.", "error");
+            }, true);
+        }
         if (editForm) editForm.addEventListener("submit", updateStudent);
         if (deleteForm) deleteForm.addEventListener("submit", deleteStudent);
 
