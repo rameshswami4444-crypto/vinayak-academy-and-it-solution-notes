@@ -4,7 +4,13 @@
     let studentsCache = [];
     let feesCache = [];
     let emisCache = [];
+    let coursesCache = [];
+    let batchesCache = [];
+    let bulkRows = [];
     let emiMode = "auto";
+    const BULK_COLUMNS = [
+        "Student ID", "Password", "Student Name", "Father Name", "Mobile", "Alternate Mobile", "Email", "Address", "Course", "Batch", "Admission Date", "Course Duration", "Total Fee", "Advance Fee", "Remaining Fee", "Number of EMI", "First EMI Due Date"
+    ];
 
     function getIdentifier(student) {
         return student[window.VinayakAuth.getStudentIdentifierColumn()] || student.id || "";
@@ -36,6 +42,10 @@
     function toNumber(value) {
         const number = Number(value);
         return Number.isFinite(number) ? number : 0;
+    }
+
+    function normalizeKey(value) {
+        return String(value || "").trim().toLowerCase();
     }
 
     function money(value) {
@@ -122,6 +132,15 @@
         return data || [];
     }
 
+    async function fetchOptionalTable(tableName) {
+        try {
+            return await fetchTable(tableName);
+        } catch (error) {
+            console.warn("Optional table fetch failed", tableName, error);
+            return [];
+        }
+    }
+
     function getStudentFees(studentId) {
         return feesCache.find(function (fee) {
             return String(fee.student_id || fee.studentId || "") === String(studentId);
@@ -185,7 +204,9 @@
 
     function readManualEmis() {
         const rows = Array.from(document.querySelectorAll("#admissionEmiBody tr"));
-        return rows.map(function (row) {
+        return rows.filter(function (row) {
+            return row.querySelector("[data-emi-number]");
+        }).map(function (row) {
             return {
                 emi_number: Math.floor(toNumber(row.querySelector("[data-emi-number]").value)),
                 amount: toNumber(row.querySelector("[data-emi-amount]").value),
@@ -644,10 +665,356 @@
             .eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId);
     }
 
+    function getCourseNames() {
+        const names = coursesCache.map(function (course) {
+            return course.name || course.course || course.course_name || course.code || course.id;
+        }).filter(Boolean);
+        return names.length ? names : COURSES;
+    }
+
+    function getBatchNames() {
+        const fromTable = batchesCache.map(function (batch) {
+            return batch.name || batch.batch || batch.batch_name || batch.code || batch.id;
+        }).filter(Boolean);
+        if (fromTable.length) {
+            return fromTable;
+        }
+        return studentsCache.map(function (student) {
+            return student.batch;
+        }).filter(Boolean);
+    }
+
+    function parseCsv(text) {
+        const rows = [];
+        let row = [];
+        let cell = "";
+        let quoted = false;
+        for (let index = 0; index < text.length; index += 1) {
+            const char = text[index];
+            const next = text[index + 1];
+            if (char === '"' && quoted && next === '"') {
+                cell += '"';
+                index += 1;
+            } else if (char === '"') {
+                quoted = !quoted;
+            } else if (char === "," && !quoted) {
+                row.push(cell);
+                cell = "";
+            } else if ((char === "\n" || char === "\r") && !quoted) {
+                if (char === "\r" && next === "\n") {
+                    index += 1;
+                }
+                row.push(cell);
+                if (row.some(function (value) { return String(value).trim(); })) {
+                    rows.push(row);
+                }
+                row = [];
+                cell = "";
+            } else {
+                cell += char;
+            }
+        }
+        row.push(cell);
+        if (row.some(function (value) { return String(value).trim(); })) {
+            rows.push(row);
+        }
+        return rows;
+    }
+
+    function rowsToObjects(rows) {
+        const headers = (rows[0] || []).map(function (header) {
+            return String(header || "").trim();
+        });
+        return rows.slice(1).map(function (row, index) {
+            const record = { __rowNumber: index + 2 };
+            headers.forEach(function (header, columnIndex) {
+                record[header] = row[columnIndex] == null ? "" : row[columnIndex];
+            });
+            return record;
+        }).filter(function (record) {
+            return BULK_COLUMNS.some(function (column) {
+                return String(record[column] || "").trim();
+            });
+        });
+    }
+
+    function readImportFile(file) {
+        return new Promise(function (resolve, reject) {
+            const reader = new FileReader();
+            reader.onerror = function () {
+                reject(new Error("Could not read import file."));
+            };
+            reader.onload = function (event) {
+                try {
+                    const name = file.name.toLowerCase();
+                    if (name.endsWith(".csv")) {
+                        resolve(rowsToObjects(parseCsv(String(event.target.result || ""))));
+                        return;
+                    }
+                    if (!window.XLSX) {
+                        reject(new Error("Excel parser did not load. Refresh and try again, or upload CSV."));
+                        return;
+                    }
+                    const workbook = window.XLSX.read(event.target.result, { type: "array" });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    resolve(window.XLSX.utils.sheet_to_json(sheet, { defval: "" }).map(function (row, index) {
+                        row.__rowNumber = index + 2;
+                        return row;
+                    }));
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            if (file.name.toLowerCase().endsWith(".csv")) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        });
+    }
+
+    function getBulkValue(row, column) {
+        return String(row[column] == null ? "" : row[column]).trim();
+    }
+
+    function normalizeImportDate(value) {
+        if (!value) {
+            return "";
+        }
+        if (typeof value === "number" && window.XLSX && window.XLSX.SSF) {
+            const parsed = window.XLSX.SSF.parse_date_code(value);
+            if (parsed) {
+                return parsed.y + "-" + String(parsed.m).padStart(2, "0") + "-" + String(parsed.d).padStart(2, "0");
+            }
+        }
+        return window.VinayakAuth.normalizeDateValue(value);
+    }
+
+    function buildBulkEmis(row) {
+        const remaining = toNumber(getBulkValue(row, "Remaining Fee"));
+        const count = Math.floor(toNumber(getBulkValue(row, "Number of EMI")));
+        const firstDueDate = normalizeImportDate(getBulkValue(row, "First EMI Due Date"));
+        if (remaining <= 0) {
+            return [];
+        }
+        if (!count || count < 1 || !firstDueDate) {
+            throw new Error("Valid EMI count and first EMI due date are required.");
+        }
+        const baseAmount = Math.floor((remaining / count) * 100) / 100;
+        let allocated = 0;
+        return Array.from({ length: count }, function (_, index) {
+            const amount = index === count - 1 ? Number((remaining - allocated).toFixed(2)) : baseAmount;
+            allocated += amount;
+            return { emi_number: index + 1, amount: amount, due_date: addMonths(firstDueDate, index), status: "pending" };
+        });
+    }
+
+    function validateBulkRows(rawRows) {
+        const existingIds = studentsCache.map(function (student) { return normalizeKey(getIdentifier(student)); });
+        const existingMobiles = studentsCache.map(function (student) { return normalizeKey(student.mobile); }).filter(Boolean);
+        const seenIds = [];
+        const seenMobiles = [];
+        const courseNames = getCourseNames().map(normalizeKey);
+        const batchNames = getBatchNames().map(normalizeKey);
+
+        bulkRows = rawRows.map(function (row) {
+            const id = getBulkValue(row, "Student ID");
+            const mobile = getBulkValue(row, "Mobile");
+            const course = getBulkValue(row, "Course").toUpperCase();
+            const batch = getBulkValue(row, "Batch");
+            const totalFee = toNumber(getBulkValue(row, "Total Fee"));
+            const advanceFee = toNumber(getBulkValue(row, "Advance Fee"));
+            const remainingFee = toNumber(getBulkValue(row, "Remaining Fee"));
+            const errors = [];
+
+            if (!id || !getBulkValue(row, "Password") || !getBulkValue(row, "Student Name") || !mobile || !course || !batch) errors.push("Missing required fields");
+            if (!validateMobile(mobile, true)) errors.push("Invalid mobile");
+            if (existingIds.includes(normalizeKey(id)) || seenIds.includes(normalizeKey(id))) errors.push("Duplicate Student ID");
+            if (existingMobiles.includes(normalizeKey(mobile)) || seenMobiles.includes(normalizeKey(mobile))) errors.push("Duplicate Mobile");
+            if (!courseNames.includes(normalizeKey(course))) errors.push("Course does not exist");
+            if (batchNames.length && !batchNames.includes(normalizeKey(batch))) errors.push("Batch does not exist");
+            if (totalFee <= 0 || advanceFee < 0 || remainingFee < 0 || Math.abs(totalFee - advanceFee - remainingFee) > 0.01) errors.push("Invalid fee values");
+            try { buildBulkEmis(row); } catch (error) { errors.push(error.message); }
+
+            seenIds.push(normalizeKey(id));
+            seenMobiles.push(normalizeKey(mobile));
+            return { row: row, status: errors.length ? (errors.join(" ").includes("Duplicate") ? "duplicate" : "invalid") : "valid", errors: errors };
+        });
+        renderBulkRows();
+    }
+
+    function renderBulkRows() {
+        const tbody = document.getElementById("bulkImportTableBody");
+        if (!tbody) return;
+        const query = getValue("bulkSearchInput").toLowerCase();
+        const rows = bulkRows.filter(function (item) {
+            return !query || [getBulkValue(item.row, "Student ID"), getBulkValue(item.row, "Student Name"), getBulkValue(item.row, "Mobile"), item.status, item.errors.join(" ")].some(function (value) {
+                return String(value || "").toLowerCase().includes(query);
+            });
+        });
+        tbody.innerHTML = rows.length ? rows.map(function (item) {
+            const row = item.row;
+            return "<tr><td>" + escapeHtml(row.__rowNumber) + "</td><td>" + escapeHtml(getBulkValue(row, "Student ID")) + "</td><td>" + escapeHtml(getBulkValue(row, "Student Name")) + "</td><td>" + escapeHtml(getBulkValue(row, "Mobile")) + "</td><td>" + escapeHtml(getBulkValue(row, "Course")) + "</td><td>" + escapeHtml(getBulkValue(row, "Batch")) + '</td><td><span class="status-badge ' + (item.status === "valid" ? "status-paid" : "status-due") + '">' + escapeHtml(item.status) + "</span></td><td>" + escapeHtml(item.errors.join("; ") || "Ready") + "</td></tr>";
+        }).join("") : '<tr><td colspan="8" class="admin-empty">No import rows loaded.</td></tr>';
+        setText("bulkValidCount", bulkRows.filter(function (item) { return item.status === "valid"; }).length);
+        setText("bulkDuplicateCount", bulkRows.filter(function (item) { return item.status === "duplicate"; }).length);
+        setText("bulkInvalidCount", bulkRows.filter(function (item) { return item.status === "invalid"; }).length);
+        setText("bulkFailedCount", bulkRows.filter(function (item) { return item.status === "failed"; }).length);
+        document.getElementById("importStudentsBtn").disabled = !bulkRows.some(function (item) { return item.status === "valid"; });
+    }
+
+    async function validateBulkImport() {
+        clearPanelMessage();
+        const file = document.getElementById("bulkImportFile").files[0];
+        if (!file) {
+            setPanelMessage("Choose a CSV or Excel file first.", "error");
+            return;
+        }
+        try {
+            const rows = await readImportFile(file);
+            validateBulkRows(rows);
+            setPanelMessage("Import file validated. Review the summary before importing.", "success");
+        } catch (error) {
+            console.error("Bulk validation failed", error);
+            setPanelMessage(error.message || "Could not validate import file.", "error");
+        }
+    }
+
+    function buildBulkPayload(item) {
+        const row = item.row;
+        const id = getBulkValue(row, "Student ID");
+        const course = getBulkValue(row, "Course").toUpperCase();
+        const remainingFee = toNumber(getBulkValue(row, "Remaining Fee"));
+        const emis = buildBulkEmis(row);
+        return {
+            student: {
+                id: id,
+                password: getBulkValue(row, "Password"),
+                name: getBulkValue(row, "Student Name"),
+                father_name: getBulkValue(row, "Father Name"),
+                mobile: getBulkValue(row, "Mobile"),
+                alternate_mobile: getBulkValue(row, "Alternate Mobile") || null,
+                email: getBulkValue(row, "Email") || null,
+                address: getBulkValue(row, "Address"),
+                course: course,
+                batch: getBulkValue(row, "Batch"),
+                admission_date: normalizeImportDate(getBulkValue(row, "Admission Date")),
+                course_duration: getBulkValue(row, "Course Duration"),
+                account_status: "active",
+                fees_status: "paid",
+                due_date: emis.length ? emis[0].due_date : null,
+                payment_note: remainingFee > 0 ? "Bulk EMI schedule created" : "Fee paid in full"
+            },
+            fee: {
+                student_id: id,
+                total_fee: toNumber(getBulkValue(row, "Total Fee")),
+                admission_fee: toNumber(getBulkValue(row, "Advance Fee")),
+                remaining_fee: remainingFee,
+                paid_amount: toNumber(getBulkValue(row, "Advance Fee")),
+                status: remainingFee > 0 ? "pending" : "paid"
+            },
+            emis: emis.map(function (emi) {
+                return Object.assign({}, emi, { student_id: id, paid_date: null });
+            })
+        };
+    }
+
+    async function importBulkStudents() {
+        clearPanelMessage();
+        const validRows = bulkRows.filter(function (item) { return item.status === "valid"; });
+        if (!validRows.length) {
+            setPanelMessage("No valid rows available for import.", "error");
+            return;
+        }
+        const client = window.VinayakAuth.getClient();
+        let imported = 0;
+        let failed = 0;
+        for (const item of validRows) {
+            try {
+                const payload = buildBulkPayload(item);
+                const studentResult = await client.from(window.VinayakAuth.getStudentsTableName()).insert([payload.student]);
+                if (studentResult.error) throw studentResult.error;
+                const feeResult = await client.from("student_fees").insert([payload.fee]);
+                if (feeResult.error) throw feeResult.error;
+                if (payload.emis.length) {
+                    const emiResult = await client.from("emis").insert(payload.emis);
+                    if (emiResult.error) throw emiResult.error;
+                }
+                item.status = "imported";
+                item.errors = ["Imported successfully"];
+                imported += 1;
+            } catch (error) {
+                console.error("Bulk row import failed", item, error);
+                item.status = "failed";
+                item.errors = [error.message || "Import failed"];
+                failed += 1;
+            }
+        }
+        setText("bulkFailedCount", failed);
+        renderBulkRows();
+        await refreshAll();
+        setPanelMessage("Bulk import complete. Imported: " + imported + ". Failed: " + failed + ".", failed ? "error" : "success");
+    }
+
+    function downloadBlob(filename, content, type) {
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([content], { type: type }));
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    function toCsv(rows) {
+        return rows.map(function (row) {
+            return row.map(function (cell) {
+                return '"' + String(cell == null ? "" : cell).replace(/"/g, '""') + '"';
+            }).join(",");
+        }).join("\n");
+    }
+
+    function downloadSampleCsv() {
+        downloadBlob("student-import-template.csv", toCsv([BULK_COLUMNS]), "text/csv;charset=utf-8");
+    }
+
+    function downloadSampleExcel() {
+        if (!window.XLSX) {
+            downloadSampleCsv();
+            return;
+        }
+        const worksheet = window.XLSX.utils.aoa_to_sheet([BULK_COLUMNS]);
+        const workbook = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+        window.XLSX.writeFile(workbook, "student-import-template.xlsx");
+    }
+
+    function getExportRows() {
+        return [BULK_COLUMNS.slice(0, 15)].concat(studentsCache.map(function (student) {
+            const fee = getStudentFees(getIdentifier(student));
+            return [getIdentifier(student), student.password, student.name, student.father_name, student.mobile, student.alternate_mobile, student.email, student.address, student.course, student.batch, student.admission_date, student.course_duration, fee.total_fee, fee.admission_fee, fee.remaining_fee];
+        }));
+    }
+
+    function exportStudentsCsv() {
+        downloadBlob("students-export.csv", toCsv(getExportRows()), "text/csv;charset=utf-8");
+    }
+
+    function exportStudentsExcel() {
+        if (!window.XLSX) {
+            exportStudentsCsv();
+            return;
+        }
+        const worksheet = window.XLSX.utils.aoa_to_sheet(getExportRows());
+        const workbook = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+        window.XLSX.writeFile(workbook, "students-export.xlsx");
+    }
+
     async function refreshAll() {
         studentsCache = await fetchStudents();
         feesCache = await fetchTable("student_fees");
         emisCache = await fetchTable("emis");
+        coursesCache = await fetchOptionalTable("courses");
+        batchesCache = await fetchOptionalTable("batches");
         updateBatchFilter();
         applyStudentFilter();
         renderEmis();
@@ -749,6 +1116,13 @@
         });
         document.getElementById("dashboardCourseFilter").addEventListener("change", renderDashboard);
         document.getElementById("emiSearchInput").addEventListener("input", renderEmis);
+        document.getElementById("validateImportBtn").addEventListener("click", validateBulkImport);
+        document.getElementById("importStudentsBtn").addEventListener("click", importBulkStudents);
+        document.getElementById("downloadSampleCsvBtn").addEventListener("click", downloadSampleCsv);
+        document.getElementById("downloadSampleExcelBtn").addEventListener("click", downloadSampleExcel);
+        document.getElementById("bulkSearchInput").addEventListener("input", renderBulkRows);
+        document.getElementById("exportStudentsCsvBtn").addEventListener("click", exportStudentsCsv);
+        document.getElementById("exportStudentsExcelBtn").addEventListener("click", exportStudentsExcel);
         document.getElementById("adminGlobalSearch").addEventListener("input", function () {
             setValue("studentSearchInput", getValue("adminGlobalSearch"));
             showAdminSection("students");

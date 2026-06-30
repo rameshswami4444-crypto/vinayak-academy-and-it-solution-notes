@@ -125,7 +125,7 @@
                     escapeAttribute(subject.description),
                     '</p><span class="topic-count">',
                     String(subject.topics.length),
-                    " topics</span>"
+                    ' topics</span><button type="button" class="course-continue-btn">Continue</button>'
                 ].join("");
 
                 subjectCard.addEventListener("click", function () {

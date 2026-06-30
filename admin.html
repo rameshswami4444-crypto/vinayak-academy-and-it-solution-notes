@@ -14,6 +14,7 @@
             <nav class="erp-nav" aria-label="Admin sections">
                 <button type="button" class="erp-nav-link active" data-admin-section-target="dashboard"><i class="fas fa-chart-pie"></i><span>Dashboard</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="admissions"><i class="fas fa-user-plus"></i><span>Admissions</span></button>
+                <button type="button" class="erp-nav-link" data-admin-section-target="bulk-import"><i class="fas fa-file-import"></i><span>Bulk Student Import</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="students"><i class="fas fa-users"></i><span>Students</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="courses"><i class="fas fa-book-open"></i><span>Courses</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="batches"><i class="fas fa-layer-group"></i><span>Batches</span></button>
@@ -103,10 +104,45 @@
                 </form>
             </section>
 
+            <section class="admin-section" data-admin-section="bulk-import">
+                <div class="admin-hero">
+                    <div><h2>Bulk Student Import</h2><p class="admin-hero-copy">Upload CSV or Excel, validate records, and create students, fee summaries, and EMI schedules.</p></div>
+                    <div class="erp-quick-actions">
+                        <button type="button" class="table-action-btn" id="downloadSampleCsvBtn"><i class="fas fa-file-csv"></i> Sample CSV</button>
+                        <button type="button" class="table-action-btn" id="downloadSampleExcelBtn"><i class="fas fa-file-excel"></i> Sample Excel</button>
+                    </div>
+                </div>
+                <section class="admin-card">
+                    <h3><i class="fas fa-upload"></i> Upload Student File</h3>
+                    <div class="erp-form-grid">
+                        <div class="login-field erp-span-2">
+                            <label for="bulkImportFile">Excel or CSV File</label>
+                            <input type="file" id="bulkImportFile" accept=".csv,.xlsx,.xls">
+                        </div>
+                    </div>
+                    <div class="admin-form-actions">
+                        <button type="button" class="login-btn" id="validateImportBtn"><i class="fas fa-list-check"></i> Validate Data</button>
+                        <button type="button" class="logout-btn admin-secondary-btn" id="importStudentsBtn" disabled><i class="fas fa-database"></i> Import Valid Rows</button>
+                    </div>
+                </section>
+                <section class="erp-stats-grid bulk-summary-grid">
+                    <article class="erp-stat-card"><span><i class="fas fa-circle-check"></i></span><small>Ready to Import</small><strong id="bulkValidCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-copy"></i></span><small>Duplicate Records</small><strong id="bulkDuplicateCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-triangle-exclamation"></i></span><small>Invalid Rows</small><strong id="bulkInvalidCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-xmark"></i></span><small>Failed Rows</small><strong id="bulkFailedCount">0</strong></article>
+                </section>
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header"><h3><i class="fas fa-table"></i> Import Preview</h3><div class="login-field admin-search-field"><label for="bulkSearchInput">Search Imported Students</label><input type="search" id="bulkSearchInput" placeholder="Search preview rows"></div></div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Row</th><th>Student ID</th><th>Name</th><th>Mobile</th><th>Course</th><th>Batch</th><th>Status</th><th>Message</th></tr></thead><tbody id="bulkImportTableBody"></tbody></table></div>
+                </section>
+            </section>
+
             <section class="admin-section" data-admin-section="students">
                 <div class="admin-hero"><div><h2>Student Management</h2><p class="admin-hero-copy">Search, view profile, edit, disable, or delete students.</p></div></div>
                 <section class="admin-card admin-table-card">
                     <div class="admin-table-header"><h3><i class="fas fa-users"></i> Student List</h3><div class="erp-table-tools">
+                        <button type="button" class="table-action-btn" id="exportStudentsCsvBtn"><i class="fas fa-file-csv"></i> CSV</button>
+                        <button type="button" class="table-action-btn" id="exportStudentsExcelBtn"><i class="fas fa-file-excel"></i> Excel</button>
                         <div class="login-field admin-search-field"><label for="studentSearchInput">Search</label><input type="search" id="studentSearchInput" placeholder="ID, name, mobile"></div>
                         <div class="login-field erp-filter-field"><label for="studentCourseFilter">Course</label><select id="studentCourseFilter"><option value="">All</option><option value="ECCE">ECCE</option><option value="ADFA">ADFA</option><option value="DCFA">DCFA</option><option value="EXCEL">EXCEL</option><option value="RS-CIT">RS-CIT</option><option value="CCC">CCC</option></select></div>
                         <div class="login-field erp-filter-field"><label for="studentBatchFilter">Batch</label><select id="studentBatchFilter"><option value="">All</option></select></div>
@@ -158,8 +194,9 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="JS/supabase-config.js"></script>
     <script src="JS/auth.js"></script>
-    <script src="JS/admin.js?v=desktop-admission-fix-20260629"></script>
+    <script src="JS/admin.js?v=bulk-import-20260630"></script>
 </body>
 </html>
