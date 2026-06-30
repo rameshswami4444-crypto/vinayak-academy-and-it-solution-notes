@@ -4,6 +4,7 @@
     let studentsCache = [];
     let feesCache = [];
     let emisCache = [];
+    let paymentsCache = [];
     let coursesCache = [];
     let batchesCache = [];
     let bulkRows = [];
@@ -154,6 +155,16 @@
             })
             .sort(function (a, b) {
                 return Number(a.emi_number || 0) - Number(b.emi_number || 0);
+            });
+    }
+
+    function getStudentPayments(studentId) {
+        return paymentsCache
+            .filter(function (payment) {
+                return String(payment.student_id || payment.studentId || "") === String(studentId);
+            })
+            .sort(function (a, b) {
+                return String(b.payment_date || b.created_at || "").localeCompare(String(a.payment_date || a.created_at || ""));
             });
     }
 
@@ -438,7 +449,7 @@
         const batch = getValue("studentBatchFilter");
         const status = getValue("studentStatusFilter");
         renderStudents(studentsCache.filter(function (student) {
-            const matchesQuery = !query || [getIdentifier(student), student.name, student.mobile].some(function (value) {
+            const matchesQuery = !query || [getIdentifier(student), student.name, student.father_name, student.mobile, student.course, student.batch].some(function (value) {
                 return String(value || "").toLowerCase().includes(query);
             });
             return matchesQuery && (!course || student.course === course) && (!batch || student.batch === batch) && (!status || student.account_status === status);
@@ -488,55 +499,231 @@
     }
 
     function fillEditForm(student) {
+        if (!student) {
+            setPanelMessage("Student record not found.", "error");
+            return;
+        }
+        const studentId = getIdentifier(student);
+        const fees = getStudentFees(studentId);
+        const emis = getStudentEmis(studentId);
+        const upcoming = emis.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid"; })[0];
+        const form = document.getElementById("editStudentForm");
+        if (form) {
+            form.dataset.originalStudentId = studentId;
+        }
         setValue("editStudentId", getIdentifier(student));
         setValue("editStudentName", student.name || "");
+        setValue("editFatherName", student.father_name || "");
         setValue("editMobile", student.mobile || "");
+        setValue("editAlternateMobile", student.alternate_mobile || "");
+        setValue("editEmail", student.email || "");
         setValue("editStudentPassword", student.password || "");
         setValue("editStudentCourse", student.course || "");
         setValue("editBatch", student.batch || "");
+        setValue("editAdmissionDate", student.admission_date || "");
+        setValue("editCourseDuration", student.course_duration || "");
         setValue("editAccountStatus", student.account_status || "active");
-        setValue("editDueDate", student.due_date || "");
+        setValue("editFeesStatus", fees.status || student.fees_status || "pending");
+        setValue("editTotalFee", fees.total_fee || "");
+        setValue("editAdvanceFee", fees.admission_fee || fees.paid_amount || "");
+        setValue("editRemainingFee", fees.remaining_fee || "");
+        setValue("editDueDate", student.due_date || (upcoming && upcoming.due_date) || "");
+        setValue("editAddress", student.address || "");
         setValue("editPaymentNote", student.payment_note || "");
+        renderEditEmis(studentId);
     }
 
     function clearEditForm() {
         const form = document.getElementById("editStudentForm");
         if (form) {
             form.reset();
+            delete form.dataset.originalStudentId;
         }
         setValue("editAccountStatus", "active");
+        setValue("editFeesStatus", "pending");
+        renderEditEmis("");
+    }
+
+    function renderEditEmis(studentId) {
+        const tbody = document.getElementById("editEmiTableBody");
+        if (!tbody) {
+            return;
+        }
+        if (!studentId) {
+            tbody.innerHTML = '<tr><td colspan="6" class="admin-empty">Select a student to edit EMI schedule.</td></tr>';
+            return;
+        }
+        const rows = getStudentEmis(studentId);
+        tbody.innerHTML = rows.length ? rows.map(function (emi) {
+            const key = escapeHtml(emi.id || emi.emi_number);
+            return [
+                '<tr data-edit-emi-row data-emi-key="', key, '" data-student-id="', escapeHtml(studentId), '">',
+                '<td><input type="number" min="1" data-edit-emi-number value="', escapeHtml(emi.emi_number), '"></td>',
+                '<td><input type="number" min="0" step="0.01" data-edit-emi-amount value="', escapeHtml(emi.amount), '"></td>',
+                '<td><input type="date" data-edit-emi-due value="', escapeHtml(emi.due_date || ""), '"></td>',
+                '<td><select data-edit-emi-status><option value="pending"', normalizeEmiStatus(emi.status) === "pending" ? " selected" : "", '>Pending</option><option value="paid"', normalizeEmiStatus(emi.status) === "paid" ? " selected" : "", '>Paid</option><option value="overdue"', normalizeEmiStatus(emi.status) === "overdue" ? " selected" : "", '>Overdue</option></select></td>',
+                '<td><input type="date" data-edit-emi-paid value="', escapeHtml(emi.paid_date || ""), '"></td>',
+                '<td><button type="button" class="table-action-btn danger-btn" data-delete-edit-emi="', key, '" data-delete-emi-student="', escapeHtml(studentId), '">Delete</button></td>',
+                '</tr>'
+            ].join("");
+        }).join("") : '<tr><td colspan="6" class="admin-empty">No EMI records. Use Add EMI to create one.</td></tr>';
+    }
+
+    function getCurrentEditStudentId() {
+        const form = document.getElementById("editStudentForm");
+        return getValue("editStudentId") || (form && form.dataset.originalStudentId) || "";
+    }
+
+    async function addEditEmi() {
+        const studentId = getCurrentEditStudentId();
+        if (!studentId) {
+            setPanelMessage("Select a student before adding EMI.", "error");
+            return;
+        }
+        const rows = getStudentEmis(studentId);
+        const payload = {
+            student_id: studentId,
+            emi_number: rows.length ? Math.max.apply(null, rows.map(function (emi) { return Number(emi.emi_number || 0); })) + 1 : 1,
+            amount: 0,
+            due_date: getTodayDateString(),
+            status: "pending",
+            paid_date: null
+        };
+        const { error } = await window.VinayakAuth.getClient().from("emis").insert([payload]);
+        if (error) {
+            setPanelMessage(error.message || "Could not add EMI.", "error");
+            return;
+        }
+        setPanelMessage("EMI added.", "success");
+        await refreshAll();
+        renderEditEmis(studentId);
+    }
+
+    function getEditedEmiPayload(row) {
+        const status = normalizeEmiStatus(row.querySelector("[data-edit-emi-status]").value);
+        return {
+            emi_number: Number(row.querySelector("[data-edit-emi-number]").value || 0),
+            amount: toNumber(row.querySelector("[data-edit-emi-amount]").value),
+            due_date: row.querySelector("[data-edit-emi-due]").value || null,
+            status: status,
+            paid_date: status === "paid" ? (row.querySelector("[data-edit-emi-paid]").value || getTodayDateString()) : (row.querySelector("[data-edit-emi-paid]").value || null)
+        };
+    }
+
+    async function updateEditEmi(row) {
+        const studentId = row.getAttribute("data-student-id");
+        const key = row.getAttribute("data-emi-key");
+        const emi = emisCache.find(function (item) {
+            return String(item.student_id) === String(studentId) && (String(item.id || "") === String(key) || String(item.emi_number) === String(key));
+        });
+        if (!emi) {
+            setPanelMessage("EMI record not found.", "error");
+            return;
+        }
+        const payload = getEditedEmiPayload(row);
+        const query = window.VinayakAuth.getClient().from("emis").update(payload);
+        const result = emi.id ? await query.eq("id", emi.id) : await query.eq("student_id", studentId).eq("emi_number", emi.emi_number);
+        if (result.error) {
+            setPanelMessage(result.error.message || "Could not update EMI.", "error");
+            return;
+        }
+        await syncStudentLock(studentId);
+        setPanelMessage("EMI updated.", "success");
+        await refreshAll();
+        renderEditEmis(studentId);
+    }
+
+    async function deleteEditEmi(studentId, emiKey) {
+        if (!window.confirm("Delete this EMI record?")) {
+            return;
+        }
+        const emi = emisCache.find(function (item) {
+            return String(item.student_id) === String(studentId) && (String(item.id || "") === String(emiKey) || String(item.emi_number) === String(emiKey));
+        });
+        if (!emi) {
+            setPanelMessage("EMI record not found.", "error");
+            return;
+        }
+        const query = window.VinayakAuth.getClient().from("emis").delete();
+        const result = emi.id ? await query.eq("id", emi.id) : await query.eq("student_id", studentId).eq("emi_number", emi.emi_number);
+        if (result.error) {
+            setPanelMessage(result.error.message || "Could not delete EMI.", "error");
+            return;
+        }
+        await syncStudentLock(studentId);
+        setPanelMessage("EMI deleted.", "success");
+        await refreshAll();
+        renderEditEmis(studentId);
     }
 
     async function updateStudent(event) {
         event.preventDefault();
         clearPanelMessage();
+        const form = document.getElementById("editStudentForm");
+        const originalStudentId = (form && form.dataset.originalStudentId) || getValue("editStudentId");
         const studentId = getValue("editStudentId");
-        if (!studentId || !getValue("editStudentName") || !validateMobile(getValue("editMobile"), true)) {
+        if (!studentId || !getValue("editStudentName") || !validateMobile(getValue("editMobile"), true) || !validateMobile(getValue("editAlternateMobile"), false)) {
             setPanelMessage("Student ID, name, and valid mobile are required.", "error");
             return;
         }
         try {
+            const client = window.VinayakAuth.getClient();
             const status = normalizeStatus(getValue("editAccountStatus"));
+            const feesStatus = getValue("editFeesStatus") || (status === "active" ? "paid" : "due");
             const payload = {
+                id: studentId,
                 name: getValue("editStudentName"),
+                father_name: getValue("editFatherName") || null,
                 mobile: getValue("editMobile"),
+                alternate_mobile: getValue("editAlternateMobile") || null,
+                email: getValue("editEmail") || null,
                 password: getValue("editStudentPassword"),
                 course: window.VinayakAuth.normalizeSingleCourse(getValue("editStudentCourse")),
                 batch: getValue("editBatch"),
+                admission_date: getValue("editAdmissionDate") || null,
+                course_duration: getValue("editCourseDuration") || null,
                 account_status: status,
-                fees_status: status === "active" ? "paid" : "due",
+                fees_status: feesStatus === "paid" ? "paid" : "due",
                 due_date: getValue("editDueDate") || null,
+                address: getValue("editAddress") || null,
                 payment_note: getValue("editPaymentNote") || null
             };
-            const { error } = await window.VinayakAuth.getClient()
+            const { error } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .update(payload)
-                .eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId);
+                .eq(window.VinayakAuth.getStudentIdentifierColumn(), originalStudentId);
             if (error) {
                 throw error;
             }
+            if (studentId !== originalStudentId) {
+                const feeIdResult = await client.from("student_fees").update({ student_id: studentId }).eq("student_id", originalStudentId);
+                if (feeIdResult.error) throw feeIdResult.error;
+                const emiIdResult = await client.from("emis").update({ student_id: studentId }).eq("student_id", originalStudentId);
+                if (emiIdResult.error) throw emiIdResult.error;
+                const paymentIdResult = await client.from("payments").update({ student_id: studentId }).eq("student_id", originalStudentId);
+                if (paymentIdResult.error) console.warn("Payment student ID sync skipped", paymentIdResult.error);
+            }
+            const feePayload = {
+                student_id: studentId,
+                total_fee: toNumber(getValue("editTotalFee")),
+                admission_fee: toNumber(getValue("editAdvanceFee")),
+                paid_amount: toNumber(getValue("editAdvanceFee")),
+                remaining_fee: toNumber(getValue("editRemainingFee")),
+                status: feesStatus
+            };
+            const existingFee = getStudentFees(originalStudentId) || getStudentFees(studentId);
+            const feeResult = existingFee.student_id
+                ? await client.from("student_fees").update(feePayload).eq("student_id", studentId)
+                : await client.from("student_fees").insert([feePayload]);
+            if (feeResult.error) {
+                throw feeResult.error;
+            }
+            if (form) {
+                form.dataset.originalStudentId = studentId;
+            }
             setPanelMessage("Student details updated.", "success");
             await refreshAll();
+            renderEditEmis(studentId);
         } catch (error) {
             console.error("Student update failed", error);
             setPanelMessage(error.message || "Could not update student.", "error");
@@ -591,6 +778,7 @@
         }
         const fees = getStudentFees(studentId);
         const emis = getStudentEmis(studentId);
+        const payments = getStudentPayments(studentId);
         const overdue = emis.filter(function (emi) { return normalizeEmiStatus(emi.status) === "overdue"; });
         const upcoming = emis.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid"; })[0];
         const profile = document.getElementById("studentProfileCard");
@@ -599,7 +787,10 @@
             profileBlock("Personal Details", [["Student ID", studentId], ["Name", student.name], ["Father Name", student.father_name], ["Mobile", student.mobile], ["Alternate Mobile", student.alternate_mobile], ["Email", student.email], ["Address", student.address]]),
             profileBlock("Course", [["Course", student.course], ["Batch", student.batch], ["Admission Date", student.admission_date], ["Duration", student.course_duration]]),
             profileBlock("Fee Summary", [["Total Fee", money(fees.total_fee)], ["Admission Fee", money(fees.admission_fee)], ["Remaining Fee", money(fees.remaining_fee)], ["Payment Status", fees.status || student.fees_status]]),
-            profileBlock("EMI Summary", [["Total EMIs", emis.length], ["Upcoming EMI", upcoming ? "EMI " + upcoming.emi_number + " - " + money(upcoming.amount) + " due " + upcoming.due_date : "-"], ["Overdue EMI", overdue.length], ["Account Status", student.account_status]])
+            profileBlock("EMI Summary", [["Total EMIs", emis.length], ["Upcoming EMI", upcoming ? "EMI " + upcoming.emi_number + " - " + money(upcoming.amount) + " due " + upcoming.due_date : "-"], ["Overdue EMI", overdue.length], ["Account Status", student.account_status]]),
+            profileBlock("Payment History", payments.length ? payments.slice(0, 6).map(function (payment) {
+                return [payment.payment_date || payment.created_at || "Payment", money(payment.amount || payment.paid_amount || payment.payment_amount) + " - " + (payment.status || payment.mode || "recorded")];
+            }) : [["Payments", "No payment records found"]])
         ].join("");
         profile.hidden = false;
         profile.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1013,6 +1204,7 @@
         studentsCache = await fetchStudents();
         feesCache = await fetchTable("student_fees");
         emisCache = await fetchTable("emis");
+        paymentsCache = await fetchOptionalTable("payments");
         coursesCache = await fetchOptionalTable("courses");
         batchesCache = await fetchOptionalTable("batches");
         updateBatchFilter();
@@ -1105,6 +1297,15 @@
         });
         document.getElementById("adminMenuBtn").addEventListener("click", function () {
             document.body.classList.toggle("admin-sidebar-open");
+        });
+        document.getElementById("addEditEmiBtn").addEventListener("click", addEditEmi);
+        document.getElementById("editEmiTableBody").addEventListener("change", function (event) {
+            const row = event.target.closest("[data-edit-emi-row]");
+            if (row) updateEditEmi(row);
+        });
+        document.getElementById("editEmiTableBody").addEventListener("click", function (event) {
+            const button = event.target.closest("[data-delete-edit-emi]");
+            if (button) deleteEditEmi(button.getAttribute("data-delete-emi-student"), button.getAttribute("data-delete-edit-emi"));
         });
         document.getElementById("clearEditStudentBtn").addEventListener("click", clearEditForm);
         document.getElementById("closeProfileBtn").addEventListener("click", function () {

@@ -157,16 +157,30 @@
                     <article class="admin-card" id="editStudentCard"><h3><i class="fas fa-user-pen"></i> Edit Student</h3>
                         <form id="editStudentForm" class="admin-form">
                             <div class="erp-form-grid">
-                                <div class="login-field"><label for="editStudentId">Student ID</label><input type="text" id="editStudentId" required readonly></div>
+                                <div class="login-field"><label for="editStudentId">Student ID</label><input type="text" id="editStudentId" required></div>
                                 <div class="login-field"><label for="editStudentName">Name</label><input type="text" id="editStudentName" required></div>
+                                <div class="login-field"><label for="editFatherName">Father Name</label><input type="text" id="editFatherName"></div>
                                 <div class="login-field"><label for="editMobile">Mobile</label><input type="tel" id="editMobile" required></div>
+                                <div class="login-field"><label for="editAlternateMobile">Alternate Mobile</label><input type="tel" id="editAlternateMobile"></div>
+                                <div class="login-field"><label for="editEmail">Email</label><input type="email" id="editEmail"></div>
                                 <div class="login-field"><label for="editStudentPassword">Password</label><input type="text" id="editStudentPassword" required></div>
                                 <div class="login-field"><label for="editStudentCourse">Course</label><select id="editStudentCourse" required><option value="">Select course</option><option value="ECCE">ECCE</option><option value="ADFA">ADFA</option><option value="DCFA">DCFA</option><option value="EXCEL">EXCEL</option><option value="RS-CIT">RS-CIT</option><option value="CCC">CCC</option></select></div>
                                 <div class="login-field"><label for="editBatch">Batch</label><input type="text" id="editBatch"></div>
+                                <div class="login-field"><label for="editAdmissionDate">Admission Date</label><input type="date" id="editAdmissionDate"></div>
+                                <div class="login-field"><label for="editCourseDuration">Course Duration</label><input type="text" id="editCourseDuration"></div>
                                 <div class="login-field"><label for="editAccountStatus">Account Status</label><select id="editAccountStatus"><option value="active">Active</option><option value="blocked">Blocked</option><option value="disabled">Disabled</option></select></div>
+                                <div class="login-field"><label for="editFeesStatus">Fees Status</label><select id="editFeesStatus"><option value="paid">Paid</option><option value="pending">Pending</option><option value="due">Due</option><option value="overdue">Overdue</option></select></div>
+                                <div class="login-field"><label for="editTotalFee">Total Fee</label><input type="number" id="editTotalFee" min="0" step="0.01"></div>
+                                <div class="login-field"><label for="editAdvanceFee">Advance Fee</label><input type="number" id="editAdvanceFee" min="0" step="0.01"></div>
+                                <div class="login-field"><label for="editRemainingFee">Remaining Fee</label><input type="number" id="editRemainingFee" min="0" step="0.01"></div>
                                 <div class="login-field"><label for="editDueDate">Due Date</label><input type="date" id="editDueDate"></div>
+                                <div class="login-field erp-span-2"><label for="editAddress">Address</label><textarea id="editAddress" rows="2"></textarea></div>
                                 <div class="login-field erp-span-2"><label for="editPaymentNote">Payment Note</label><textarea id="editPaymentNote" rows="3"></textarea></div>
                             </div>
+                            <section class="admin-card edit-emi-panel">
+                                <div class="erp-card-head"><h3><i class="fas fa-calendar-check"></i> EMI Editor</h3><button type="button" class="table-action-btn" id="addEditEmiBtn"><i class="fas fa-plus"></i> Add EMI</button></div>
+                                <div class="table-wrap"><table class="admin-table edit-emi-table"><thead><tr><th>EMI</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Paid Date</th><th>Action</th></tr></thead><tbody id="editEmiTableBody"><tr><td colspan="6" class="admin-empty">Select a student to edit EMI schedule.</td></tr></tbody></table></div>
+                            </section>
                             <div class="admin-form-actions"><button type="submit" class="login-btn"><i class="fas fa-rotate"></i> Save Changes</button><button type="button" class="logout-btn admin-secondary-btn" id="clearEditStudentBtn"><i class="fas fa-eraser"></i> Clear</button></div>
                         </form>
                     </article>

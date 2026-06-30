@@ -1093,13 +1093,26 @@ main {
 }
 
 #admissionEmiBody input,
-#admissionEmiBody select {
+#admissionEmiBody select,
+#editEmiTableBody input,
+#editEmiTableBody select {
     width: 100%;
     min-width: 110px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 0.55rem;
     font: inherit;
+}
+
+.edit-emi-panel {
+    margin-top: 1rem;
+    padding: 1rem;
+    box-shadow: none;
+}
+
+.edit-emi-table th,
+.edit-emi-table td {
+    min-width: 132px;
 }
 
 .bulk-summary-grid {
@@ -1145,6 +1158,19 @@ main {
     backdrop-filter: blur(18px);
 }
 
+.student-menu-btn {
+    display: none;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(37, 99, 235, 0.16);
+    border-radius: 12px;
+    background: white;
+    color: var(--student-accent);
+    cursor: pointer;
+}
+
 .student-brand,
 .student-top-actions,
 .student-profile-chip {
@@ -1173,6 +1199,98 @@ main {
     object-fit: contain;
     background: white;
     box-shadow: var(--shadow);
+}
+
+.student-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 850;
+    width: 236px;
+    height: 100vh;
+    padding: 5.25rem 0.7rem 1rem;
+    background: #0f2f66;
+    color: white;
+    box-shadow: 12px 0 30px rgba(15, 47, 102, 0.18);
+}
+
+.student-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0 0.5rem 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    font-weight: 900;
+}
+
+.student-sidebar-brand img {
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: white;
+}
+
+.student-sidebar-nav {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.85rem;
+}
+
+.student-sidebar-nav a,
+.student-sidebar-nav button {
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    border: 0;
+    border-radius: 12px;
+    padding: 0.75rem 0.85rem;
+    background: transparent;
+    color: #e0f2fe;
+    text-align: left;
+    text-decoration: none;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.student-sidebar-nav a:hover,
+.student-sidebar-nav button:hover,
+.student-sidebar-nav a:focus-visible,
+.student-sidebar-nav button:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+}
+
+.student-sidebar-nav i {
+    width: 24px;
+    color: #fb923c;
+    text-align: center;
+}
+
+.student-sidebar-scrim {
+    display: none;
+}
+
+.student-lms-page .student-topbar,
+.student-lms-page .student-shell,
+.student-lms-page .container,
+.student-lms-page main:not(.student-shell),
+.student-lms-page .student-footer {
+    margin-left: 236px;
+}
+
+.student-lms-page {
+    overflow-x: hidden;
+}
+
+.student-lms-page .container {
+    width: auto;
+}
+
+.student-lms-page .student-shell {
+    width: min(1180px, calc(100% - 2rem - 236px));
 }
 
 .student-icon-btn {
@@ -1777,6 +1895,47 @@ main {
         flex-direction: column;
     }
 
+    .student-lms-page .student-topbar,
+    .student-lms-page .student-shell,
+    .student-lms-page .container,
+    .student-lms-page main:not(.student-shell),
+    .student-lms-page .student-footer {
+        margin-left: 0;
+    }
+
+    .student-lms-page .student-shell {
+        width: min(100% - 1rem, 1180px);
+    }
+
+    .student-menu-btn {
+        display: inline-flex;
+        flex: 0 0 auto;
+    }
+
+    .student-sidebar {
+        z-index: 1000;
+        width: min(290px, 86vw);
+        transform: translateX(-105%);
+        transition: transform 0.25s ease;
+    }
+
+    .student-sidebar-open .student-sidebar {
+        transform: translateX(0);
+    }
+
+    .student-sidebar-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 950;
+        display: none;
+        border: 0;
+        background: rgba(15, 23, 42, 0.4);
+    }
+
+    .student-sidebar-open .student-sidebar-scrim {
+        display: block;
+    }
+
     .student-top-actions,
     .student-top-actions .logout-btn {
         width: 100%;
@@ -1790,10 +1949,6 @@ main {
     .student-stats-grid,
     .student-dashboard-grid {
         grid-template-columns: 1fr;
-    }
-
-    .student-shell {
-        width: min(100% - 1rem, 1180px);
     }
 
     .student-section-head {
