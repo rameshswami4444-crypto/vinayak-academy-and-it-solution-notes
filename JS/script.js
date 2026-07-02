@@ -151,17 +151,29 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderSubjects(courseData) {
-        const grid = document.getElementById("studentSubjectsGrid");
+        const grid = document.getElementById("subjectsGrid");
         if (!grid || !courseData) return;
-        grid.innerHTML = courseData.topics.map(function (topic, index) {
+        grid.innerHTML = [courseData].map(function (courseItem) {
             return [
-                '<article class="student-subject-card"><i class="fas fa-file-lines"></i><div><h3>',
-                topic.name,
-                '</h3><p><span>1 Notes</span><span>',
-                index % 2,
-                ' Assignments</span><span>0 Projects</span></p></div></article>'
+                '<article class="subject-card student-page-card">',
+                '<div class="subject-icon"><i class="', courseItem.icon || "fas fa-book-open", '"></i></div>',
+                '<h2>Open Course</h2>',
+                '<p>Continue into your subjects, notes, and PDF material without extra steps.</p>',
+                '<span class="topic-count">', String((courseItem.topics || []).length), ' subjects</span>',
+                '<button type="button" class="course-continue-btn" data-course-open>Continue</button>',
+                '</article>'
             ].join("");
         }).join("");
+        const button = grid.querySelector("[data-course-open]");
+        if (button) {
+            button.addEventListener("click", function () {
+                if (courseData.protected && courseData.topics[0] && courseData.topics[0].link) {
+                    window.location.href = courseData.topics[0].link;
+                    return;
+                }
+                button.closest(".subject-card").click();
+            });
+        }
     }
 
     function renderRecentMaterial(courseData, dbNotes) {
@@ -176,6 +188,30 @@ document.addEventListener("DOMContentLoaded", function () {
         }).join("") : '<div class="student-empty">No recent material yet.</div>';
     }
 
+    function renderQuickAccess(courseData) {
+        const grid = document.getElementById("studentQuickGrid");
+        if (!grid || !courseData) return;
+        const protectedLink = courseData.protected && courseData.topics[0] ? courseData.topics[0].link : "";
+        const secondLink = courseData.topics[1] ? courseData.topics[1].link : protectedLink;
+        const cards = [
+            { icon: "fa-book-open", title: "Study Material", description: "Open notes and subject-wise resources.", href: "#study-material-section" },
+            { icon: "fa-clipboard-list", title: "Assignments", description: "Go straight to assignment material.", href: protectedLink || "#subjectsGrid" },
+            { icon: "fa-square-check", title: "Solved Assignments", description: "Continue from solved or reviewed files.", href: secondLink || protectedLink || "#subjectsGrid" },
+            { icon: "fa-circle-play", title: "Video Lectures", description: "Lecture area reserved for upcoming uploads.", href: "#subjectsGrid" },
+            { icon: "fa-wallet", title: "EMI & Payments", description: "See remaining amount and next due date.", href: "#student-payments-section" },
+            { icon: "fa-user", title: "Profile", description: "Open student ID and account tools.", href: "#profile" }
+        ];
+        grid.innerHTML = cards.map(function (card) {
+            return [
+                '<article class="student-quick-card">',
+                '<div class="student-quick-icon"><i class="fas ', card.icon, '"></i></div>',
+                '<div class="student-quick-copy"><h3>', card.title, '</h3><p>', card.description, '</p></div>',
+                '<a class="student-quick-link" href="', card.href, '">Continue</a>',
+                '</article>'
+            ].join("");
+        }).join("");
+    }
+
     function renderAnnouncements(items) {
         const list = document.getElementById("announcementList");
         if (!list) return;
@@ -183,24 +219,56 @@ document.addEventListener("DOMContentLoaded", function () {
             return '<div class="student-list-item"><i class="fas fa-bullhorn"></i><span><strong>' + (item.title || item.heading || "Announcement") + '</strong><small>' + (item.message || item.description || item.created_at || "New notice") + '</small></span></div>';
         }).join("") : '<div class="student-empty">No announcements yet.</div>';
         setText("notificationCount", items ? items.length : 0);
+        document.querySelectorAll("[data-layout-notification-count]").forEach(function (node) {
+            node.textContent = String(items ? items.length : 0);
+        });
     }
 
     function renderEmi(fee, emis) {
         const card = document.getElementById("studentEmiCard");
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const unpaid = (emis || []).filter(function (emi) {
             return String(emi.status || "pending").toLowerCase() !== "paid";
         }).sort(function (a, b) {
             return String(a.due_date || "").localeCompare(String(b.due_date || ""));
         });
+        const overdue = unpaid.filter(function (emi) {
+            if (!emi.due_date) return false;
+            const dueDate = new Date(String(emi.due_date).slice(0, 10) + "T00:00:00");
+            return !Number.isNaN(dueDate.getTime()) && dueDate < today;
+        });
         const next = unpaid[0] || {};
         const remaining = fee && fee.remaining_fee != null ? fee.remaining_fee : unpaid.reduce(function (sum, emi) {
             return sum + Number(emi.amount || 0);
         }, 0);
-        setText("statRemainingEmi", money(remaining));
-        setText("statNextEmiDate", next.due_date || "-");
         if (card) {
-            card.innerHTML = '<strong>' + money(remaining) + '</strong><span>Remaining Fee</span><p>Next EMI: ' + money(next.amount) + ' | Due: ' + (next.due_date || "-") + '</p><p>Status: ' + (next.status || "No pending EMI") + '</p>';
+            card.innerHTML = [
+                '<strong>', money(remaining), '</strong>',
+                '<span>Remaining Fee</span>',
+                '<p><b>Next EMI</b> ', money(next.amount), '</p>',
+                '<p><b>Due Date</b> ', (next.due_date || "-"), '</p>',
+                '<p><b>Status</b> ', (next.status || "No pending EMI"), '</p>'
+            ].join("");
         }
+        return overdue.length > 0;
+    }
+
+    function bindProfileActions(studentId) {
+        const copyButton = document.getElementById("copyStudentIdBtn");
+        if (!copyButton || copyButton.dataset.bound) {
+            return;
+        }
+        copyButton.dataset.bound = "true";
+        copyButton.addEventListener("click", function () {
+            const id = studentId || "";
+            if (!id) {
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(id).catch(function () {});
+            }
+        });
     }
 
     async function safeFetch(table, queryBuilder) {
@@ -221,11 +289,8 @@ document.addEventListener("DOMContentLoaded", function () {
         const courseData = getCurrentCourseData(course);
 
         setText("studentIdText", studentId);
-        setText("studentIdInlineText", studentId);
-        setText("studentCourseText", course);
-        setText("statCourseName", courseData ? courseData.name : course);
-        setText("statSubjectCount", courseData ? courseData.topics.length : 0);
         renderSubjects(courseData);
+        renderQuickAccess(courseData);
 
         const students = await safeFetch(window.VinayakAuth.getStudentsTableName(), function (table) {
             return table.select("*").eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId).limit(1);
@@ -244,18 +309,18 @@ document.addEventListener("DOMContentLoaded", function () {
             return table.select("*").limit(5);
         });
 
-        const accountStatus = student.account_status || session.accountStatus || session.feesStatus || "active";
-        setText("studentWelcomeName", student.name || "Student");
-        setText("studentBatchText", student.batch || "-");
-        setText("statBatchName", student.batch || "-");
-        setText("studentStatusText", accountStatus);
-        setText("statAccountStatus", accountStatus);
-        document.getElementById("studentBlockedBanner").hidden = String(accountStatus).toLowerCase() === "active";
-        renderEmi(fees[0], emis);
+        document.querySelectorAll("[data-layout-course]").forEach(function (node) {
+            node.textContent = courseData ? courseData.name : course;
+        });
+        document.querySelectorAll("[data-layout-batch]").forEach(function (node) {
+            node.textContent = student.batch || "-";
+        });
+        const hasOverdueEmi = renderEmi(fees[0], emis);
+        document.getElementById("studentBlockedBanner").hidden = !hasOverdueEmi;
         renderRecentMaterial(courseData, notes);
         renderAnnouncements(announcements);
+        bindProfileActions(studentId);
     }
 
     window.VinayakStudentDashboard = { load: loadDashboard };
 }());
-

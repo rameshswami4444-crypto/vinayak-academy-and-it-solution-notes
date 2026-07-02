@@ -4,101 +4,225 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Vinayak Academy</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="login-prototype.css">
 </head>
-<body class="auth-pending auth-page">
-    <main class="login-shell">
-        <section class="login-panel">
-            <div class="login-brand">
-                <img src="logo.png" alt="Vinayak Academy logo" class="login-logo">
-                <p class="login-badge">Vinayak Academy And IT Solutions</p>
-                <h1>Log in to get your study metirial</h1>
-                <p class="login-subtitle">Choose your role and sign in to continue.</p>
+<body class="auth-pending">
+    <main class="prototype-shell">
+        <section class="prototype-stage">
+            <div class="prototype-panel">
+                <section class="prototype-visual" aria-hidden="true">
+                    <div class="prototype-visual-glow prototype-visual-glow-one"></div>
+                    <div class="prototype-visual-glow prototype-visual-glow-two"></div>
+                    <div class="prototype-particles">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <div class="prototype-scene">
+                        <svg class="prototype-illustration" viewBox="0 0 620 560" role="img" aria-label="Friendly original mascot illustration">
+                            <defs>
+                                <radialGradient id="orangeBlob" cx="50%" cy="40%" r="60%">
+                                    <stop offset="0%" stop-color="#FFB56C"></stop>
+                                    <stop offset="100%" stop-color="#F68B37"></stop>
+                                </radialGradient>
+                                <linearGradient id="purpleTall" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#9664FF"></stop>
+                                    <stop offset="100%" stop-color="#6C44E4"></stop>
+                                </linearGradient>
+                                <linearGradient id="pinkTall" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#FF75B3"></stop>
+                                    <stop offset="100%" stop-color="#F33E8E"></stop>
+                                </linearGradient>
+                                <linearGradient id="yellowTall" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#FFE97B"></stop>
+                                    <stop offset="100%" stop-color="#FFD849"></stop>
+                                </linearGradient>
+                                <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+                                    <feGaussianBlur stdDeviation="10"></feGaussianBlur>
+                                </filter>
+                            </defs>
+
+                            <ellipse cx="285" cy="455" rx="220" ry="34" fill="#F2E9DF"></ellipse>
+                            <ellipse cx="275" cy="448" rx="210" ry="28" fill="#EFE3D6"></ellipse>
+
+                            <g class="float-group float-back" data-mascot-face="back">
+                                <rect x="160" y="104" width="170" height="278" rx="26" fill="url(#purpleTall)"></rect>
+                                <circle cx="240" cy="160" r="11" fill="#FFFFFF"></circle>
+                                <circle cx="291" cy="160" r="11" fill="#FFFFFF"></circle>
+                                <g class="mascot-eye" data-eye="back-left" transform="translate(0 0)">
+                                    <circle cx="245" cy="160" r="3.8" fill="#171717" data-pupil></circle>
+                                    <rect x="229" y="148.4" width="22" height="0" rx="5" fill="#7B4DE8" data-lid data-lid-closed="24"></rect>
+                                </g>
+                                <g class="mascot-eye" data-eye="back-right" transform="translate(0 0)">
+                                    <circle cx="296" cy="160" r="3.8" fill="#171717" data-pupil></circle>
+                                    <rect x="280" y="148.4" width="22" height="0" rx="5" fill="#7B4DE8" data-lid data-lid-closed="24"></rect>
+                                </g>
+                                <rect x="268" y="153" width="8" height="58" rx="4" fill="#171717"></rect>
+                            </g>
+
+                            <g class="float-group float-mid" data-mascot-face="mid">
+                                <rect x="270" y="185" width="126" height="250" rx="22" fill="url(#pinkTall)"></rect>
+                                <circle cx="333" cy="244" r="12" fill="#FFFFFF"></circle>
+                                <circle cx="371" cy="244" r="12" fill="#FFFFFF"></circle>
+                                <g class="mascot-eye" data-eye="mid-left" transform="translate(0 0)">
+                                    <circle cx="337" cy="245" r="4.2" fill="#171717" data-pupil></circle>
+                                    <rect x="320" y="232" width="24" height="0" rx="6" fill="#F04B91" data-lid data-lid-closed="26"></rect>
+                                </g>
+                                <g class="mascot-eye" data-eye="mid-right" transform="translate(0 0)">
+                                    <circle cx="375" cy="245" r="4.2" fill="#171717" data-pupil></circle>
+                                    <rect x="358" y="232" width="24" height="0" rx="6" fill="#F04B91" data-lid data-lid-closed="26"></rect>
+                                </g>
+                            </g>
+
+                            <g class="float-group float-front" data-mascot-face="front">
+                                <rect x="362" y="285" width="126" height="168" rx="60" fill="url(#yellowTall)"></rect>
+                                <g class="mascot-eye" data-eye="front-left" transform="translate(0 0)">
+                                    <circle cx="405" cy="336" r="4" fill="#171717" data-pupil></circle>
+                                    <rect x="389" y="327" width="22" height="0" rx="5" fill="#FFD849" data-lid data-lid-closed="18"></rect>
+                                </g>
+                                <rect x="419" y="364" width="92" height="8" rx="4" transform="rotate(10 419 364)" fill="#171717"></rect>
+                            </g>
+
+                            <g class="float-group float-blob">
+                                <path d="M78 454C86 362 152 312 250 312C348 312 408 366 406 454H78Z" fill="url(#orangeBlob)"></path>
+                                <ellipse cx="242" cy="457" rx="166" ry="18" fill="#F08A3D" opacity="0.28" filter="url(#softGlow)"></ellipse>
+                                <circle cx="210" cy="388" r="8" fill="#171717"></circle>
+                                <circle cx="263" cy="388" r="8" fill="#171717"></circle>
+                                <path d="M228 415C236 428 255 430 269 418" fill="none" stroke="#171717" stroke-width="8" stroke-linecap="round"></path>
+                            </g>
+                        </svg>
+                    </div>
+                </section>
+
+                <section class="prototype-login">
+                    <div class="prototype-card">
+                        <div class="prototype-brand-mark" aria-hidden="true">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+
+                        <div class="prototype-copy">
+                            <div class="prototype-logo-lockup">
+                                <img src="logo.png" alt="Vinayak Academy logo" class="prototype-logo">
+                                <p>Vinayak Academy And IT Solutions</p>
+                            </div>
+                            <h1>Welcome back!</h1>
+                            <p>Please enter your details</p>
+                        </div>
+
+                        <div class="prototype-toggle" role="tablist" aria-label="Login role">
+                            <button type="button" class="is-active" data-auth-tab="student" aria-selected="true">Student</button>
+                            <button type="button" data-auth-tab="admin" aria-selected="false">Admin</button>
+                        </div>
+
+                        <section data-auth-panel="student">
+                            <form id="studentLoginForm" class="prototype-form">
+                                <label class="prototype-field">
+                                    <span>Student ID</span>
+                                    <input type="text" id="studentIdentifier" autocomplete="username" placeholder="Enter your student ID" required>
+                                </label>
+
+                                <label class="prototype-field">
+                                    <span>Password</span>
+                                    <div class="prototype-password-row">
+                                        <input type="password" id="studentPassword" autocomplete="current-password" placeholder="Enter your password" required>
+                                        <button type="button" class="prototype-eye" aria-label="Show password">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M2 12S5.6 6.5 12 6.5 22 12 22 12s-3.6 5.5-10 5.5S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.7"></path>
+                                                <circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"></circle>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </label>
+
+                                <div class="prototype-meta-row">
+                                    <label class="prototype-checkbox">
+                                        <input type="checkbox">
+                                        <span>Remember me</span>
+                                    </label>
+                                    <button type="button" class="prototype-link">Forgot password?</button>
+                                </div>
+
+                                <p id="studentAuthMessage" class="auth-message" hidden></p>
+
+                                <button type="submit" class="prototype-submit" id="studentLoginButton" data-loading-html="<span>Logging in...</span>">
+                                    <span>Log in</span>
+                                    <svg viewBox="0 0 64 36" aria-hidden="true">
+                                        <path d="M5 18L56 4L35 17L56 31L5 18Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"></path>
+                                    </svg>
+                                </button>
+
+                                <button type="button" class="prototype-google">
+                                    <span class="prototype-google-mark">G</span>
+                                    <span>Log in with Google</span>
+                                </button>
+                            </form>
+                        </section>
+
+                        <section data-auth-panel="admin" hidden>
+                            <form id="adminLoginForm" class="prototype-form">
+                                <label class="prototype-field">
+                                    <span>Admin ID</span>
+                                    <input type="text" id="adminId" autocomplete="username" placeholder="Enter your admin ID" required>
+                                </label>
+
+                                <label class="prototype-field">
+                                    <span>Password</span>
+                                    <div class="prototype-password-row">
+                                        <input type="password" id="adminPassword" autocomplete="current-password" placeholder="Enter your password" required>
+                                        <button type="button" class="prototype-eye" aria-label="Show password">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M2 12S5.6 6.5 12 6.5 22 12 22 12s-3.6 5.5-10 5.5S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.7"></path>
+                                                <circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"></circle>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </label>
+
+                                <div class="prototype-meta-row">
+                                    <label class="prototype-checkbox">
+                                        <input type="checkbox">
+                                        <span>Remember me</span>
+                                    </label>
+                                    <button type="button" class="prototype-link">Forgot password?</button>
+                                </div>
+
+                                <p id="adminAuthMessage" class="auth-message" hidden></p>
+
+                                <button type="submit" class="prototype-submit" id="adminLoginButton" data-loading-html="<span>Checking...</span>">
+                                    <span>Log in</span>
+                                    <svg viewBox="0 0 64 36" aria-hidden="true">
+                                        <path d="M5 18L56 4L35 17L56 31L5 18Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </section>
+
+                        <p class="prototype-footer-note">Don't have an account? <span>Sign Up</span></p>
+                    </div>
+
+                    <div class="prototype-mobile-mascot" aria-hidden="true">
+                        <span class="prototype-mobile-blob"></span>
+                        <span class="prototype-mobile-pill purple"></span>
+                        <span class="prototype-mobile-pill pink"></span>
+                        <span class="prototype-mobile-pill yellow"></span>
+                    </div>
+                </section>
             </div>
-
-            <div class="login-tabs" role="tablist" aria-label="Login type">
-                <button type="button" class="login-tab active" data-auth-tab="student" aria-selected="true">
-                    <i class="fas fa-user-graduate"></i> Student Login
-                </button>
-                <button type="button" class="login-tab" data-auth-tab="admin" aria-selected="false">
-                    <i class="fas fa-shield-halved"></i> Admin Login
-                </button>
-            </div>
-
-            <section class="login-tab-panel" data-auth-panel="student">
-                <form id="studentLoginForm" class="login-form">
-                    <div class="login-field">
-                        <label for="studentIdentifier">Student ID</label>
-                        <input
-                            type="text"
-                            id="studentIdentifier"
-                            autocomplete="username"
-                            placeholder="Enter your student ID"
-                            required>
-                    </div>
-
-                    <div class="login-field">
-                        <label for="studentPassword">Password</label>
-                        <input
-                            type="password"
-                            id="studentPassword"
-                            autocomplete="current-password"
-                            placeholder="Enter your password"
-                            required>
-                    </div>
-
-                    <p id="studentAuthMessage" class="auth-message" hidden></p>
-
-                    <button type="submit" class="login-btn" id="studentLoginButton">
-                        <i class="fas fa-right-to-bracket"></i> Login as Student
-                    </button>
-                </form>
-
-                <p class="login-help">
-                    Students should register themselves on online portal<code></code> 
-                </p>
-            </section>
-
-            <section class="login-tab-panel" data-auth-panel="admin" hidden>
-                <form id="adminLoginForm" class="login-form">
-                    <div class="login-field">
-                        <label for="adminId">Admin ID</label>
-                        <input
-                            type="text"
-                            id="adminId"
-                            autocomplete="username"
-                            placeholder="Enter admin ID"
-                            required>
-                    </div>
-
-                    <div class="login-field">
-                        <label for="adminPassword">Password</label>
-                        <input
-                            type="password"
-                            id="adminPassword"
-                            autocomplete="current-password"
-                            placeholder="Enter admin password"
-                            required>
-                    </div>
-
-                    <p id="adminAuthMessage" class="auth-message" hidden></p>
-
-                    <button type="submit" class="login-btn" id="adminLoginButton">
-                        <i class="fas fa-shield-halved"></i> Login as Admin
-                    </button>
-                </form>
-
-                <p class="login-help">
-                    only registerd admin can login <code></code>.
-                </p>
-            </section>
         </section>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="JS/supabase-config.js"></script>
     <script src="JS/auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="login-prototype.js"></script>
     <script>
         window.VinayakAuth.initLoginPage();
     </script>

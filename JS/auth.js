@@ -530,6 +530,25 @@
         }
     }
 
+    function setLoginButtonState(button, disabled, fallbackLabel) {
+        if (!button) {
+            return;
+        }
+
+        if (!button.dataset.defaultHtml) {
+            button.dataset.defaultHtml = button.innerHTML;
+        }
+
+        button.disabled = Boolean(disabled);
+
+        if (disabled) {
+            button.innerHTML = button.dataset.loadingHtml || fallbackLabel || button.dataset.defaultHtml;
+            return;
+        }
+
+        button.innerHTML = button.dataset.defaultHtml;
+    }
+
     function showMessage(message, type, targetId) {
         const box = document.getElementById(targetId || "authMessage");
         if (!box) {
@@ -785,10 +804,7 @@
             return;
         }
 
-        if (submitButton) {
-            submitButton.disabled = true;
-            submitButton.textContent = "Logging in...";
-        }
+        setLoginButtonState(submitButton, true, "Logging in...");
 
         try {
             const client = getClient();
@@ -838,10 +854,7 @@
             console.error("Student login failed", error);
             showMessage(error.message || "Login failed.", "error", "studentAuthMessage");
         } finally {
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.innerHTML = '<i class="fas fa-right-to-bracket"></i> Login as Student';
-            }
+            setLoginButtonState(submitButton, false);
         }
     }
 
@@ -862,10 +875,7 @@
             return;
         }
 
-        if (submitButton) {
-            submitButton.disabled = true;
-            submitButton.textContent = "Checking...";
-        }
+        setLoginButtonState(submitButton, true, "Checking...");
 
         try {
             const expectedId = String(config.adminId || "Vinayak_admin");
@@ -882,10 +892,7 @@
             console.error("Admin login failed", error);
             showMessage(error.message || "Admin login failed.", "error", "adminAuthMessage");
         } finally {
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.innerHTML = '<i class="fas fa-shield-halved"></i> Login as Admin';
-            }
+            setLoginButtonState(submitButton, false);
         }
     }
 

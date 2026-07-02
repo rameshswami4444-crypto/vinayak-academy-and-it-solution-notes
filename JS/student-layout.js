@@ -2,6 +2,7 @@
     const ROOT_PREFIX = window.location.pathname.toLowerCase().includes("/html/") ? "../" : "";
     const INSTITUTE_NAME = "Vinayak Academy And IT Solutions";
     const VERSION = "Version 2.0";
+    const SIDEBAR_STATE_KEY = "vinayak_student_sidebar_collapsed";
 
     function getSession() {
         try {
@@ -14,17 +15,18 @@
     function createHeader() {
         const session = getSession();
         const studentName = session.studentName || session.name || "Student";
-        const studentId = session.studentId || window.localStorage.getItem("studentId") || "-";
+        const course = session.course || window.localStorage.getItem("course") || "-";
+        const batch = session.batch || window.localStorage.getItem("batch") || "-";
         return [
             '<header class="student-topbar student-common-header">',
-            '<div class="student-brand">',
-            '<button type="button" class="student-menu-btn" data-student-sidebar-toggle aria-label="Open menu"><i class="fas fa-bars"></i></button>',
+            '<div class="student-brand student-brand-shell">',
+            '<button type="button" class="student-menu-btn" data-student-sidebar-toggle aria-label="Toggle student menu"><i data-lucide="panel-left-close"></i></button>',
             '<img src="', ROOT_PREFIX, 'logo.png" alt="Vinayak Academy logo" class="student-logo">',
-            '<div><strong>', INSTITUTE_NAME, '</strong><span>Student LMS</span></div>',
+            '<div class="student-brand-copy"><small>Welcome</small><strong data-layout-student-name>', studentName, '</strong><span><b data-layout-course>', course, '</b><em data-layout-batch>', batch, '</em></span></div>',
             '</div>',
+            '<form class="student-top-search" data-student-search-form><i class="fas fa-magnifying-glass"></i><input type="search" data-student-search-input placeholder="Search courses, notes, EMI, notices" aria-label="Search student dashboard"></form>',
             '<div class="student-top-actions">',
-            '<button type="button" class="student-icon-btn" aria-label="Notifications"><i class="fas fa-bell"></i><span data-layout-notification-count>0</span></button>',
-            '<div class="student-profile-mini"><i class="fas fa-user-graduate"></i><span data-layout-student-name>', studentName, '</span><small data-layout-student-id>', studentId, '</small></div>',
+            '<button type="button" class="student-icon-btn" aria-label="Notifications"><i data-lucide="bell-ring"></i><span data-layout-notification-count>0</span></button>',
             '<button type="button" class="logout-btn" id="logoutBtn"><i class="fas fa-right-from-bracket"></i> Logout</button>',
             '</div>',
             '</header>'
@@ -33,25 +35,28 @@
 
     function createSidebar() {
         const navItems = [
-            ["Dashboard", "fa-gauge-high", ROOT_PREFIX + "index.html"],
-            ["My Courses", "fa-layer-group", ROOT_PREFIX + "index.html#subjectsGrid"],
-            ["Study Material", "fa-book-open", ROOT_PREFIX + "index.html#studentSubjectsGrid"],
-            ["Video Lectures", "fa-circle-play", "#video-lectures"],
-            ["Assignments", "fa-clipboard-list", "#assignments"],
-            ["EMI & Payments", "fa-indian-rupee-sign", ROOT_PREFIX + "index.html#studentEmiCard"],
-            ["Notices", "fa-bullhorn", ROOT_PREFIX + "index.html#announcementList"],
-            ["Profile", "fa-user-graduate", "#profile"],
-            ["Settings", "fa-gear", "#settings"]
+            ["Dashboard", "layout-dashboard", ROOT_PREFIX + "index.html"],
+            ["My Courses", "layers-3", ROOT_PREFIX + "index.html#subjectsGrid"],
+            ["Study Material", "book-open", ROOT_PREFIX + "index.html#study-material-section"],
+            ["Assignments", "clipboard-check", ROOT_PREFIX + "index.html#subjectsGrid"],
+            ["Video Lectures", "circle-play", ROOT_PREFIX + "index.html#subjectsGrid"],
+            ["EMI & Payments", "wallet-cards", ROOT_PREFIX + "index.html#student-payments-section"],
+            ["Notices", "megaphone", ROOT_PREFIX + "index.html#announcementPanel"],
+            ["Profile", "badge-check", ROOT_PREFIX + "index.html#profile"],
+            ["Settings", "settings-2", ROOT_PREFIX + "index.html#settings"],
+            ["Logout", "log-out", ROOT_PREFIX + "login.html"]
         ];
         return [
             '<aside class="student-sidebar" aria-label="Student navigation">',
-            '<div class="student-sidebar-brand"><img src="', ROOT_PREFIX, 'logo.png" alt=""><span>Student ERP</span></div>',
+            '<div class="student-sidebar-brand"><img src="', ROOT_PREFIX, 'logo.png" alt=""><div><strong>Student ERP</strong><span>Learning Workspace</span></div></div>',
             '<nav class="student-sidebar-nav">',
             navItems.map(function (item) {
-                return '<a href="' + item[2] + '"><i class="fas ' + item[1] + '"></i><span>' + item[0] + '</span></a>';
+                return item[0] === "Logout"
+                    ? '<button type="button" data-student-logout><i data-lucide="' + item[1] + '"></i><span>' + item[0] + '</span></button>'
+                    : '<a href="' + item[2] + '"><i data-lucide="' + item[1] + '"></i><span>' + item[0] + '</span></a>';
             }).join(""),
-            '<button type="button" data-student-logout><i class="fas fa-right-from-bracket"></i><span>Logout</span></button>',
             '</nav>',
+            '<div class="student-sidebar-footer"><p>Premium student workspace</p><strong>' + VERSION + '</strong></div>',
             '</aside>',
             '<button type="button" class="student-sidebar-scrim" data-student-sidebar-toggle aria-label="Close menu"></button>'
         ].join("");
@@ -63,6 +68,18 @@
             '<strong>', INSTITUTE_NAME, '</strong>',
             '<span>Copyright 2026 | Contact: vinayak_it_solutions_ | ', VERSION, '</span>',
             '</footer>'
+        ].join("");
+    }
+
+    function createInfoStrip(message) {
+        const text = String(message || "Vinayak Academy - Notes are for enrolled students only | Do not share").trim();
+        const items = [text, text, text].map(function (item) {
+            return '<span>' + item + '</span>';
+        }).join("");
+        return [
+            '<section class="student-info-strip" aria-label="Important notice">',
+            '<div class="student-info-strip-track">', items, '</div>',
+            '</section>'
         ].join("");
     }
 
@@ -78,7 +95,7 @@
         try {
             const result = await window.VinayakAuth.getClient()
                 .from(window.VinayakAuth.getStudentsTableName())
-                .select("id, name")
+                .select("id, name, course, batch")
                 .eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId)
                 .limit(1);
             const student = result.data && result.data[0];
@@ -91,6 +108,16 @@
             document.querySelectorAll("[data-layout-student-id]").forEach(function (node) {
                 node.textContent = "ID: " + (student.id || studentId);
             });
+            document.querySelectorAll("[data-layout-course]").forEach(function (node) {
+                node.textContent = student.course || window.localStorage.getItem("course") || "-";
+            });
+            document.querySelectorAll("[data-layout-batch]").forEach(function (node) {
+                node.textContent = student.batch || "-";
+            });
+            const inlineId = document.getElementById("studentIdInlineText");
+            if (inlineId) {
+                inlineId.textContent = student.id || studentId;
+            }
         } catch (error) {
             console.warn("Student layout profile fetch failed", error);
         }
@@ -117,7 +144,13 @@
             }
             button.dataset.sidebarBound = "true";
             button.addEventListener("click", function () {
-                document.body.classList.toggle("student-sidebar-open");
+                if (window.innerWidth <= 1024) {
+                    document.body.classList.toggle("student-sidebar-open");
+                    return;
+                }
+                const collapsed = !document.body.classList.contains("student-sidebar-collapsed");
+                document.body.classList.toggle("student-sidebar-collapsed", collapsed);
+                window.localStorage.setItem(SIDEBAR_STATE_KEY, collapsed ? "1" : "0");
             });
         });
         document.querySelectorAll(".student-sidebar a").forEach(function (link) {
@@ -141,23 +174,199 @@
             const target = document.getElementById("announcementList");
             if (target) {
                 target.scrollIntoView({ behavior: "smooth", block: "start" });
+            } else {
+                window.location.href = ROOT_PREFIX + "index.html#announcementList";
             }
         });
     }
 
-    function ensureDashboardProfile() {
-        const topActions = document.querySelector(".student-top-actions");
-        if (!topActions || topActions.querySelector(".student-profile-mini")) {
+    function createFragment(markup) {
+        const template = document.createElement("template");
+        template.innerHTML = markup.trim();
+        return template.content.firstChild;
+    }
+
+    function ensureSearchBar() {
+        const topbar = document.querySelector(".student-topbar");
+        if (!topbar || topbar.querySelector("[data-student-search-form]")) {
             return;
         }
-        const session = getSession();
-        const studentName = session.studentName || session.name || "Student";
-        const studentId = session.studentId || window.localStorage.getItem("studentId") || "-";
-        const profile = document.createElement("div");
-        profile.className = "student-profile-mini";
-        profile.innerHTML = '<i class="fas fa-user-graduate"></i><span data-layout-student-name>' + studentName + '</span><small data-layout-student-id>ID: ' + studentId + '</small>';
-        const logout = document.getElementById("logoutBtn");
-        topActions.insertBefore(profile, logout || null);
+        const actions = topbar.querySelector(".student-top-actions");
+        topbar.insertBefore(createFragment('<form class="student-top-search" data-student-search-form><i class="fas fa-magnifying-glass"></i><input type="search" data-student-search-input placeholder="Search courses, notes, EMI, notices" aria-label="Search student dashboard"></form>'), actions || null);
+    }
+
+    function highlightActiveNav() {
+        const currentPath = window.location.pathname.toLowerCase();
+        document.querySelectorAll(".student-sidebar a").forEach(function (link) {
+            const href = String(link.getAttribute("href") || "").toLowerCase();
+            const currentIsDashboard = currentPath.endsWith("/index.html") || currentPath === "/" || currentPath.endsWith("\\index.html");
+            const pathOnly = href.split("#")[0].replace("../", "").replace("./", "");
+            const linkHash = href.indexOf("#") !== -1 ? "#" + href.split("#")[1] : "";
+            const hashOnly = href.charAt(0) === "#";
+            const active = hashOnly
+                ? currentIsDashboard && window.location.hash.toLowerCase() === href
+                : (pathOnly && currentPath.indexOf(pathOnly) !== -1
+                    ? (linkHash ? window.location.hash.toLowerCase() === linkHash : currentIsDashboard && !window.location.hash)
+                    : false);
+            link.classList.toggle("active", active);
+        });
+    }
+
+    function bindSearch() {
+        document.querySelectorAll("[data-student-search-form]").forEach(function (form) {
+            if (form.dataset.searchBound) {
+                return;
+            }
+            form.dataset.searchBound = "true";
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+                const input = form.querySelector("[data-student-search-input]");
+                const query = String(input && input.value || "").trim().toLowerCase();
+                if (!query) {
+                    return;
+                }
+                const currentPath = window.location.pathname.toLowerCase();
+                const isDashboard = currentPath.endsWith("/index.html") || currentPath === "/" || currentPath.endsWith("\\index.html");
+                if (!isDashboard) {
+                    window.location.href = ROOT_PREFIX + "index.html";
+                    return;
+                }
+                const candidates = Array.from(document.querySelectorAll(".subject-card, .student-panel, .student-list-item, .student-quick-card, .student-page-card"));
+                const match = candidates.find(function (node) {
+                    return String(node.textContent || "").toLowerCase().includes(query);
+                });
+                if (!match) {
+                    return;
+                }
+                document.querySelectorAll(".student-search-hit").forEach(function (node) {
+                    node.classList.remove("student-search-hit");
+                });
+                match.classList.add("student-search-hit");
+                match.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
+        });
+    }
+
+    function ensureMenuButton() {
+        const brand = document.querySelector(".student-brand");
+        if (!brand || brand.querySelector("[data-student-sidebar-toggle]")) {
+            return;
+        }
+        brand.insertAdjacentHTML("afterbegin", '<button type="button" class="student-menu-btn" data-student-sidebar-toggle aria-label="Toggle student menu"><i data-lucide="panel-left-close"></i></button>');
+    }
+
+    function inferPageMeta() {
+        const body = document.body;
+        const heading = document.querySelector(".ecce-title h2, .resource-placeholder h2, main h2, .student-section-head h2");
+        const subheading = document.querySelector(".ecce-title p, .resource-placeholder p, main p");
+        const pageTitle = body.dataset.pageTitle || (heading ? heading.textContent.trim() : document.title.replace(/\s*-\s*Vinayak Academy.*/i, "").trim()) || "Learning Workspace";
+        const pageSubtitle = body.dataset.pageSubtitle || (subheading ? subheading.textContent.trim() : "Access your enrolled course resources, notes, and guided learning tools in one place.");
+        const pageBadge = body.dataset.pageBadge || "Student Workspace";
+        return { title: pageTitle, subtitle: pageSubtitle, badge: pageBadge };
+    }
+
+    function enhanceLegacyPages() {
+        const main = document.querySelector("main");
+        if (!main || main.dataset.layoutEnhanced) {
+            return;
+        }
+        main.dataset.layoutEnhanced = "true";
+        main.classList.add("student-page-main");
+
+        const meta = inferPageMeta();
+        const hasDashboard = document.querySelector(".student-welcome");
+        const inlineHero = main.querySelector(".ecce-header-row");
+        if (!hasDashboard && !inlineHero) {
+            main.insertAdjacentHTML("afterbegin", [
+                '<section class="student-page-head">',
+                '<div class="student-page-head-copy">',
+                '<p class="login-badge">', meta.badge, '</p>',
+                '<h1>', meta.title, '</h1>',
+                '<p>', meta.subtitle, '</p>',
+                '</div>',
+                '</section>'
+            ].join(""));
+        }
+        if (inlineHero) {
+            inlineHero.classList.add("student-inline-hero");
+        }
+
+        const subjectsGrid = main.querySelector(".subjects-grid");
+        const viewerLayout = main.querySelector(".viewer-layout");
+        const placeholder = main.querySelector(".resource-placeholder");
+
+        if (subjectsGrid && !subjectsGrid.closest(".student-page-board")) {
+            subjectsGrid.classList.add("student-catalog-grid");
+            subjectsGrid.insertAdjacentHTML("beforebegin", [
+                '<section class="student-page-board simple-board">',
+                '<div class="student-board-main">'
+            ].join(""));
+            subjectsGrid.insertAdjacentHTML("afterend", [
+                '</div>',
+                '</section>'
+            ].join(""));
+        }
+
+        if (viewerLayout && !viewerLayout.closest(".student-page-board")) {
+            viewerLayout.insertAdjacentHTML("beforebegin", '<section class="student-page-board student-page-board-viewer simple-board"><div class="student-board-main">');
+            viewerLayout.insertAdjacentHTML("afterend", [
+                '</div></section>'
+            ].join(""));
+        }
+
+        if (placeholder) {
+            placeholder.classList.add("student-resource-placeholder");
+            if (!placeholder.querySelector(".student-placeholder-actions")) {
+                placeholder.insertAdjacentHTML("beforeend", [
+                    '<div class="student-placeholder-actions">',
+                    '<a class="login-btn student-link-btn" href="' + ROOT_PREFIX + 'index.html">Go to Dashboard</a>',
+                    '<a class="logout-btn student-link-btn secondary" href="' + ROOT_PREFIX + 'index.html#subjectsGrid">Browse My Courses</a>',
+                    '</div>'
+                ].join(""));
+            }
+        }
+    }
+
+    function ensureInfoStrip() {
+        const oldMarquee = document.querySelector(".student-marquee");
+        const footer = document.querySelector(".student-footer, .footer");
+        const message = oldMarquee ? oldMarquee.textContent : "";
+        if (oldMarquee) {
+            oldMarquee.remove();
+        }
+        if (document.querySelector(".student-info-strip") || !footer) {
+            return;
+        }
+        footer.insertAdjacentHTML("beforebegin", createInfoStrip(message));
+    }
+
+    function ensureLucide() {
+        function renderIcons() {
+            if (window.lucide && typeof window.lucide.createIcons === "function") {
+                window.lucide.createIcons();
+            }
+        }
+        if (window.lucide && typeof window.lucide.createIcons === "function") {
+            renderIcons();
+            return;
+        }
+        if (document.querySelector('script[data-lucide-loader="student"]')) {
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://unpkg.com/lucide@latest";
+        script.async = true;
+        script.dataset.lucideLoader = "student";
+        script.onload = renderIcons;
+        document.head.appendChild(script);
+    }
+
+    function restoreSidebarPreference() {
+        if (window.innerWidth <= 1024) {
+            document.body.classList.remove("student-sidebar-collapsed");
+            return;
+        }
+        document.body.classList.toggle("student-sidebar-collapsed", window.localStorage.getItem(SIDEBAR_STATE_KEY) === "1");
     }
 
     function applyLayout() {
@@ -170,7 +379,8 @@
                 document.body.insertAdjacentHTML("afterbegin", createHeader());
             }
         }
-        ensureDashboardProfile();
+        ensureMenuButton();
+        ensureSearchBar();
         if (!document.querySelector(".student-sidebar")) {
             document.querySelector(".student-topbar").insertAdjacentHTML("afterend", createSidebar());
         }
@@ -185,6 +395,12 @@
         bindLogout();
         bindSidebar();
         bindNotifications();
+        bindSearch();
+        highlightActiveNav();
+        enhanceLegacyPages();
+        ensureInfoStrip();
+        restoreSidebarPreference();
+        ensureLucide();
         hydrateStudent();
     }
 

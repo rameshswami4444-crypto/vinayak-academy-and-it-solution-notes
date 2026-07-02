@@ -9,6 +9,9 @@
     let batchesCache = [];
     let bulkRows = [];
     let emiMode = "auto";
+    let currentAdmissionStep = 1;
+    const paginationState = { students: 1, emi: 1, bulk: 1 };
+    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10 };
     const BULK_COLUMNS = [
         "Student ID", "Password", "Student Name", "Father Name", "Mobile", "Alternate Mobile", "Email", "Address", "Course", "Batch", "Admission Date", "Course Duration", "Total Fee", "Advance Fee", "Remaining Fee", "Number of EMI", "First EMI Due Date"
     ];
@@ -51,6 +54,12 @@
 
     function money(value) {
         return "Rs. " + toNumber(value).toFixed(2);
+    }
+
+    function initLucideIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === "function") {
+            window.lucide.createIcons();
+        }
     }
 
     function normalizeStatus(value) {
@@ -103,6 +112,39 @@
             box.textContent = "";
             box.className = "auth-message";
         }
+    }
+
+    function paginateRows(rows, key) {
+        const pageSize = PAGE_SIZES[key] || 8;
+        const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+        paginationState[key] = Math.max(1, Math.min(paginationState[key] || 1, totalPages));
+        const start = (paginationState[key] - 1) * pageSize;
+        return {
+            rows: rows.slice(start, start + pageSize),
+            page: paginationState[key],
+            totalPages: totalPages,
+            totalItems: rows.length
+        };
+    }
+
+    function renderPagination(targetId, key, page, totalPages, totalItems) {
+        const container = document.getElementById(targetId);
+        if (!container) {
+            return;
+        }
+        if (totalItems <= (PAGE_SIZES[key] || 8)) {
+            container.innerHTML = "";
+            container.hidden = true;
+            return;
+        }
+        container.hidden = false;
+        const pageButtons = [];
+        for (let current = 1; current <= totalPages; current += 1) {
+            pageButtons.push(
+                '<button type="button" class="erp-page-btn' + (current === page ? " active" : "") + '" data-pagination-key="' + key + '" data-pagination-page="' + current + '">' + current + "</button>"
+            );
+        }
+        container.innerHTML = '<span class="erp-pagination-meta">Showing page ' + page + " of " + totalPages + " | " + totalItems + ' records</span><div class="erp-pagination-actions"><button type="button" class="erp-page-btn" data-pagination-key="' + key + '" data-pagination-page="' + Math.max(1, page - 1) + '"' + (page === 1 ? " disabled" : "") + '>Prev</button>' + pageButtons.join("") + '<button type="button" class="erp-page-btn" data-pagination-key="' + key + '" data-pagination-page="' + Math.min(totalPages, page + 1) + '"' + (page === totalPages ? " disabled" : "") + ">Next</button></div>";
     }
 
     async function fetchStudents() {
@@ -407,9 +449,11 @@
         tbody.innerHTML = "";
         if (!students.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">No students found.</td></tr>';
+            renderPagination("studentsPagination", "students", 1, 1, 0);
             return;
         }
-        students.forEach(function (student) {
+        const pageData = paginateRows(students, "students");
+        pageData.rows.forEach(function (student) {
             const id = getIdentifier(student);
             const row = document.createElement("tr");
             row.innerHTML = [
@@ -424,6 +468,7 @@
             ].join("");
             tbody.appendChild(row);
         });
+        renderPagination("studentsPagination", "students", pageData.page, pageData.totalPages, pageData.totalItems);
     }
 
     function updateBatchFilter() {
@@ -443,11 +488,14 @@
         filter.value = current;
     }
 
-    function applyStudentFilter() {
+    function applyStudentFilter(resetPage) {
         const query = getValue("studentSearchInput").toLowerCase();
         const course = getValue("studentCourseFilter");
         const batch = getValue("studentBatchFilter");
         const status = getValue("studentStatusFilter");
+        if (resetPage !== false) {
+            paginationState.students = 1;
+        }
         renderStudents(studentsCache.filter(function (student) {
             const matchesQuery = !query || [getIdentifier(student), student.name, student.father_name, student.mobile, student.course, student.batch].some(function (value) {
                 return String(value || "").toLowerCase().includes(query);
@@ -813,7 +861,8 @@
                 return String(value || "").toLowerCase().includes(query);
             });
         });
-        tbody.innerHTML = rows.length ? rows.map(function (emi) {
+        const pageData = paginateRows(rows, "emi");
+        tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (emi) {
             const status = normalizeEmiStatus(emi.status);
             return [
                 "<tr><td>", escapeHtml(emi.student_id), "</td><td>", escapeHtml(emi.emi_number), "</td><td>", money(emi.amount), "</td><td>",
@@ -823,6 +872,7 @@
                 "</td></tr>"
             ].join("");
         }).join("") : '<tr><td colspan="7" class="admin-empty">No EMI records.</td></tr>';
+        renderPagination("emiPagination", "emi", pageData.page, pageData.totalPages, pageData.totalItems);
     }
 
     async function markEmiPaid(studentId, emiKey) {
@@ -1043,10 +1093,12 @@
                 return String(value || "").toLowerCase().includes(query);
             });
         });
-        tbody.innerHTML = rows.length ? rows.map(function (item) {
+        const pageData = paginateRows(rows, "bulk");
+        tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (item) {
             const row = item.row;
             return "<tr><td>" + escapeHtml(row.__rowNumber) + "</td><td>" + escapeHtml(getBulkValue(row, "Student ID")) + "</td><td>" + escapeHtml(getBulkValue(row, "Student Name")) + "</td><td>" + escapeHtml(getBulkValue(row, "Mobile")) + "</td><td>" + escapeHtml(getBulkValue(row, "Course")) + "</td><td>" + escapeHtml(getBulkValue(row, "Batch")) + '</td><td><span class="status-badge ' + (item.status === "valid" ? "status-paid" : "status-due") + '">' + escapeHtml(item.status) + "</span></td><td>" + escapeHtml(item.errors.join("; ") || "Ready") + "</td></tr>";
         }).join("") : '<tr><td colspan="8" class="admin-empty">No import rows loaded.</td></tr>';
+        renderPagination("bulkPagination", "bulk", pageData.page, pageData.totalPages, pageData.totalItems);
         setText("bulkValidCount", bulkRows.filter(function (item) { return item.status === "valid"; }).length);
         setText("bulkDuplicateCount", bulkRows.filter(function (item) { return item.status === "duplicate"; }).length);
         setText("bulkInvalidCount", bulkRows.filter(function (item) { return item.status === "invalid"; }).length);
@@ -1214,6 +1266,7 @@
     }
 
     function setupAdmissionDefaults() {
+        currentAdmissionStep = 1;
         setValue("newStudentId", generateStudentId());
         setValue("newAdmissionDate", getTodayDateString());
         setValue("newAccountStatus", "active");
@@ -1221,12 +1274,47 @@
         setValue("newAdmissionFee", "");
         updateRemainingFee();
         renderAdmissionEmis([], false);
+        renderAdmissionWizard();
     }
 
     function addManualEmiRow() {
         const current = readManualEmis();
         current.push({ emi_number: current.length + 1, amount: 0, due_date: "", status: "pending" });
         renderAdmissionEmis(current, true);
+    }
+
+    function validateAdmissionStep(step) {
+        const panel = document.querySelector('[data-admission-step-panel="' + step + '"]');
+        if (!panel) {
+            return true;
+        }
+        const fields = panel.querySelectorAll("input, select, textarea");
+        for (let index = 0; index < fields.length; index += 1) {
+            if (!fields[index].checkValidity()) {
+                fields[index].reportValidity();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function renderAdmissionWizard() {
+        document.querySelectorAll("[data-admission-step-panel]").forEach(function (panel) {
+            panel.hidden = String(panel.getAttribute("data-admission-step-panel")) !== String(currentAdmissionStep);
+        });
+        document.querySelectorAll("[data-admission-step-nav]").forEach(function (nav) {
+            nav.hidden = String(nav.getAttribute("data-admission-step-nav")) !== String(currentAdmissionStep);
+        });
+        document.querySelectorAll("[data-admission-step-indicator]").forEach(function (stepNode) {
+            const stepNumber = Number(stepNode.getAttribute("data-admission-step-indicator"));
+            stepNode.classList.toggle("active", stepNumber === currentAdmissionStep);
+            stepNode.classList.toggle("complete", stepNumber < currentAdmissionStep);
+        });
+    }
+
+    function setAdmissionStep(step) {
+        currentAdmissionStep = Math.max(1, Math.min(4, Number(step) || 1));
+        renderAdmissionWizard();
     }
 
     function bindEvents() {
@@ -1294,9 +1382,20 @@
             if (disable) disableStudent(disable.getAttribute("data-disable-student"));
             const pay = event.target.closest("[data-pay-emi]");
             if (pay) markEmiPaid(pay.getAttribute("data-pay-student"), pay.getAttribute("data-pay-emi"));
+            const pageButton = event.target.closest("[data-pagination-key]");
+            if (pageButton) {
+                paginationState[pageButton.getAttribute("data-pagination-key")] = Number(pageButton.getAttribute("data-pagination-page")) || 1;
+                if (pageButton.getAttribute("data-pagination-key") === "students") applyStudentFilter(false);
+                if (pageButton.getAttribute("data-pagination-key") === "emi") renderEmis();
+                if (pageButton.getAttribute("data-pagination-key") === "bulk") renderBulkRows();
+            }
         });
         document.getElementById("adminMenuBtn").addEventListener("click", function () {
-            document.body.classList.toggle("admin-sidebar-open");
+            if (window.innerWidth <= 1024) {
+                document.body.classList.toggle("admin-sidebar-open");
+                return;
+            }
+            document.body.classList.toggle("admin-sidebar-collapsed");
         });
         document.getElementById("addEditEmiBtn").addEventListener("click", addEditEmi);
         document.getElementById("editEmiTableBody").addEventListener("change", function (event) {
@@ -1316,12 +1415,18 @@
             document.getElementById(id).addEventListener("change", applyStudentFilter);
         });
         document.getElementById("dashboardCourseFilter").addEventListener("change", renderDashboard);
-        document.getElementById("emiSearchInput").addEventListener("input", renderEmis);
+        document.getElementById("emiSearchInput").addEventListener("input", function () {
+            paginationState.emi = 1;
+            renderEmis();
+        });
         document.getElementById("validateImportBtn").addEventListener("click", validateBulkImport);
         document.getElementById("importStudentsBtn").addEventListener("click", importBulkStudents);
         document.getElementById("downloadSampleCsvBtn").addEventListener("click", downloadSampleCsv);
         document.getElementById("downloadSampleExcelBtn").addEventListener("click", downloadSampleExcel);
-        document.getElementById("bulkSearchInput").addEventListener("input", renderBulkRows);
+        document.getElementById("bulkSearchInput").addEventListener("input", function () {
+            paginationState.bulk = 1;
+            renderBulkRows();
+        });
         document.getElementById("exportStudentsCsvBtn").addEventListener("click", exportStudentsCsv);
         document.getElementById("exportStudentsExcelBtn").addEventListener("click", exportStudentsExcel);
         document.getElementById("adminGlobalSearch").addEventListener("input", function () {
@@ -1329,14 +1434,30 @@
             showAdminSection("students");
             applyStudentFilter();
         });
+        document.querySelectorAll("[data-admission-next]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                if (!validateAdmissionStep(currentAdmissionStep)) {
+                    return;
+                }
+                setAdmissionStep(button.getAttribute("data-admission-next"));
+            });
+        });
+        document.querySelectorAll("[data-admission-prev]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                setAdmissionStep(button.getAttribute("data-admission-prev"));
+            });
+        });
     }
 
     document.addEventListener("DOMContentLoaded", async function () {
         try {
             await window.VinayakAuth.initProtectedPage({ adminOnly: true });
+            initLucideIcons();
             bindEvents();
             setupAdmissionDefaults();
+            renderAdmissionWizard();
             await refreshAll();
+            initLucideIcons();
         } catch (error) {
             console.error("Admin panel init failed", error);
             setPanelMessage(error.message || "Admin panel could not load.", "error");
