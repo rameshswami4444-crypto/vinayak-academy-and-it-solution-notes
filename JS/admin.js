@@ -7,11 +7,14 @@
     let paymentsCache = [];
     let coursesCache = [];
     let batchesCache = [];
+    let notesCache = [];
+    let materialCoursesCache = [];
     let bulkRows = [];
     let emiMode = "auto";
     let currentAdmissionStep = 1;
     const paginationState = { students: 1, emi: 1, bulk: 1 };
     const PAGE_SIZES = { students: 8, emi: 8, bulk: 10 };
+    const MATERIAL_BUCKET = "study-material";
     const BULK_COLUMNS = [
         "Student ID", "Password", "Student Name", "Father Name", "Mobile", "Alternate Mobile", "Email", "Address", "Course", "Batch", "Admission Date", "Course Duration", "Total Fee", "Advance Fee", "Remaining Fee", "Number of EMI", "First EMI Due Date"
     ];
@@ -56,6 +59,93 @@
         return "Rs. " + toNumber(value).toFixed(2);
     }
 
+    function getCourseId(course) {
+        return String((course && course.id) || "");
+    }
+
+    function getCourseName(course) {
+        return String((course && (course.course_name || course.name || course.title || course.course || course.code)) || "");
+    }
+
+    function getCourseLabelById(courseId) {
+        const match = coursesCache.find(function (course) {
+            return getCourseId(course) === String(courseId || "");
+        });
+        return match ? getCourseName(match) : String(courseId || "-");
+    }
+
+    function getNoteCourseIds(note) {
+        const noteId = String((note && note.id) || "");
+        const mapped = materialCoursesCache
+            .filter(function (row) { return String(row.note_id || "") === noteId; })
+            .map(function (row) { return String(row.course_id || ""); })
+            .filter(Boolean);
+        if (mapped.length) {
+            return Array.from(new Set(mapped));
+        }
+        return note && note.course_id ? [String(note.course_id)] : [];
+    }
+
+    function getNoteCourseLabels(note) {
+        const labels = getNoteCourseIds(note).map(getCourseLabelById).filter(Boolean);
+        return labels.length ? labels.join(", ") : "-";
+    }
+
+    function setSelectOptions(selectId, options, placeholder, emptyText) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const current = select.value;
+        if (!options.length) {
+            select.innerHTML = '<option value="">' + escapeHtml(emptyText || "No courses available") + '</option>';
+            select.value = "";
+            return;
+        }
+        select.innerHTML = '<option value="">' + escapeHtml(placeholder || "Select course") + '</option>' + options.map(function (option) {
+            return '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
+        }).join("");
+        select.value = options.some(function (option) { return option.value === current; }) ? current : "";
+    }
+
+    function setFilterOptions(selectId, options, allText) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const current = select.value;
+        select.innerHTML = '<option value="">' + escapeHtml(allText || "All") + '</option>' + options.map(function (option) {
+            return '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
+        }).join("");
+        select.value = options.some(function (option) { return option.value === current; }) ? current : "";
+    }
+
+    function getCourseOptions() {
+        return coursesCache
+            .map(function (course) {
+                return { id: getCourseId(course), name: getCourseName(course) };
+            })
+            .filter(function (course) { return course.id && course.name; })
+            .sort(function (a, b) { return a.name.localeCompare(b.name); });
+    }
+
+    function getSelectedMaterialCourseIds() {
+        return Array.from(document.querySelectorAll('[name="materialCourseIds"]:checked'))
+            .map(function (input) { return input.value; })
+            .filter(Boolean);
+    }
+
+    function renderMaterialCourseChecklist(selectedIds) {
+        const target = document.getElementById("materialCourseChecklist");
+        if (!target) return;
+        const selected = selectedIds || getSelectedMaterialCourseIds();
+        const options = getCourseOptions();
+        if (!options.length) {
+            target.innerHTML = '<span>No courses available</span>';
+            return;
+        }
+        target.innerHTML = options.map(function (course) {
+            const checked = selected.includes(course.id) ? " checked" : "";
+            return '<label class="material-course-option"><input type="checkbox" name="materialCourseIds" value="' + escapeHtml(course.id) + '"' + checked + '><span>' + escapeHtml(course.name) + '</span></label>';
+        }).join("");
+    }
+
     function initLucideIcons() {
         if (window.lucide && typeof window.lucide.createIcons === "function") {
             window.lucide.createIcons();
@@ -91,6 +181,9 @@
             button.classList.toggle("active", button.getAttribute("data-admin-section-target") === sectionName);
         });
         document.body.classList.remove("admin-sidebar-open");
+        if (["admissions", "courses", "material", "batches"].includes(sectionName)) {
+            loadCourses();
+        }
     }
 
     function setPanelMessage(message, type) {
@@ -181,6 +274,34 @@
         } catch (error) {
             console.warn("Optional table fetch failed", tableName, error);
             return [];
+        }
+    }
+
+    async function loadCourses() {
+        console.group("loadCourses");
+        try {
+            const { data, error } = await window.VinayakAuth.getClient()
+                .from("courses")
+                .select("id, course_name, duration, total_fee, description, created_at")
+                .order("course_name", { ascending: true });
+            console.log("Supabase courses response", { data: data, error: error });
+            if (error) {
+                throw error;
+            }
+            coursesCache = data || [];
+            console.log("Courses loaded", { count: coursesCache.length, rows: coursesCache });
+            updateCourseControls();
+            renderCourses();
+            return coursesCache;
+        } catch (error) {
+            console.error("Course loading failed", error);
+            coursesCache = [];
+            updateCourseControls("Could not load courses");
+            renderCourses();
+            setPanelMessage((error && error.message ? error.message : "Could not load courses.") + " Check the browser console for the Supabase courses response.", "error");
+            return [];
+        } finally {
+            console.groupEnd();
         }
     }
 
@@ -1252,17 +1373,450 @@
         window.XLSX.writeFile(workbook, "students-export.xlsx");
     }
 
+    function slugPart(value) {
+        return String(value || "general").trim().toLowerCase()
+            .replace(/[^a-z0-9-]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "general";
+    }
+
+    function buildMaterialPath(course, subject, file) {
+        const extension = (file.name.split(".").pop() || "pdf").toLowerCase();
+        const baseName = file.name.replace(/\.[^/.]+$/, "");
+        return [
+            normalizeKey(course).toUpperCase(),
+            slugPart(subject),
+            Date.now() + "-" + slugPart(baseName) + "." + extension
+        ].join("/");
+    }
+
+    function setMaterialProgress(percent) {
+        const bar = document.getElementById("materialUploadProgress");
+        if (!bar) return;
+        bar.hidden = false;
+        const fill = bar.querySelector("span");
+        if (fill) fill.style.width = Math.max(0, Math.min(100, percent)) + "%";
+        if (percent >= 100) {
+            window.setTimeout(function () { bar.hidden = true; if (fill) fill.style.width = "0%"; }, 900);
+        }
+    }
+
+    function getFilteredNotes() {
+        const query = getValue("materialSearchInput").toLowerCase();
+        const course = getValue("materialCourseFilter");
+        const subject = getValue("materialSubjectFilter");
+        return notesCache.filter(function (note) {
+            const courseIds = getNoteCourseIds(note);
+            const courseLabel = getNoteCourseLabels(note);
+            const matchesQuery = !query || [note.title, note.subject, note.course_id, courseLabel].join(" ").toLowerCase().includes(query);
+            const matchesCourse = !course || course === "all" || courseIds.includes(String(course));
+            const matchesSubject = !subject || subject === "all" || String(note.subject || "General") === subject;
+            return matchesQuery && matchesCourse && matchesSubject;
+        });
+    }
+
+    function updateCourseControls(errorText) {
+        const options = getCourseOptions();
+        const nameOptions = options.map(function (course) {
+            return { value: course.name, label: course.name };
+        });
+        const uuidOptions = options.map(function (course) {
+            return { value: course.id, label: course.name };
+        });
+        const emptyText = errorText || "No courses available";
+
+        setSelectOptions("newStudentCourse", nameOptions, "Select course", emptyText);
+        setSelectOptions("editStudentCourse", nameOptions, "Select course", emptyText);
+        setFilterOptions("studentCourseFilter", nameOptions, "All");
+        setFilterOptions("dashboardCourseFilter", nameOptions, "All Courses");
+
+        renderMaterialCourseChecklist();
+        const materialFilter = document.getElementById("materialCourseFilter");
+        if (materialFilter) {
+            const currentFilter = materialFilter.value;
+            materialFilter.innerHTML = '<option value="all">All Courses</option>' + uuidOptions.map(function (option) {
+                return '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
+            }).join("");
+            materialFilter.value = uuidOptions.some(function (option) { return option.value === currentFilter; }) ? currentFilter : "all";
+        }
+    }
+
+    function updateMaterialSubjectFilter() {
+        const filter = document.getElementById("materialSubjectFilter");
+        if (!filter) return;
+        const current = filter.value || "all";
+        const subjects = Array.from(new Set(notesCache.map(function (note) {
+            return String(note.subject || "General");
+        }))).sort();
+        filter.innerHTML = '<option value="all">All Subjects</option>' + subjects.map(function (subject) {
+            return '<option value="' + escapeHtml(subject) + '">' + escapeHtml(subject) + '</option>';
+        }).join("");
+        filter.value = subjects.includes(current) ? current : "all";
+    }
+
+    function getCourseLinkedStudents(courseName) {
+        return studentsCache.filter(function (student) {
+            return String(student.course || "") === String(courseName || "");
+        });
+    }
+
+    function getCourseLinkedNotes(courseId) {
+        return notesCache.filter(function (note) {
+            return getNoteCourseIds(note).includes(String(courseId || ""));
+        });
+    }
+
+    function renderCourseStats() {
+        setText("courseStatTotal", coursesCache.length);
+        setText("courseStatStudents", coursesCache.reduce(function (sum, course) {
+            return sum + getCourseLinkedStudents(getCourseName(course)).length;
+        }, 0));
+        setText("courseStatNotes", coursesCache.reduce(function (sum, course) {
+            return sum + getCourseLinkedNotes(getCourseId(course)).length;
+        }, 0));
+    }
+
+    function renderCourses() {
+        const tbody = document.getElementById("coursesTableBody");
+        renderCourseStats();
+        if (!tbody) return;
+        const query = getValue("courseSearchInput").toLowerCase();
+        const rows = coursesCache.filter(function (course) {
+            return !query || [getCourseName(course), course.duration, course.total_fee, course.description].join(" ").toLowerCase().includes(query);
+        });
+        tbody.innerHTML = rows.length ? rows.map(function (course) {
+            const courseId = getCourseId(course);
+            const courseName = getCourseName(course);
+            const studentCount = getCourseLinkedStudents(courseName).length;
+            const noteCount = getCourseLinkedNotes(courseId).length;
+            return [
+                "<tr>",
+                "<td><strong>", escapeHtml(courseName), "</strong><small>", escapeHtml(course.description || ""), "</small></td>",
+                "<td>", escapeHtml(course.duration || "-"), "</td>",
+                "<td>", money(course.total_fee || 0), "</td>",
+                "<td>", studentCount, "</td>",
+                "<td>", noteCount, "</td>",
+                '<td><button type="button" class="table-action-btn" data-edit-course="', escapeHtml(courseId), '">Edit</button> ',
+                '<button type="button" class="table-action-btn danger-btn" data-delete-course="', escapeHtml(courseId), '">Delete</button></td>',
+                "</tr>"
+            ].join("");
+        }).join("") : '<tr><td colspan="6" class="admin-empty">' + (coursesCache.length ? "No matching courses." : "No courses available.") + "</td></tr>";
+    }
+
+    function clearCourseForm() {
+        const form = document.getElementById("courseForm");
+        if (form) form.reset();
+        setValue("courseRecordId", "");
+    }
+
+    function fillCourseForm(courseId) {
+        const course = coursesCache.find(function (item) { return getCourseId(item) === String(courseId || ""); });
+        if (!course) {
+            setPanelMessage("Course record not found.", "error");
+            return;
+        }
+        setValue("courseRecordId", getCourseId(course));
+        setValue("courseNameInput", getCourseName(course));
+        setValue("courseDurationInput", course.duration || "");
+        setValue("courseTotalFeeInput", course.total_fee || "");
+        setValue("courseDescriptionInput", course.description || "");
+        const form = document.getElementById("courseForm");
+        if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function saveCourse(event) {
+        event.preventDefault();
+        clearPanelMessage();
+        const courseId = getValue("courseRecordId");
+        const payload = {
+            course_name: getValue("courseNameInput"),
+            duration: getValue("courseDurationInput") || null,
+            total_fee: getValue("courseTotalFeeInput") ? toNumber(getValue("courseTotalFeeInput")) : null,
+            description: getValue("courseDescriptionInput") || null
+        };
+        if (!payload.course_name) {
+            setPanelMessage("Enter course name.", "error");
+            return;
+        }
+        try {
+            const client = window.VinayakAuth.getClient();
+            const result = courseId
+                ? await client.from("courses").update(payload).eq("id", courseId)
+                : await client.from("courses").insert([payload]);
+            console.log("Course save response", result);
+            if (result.error) throw result.error;
+            setPanelMessage(courseId ? "Course updated successfully." : "Course added successfully.", "success");
+            clearCourseForm();
+            await loadCourses();
+            renderDashboard();
+            applyStudentFilter(false);
+        } catch (error) {
+            console.error("Course save failed", error);
+            setPanelMessage(error.message || "Could not save course.", "error");
+        }
+    }
+
+    async function deleteCourse(courseId) {
+        const course = coursesCache.find(function (item) { return getCourseId(item) === String(courseId || ""); });
+        if (!course) return;
+        const studentCount = getCourseLinkedStudents(getCourseName(course)).length;
+        const noteCount = getCourseLinkedNotes(getCourseId(course)).length;
+        if (studentCount || noteCount) {
+            setPanelMessage("Cannot delete this course because it is linked to " + studentCount + " student(s) and " + noteCount + " study material record(s).", "error");
+            return;
+        }
+        if (!window.confirm("Delete course '" + getCourseName(course) + "'? This cannot be undone.")) {
+            return;
+        }
+        try {
+            const result = await window.VinayakAuth.getClient().from("courses").delete().eq("id", courseId);
+            console.log("Course delete response", result);
+            if (result.error) throw result.error;
+            setPanelMessage("Course deleted successfully.", "success");
+            await loadCourses();
+        } catch (error) {
+            console.error("Course delete failed", error);
+            setPanelMessage(error.message || "Could not delete course.", "error");
+        }
+    }
+
+    function renderMaterials() {
+        const tbody = document.getElementById("materialTableBody");
+        if (!tbody) return;
+        updateMaterialSubjectFilter();
+        const rows = getFilteredNotes();
+        tbody.innerHTML = rows.length ? rows.map(function (note) {
+            return [
+                "<tr>",
+                "<td>", escapeHtml(note.title || "Study Material"), "</td>",
+                "<td>", escapeHtml(getNoteCourseLabels(note)), "</td>",
+                "<td>", escapeHtml(note.subject || "General"), "</td>",
+                "<td>", escapeHtml(note.created_at ? String(note.created_at).slice(0, 10) : "-"), "</td>",
+                '<td><button type="button" class="table-action-btn" data-preview-material="', escapeHtml(note.id), '">Preview</button> ',
+                '<button type="button" class="table-action-btn" data-edit-material="', escapeHtml(note.id), '">Edit</button> ',
+                '<button type="button" class="table-action-btn" data-edit-material-courses="', escapeHtml(note.id), '">Courses</button> ',
+                '<button type="button" class="table-action-btn" data-replace-material="', escapeHtml(note.id), '">Replace</button> ',
+                '<button type="button" class="table-action-btn danger-btn" data-delete-material="', escapeHtml(note.id), '">Delete</button></td>',
+                "</tr>"
+            ].join("");
+        }).join("") : '<tr><td colspan="5" class="admin-empty">No study material found.</td></tr>';
+    }
+
+    async function uploadStudyMaterial(event) {
+        event.preventDefault();
+        clearPanelMessage();
+        const courseIds = getSelectedMaterialCourseIds();
+        const subject = getValue("materialSubjectInput");
+        const title = getValue("materialTitleInput");
+        const fileInput = document.getElementById("materialFileInput");
+        const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+        if (!courseIds.length || !subject || !title || !file) {
+            setPanelMessage("Select at least one course, subject, title and PDF file.", "error");
+            return;
+        }
+        if (file.type && file.type !== "application/pdf") {
+            setPanelMessage("Only PDF files are allowed.", "error");
+            return;
+        }
+        try {
+            const client = window.VinayakAuth.getClient();
+            const primaryCourseId = courseIds[0];
+            const filePath = buildMaterialPath(primaryCourseId, subject, file);
+            setMaterialProgress(20);
+            const uploadResult = await client.storage.from(MATERIAL_BUCKET).upload(filePath, file, { cacheControl: "3600", upsert: false });
+            if (uploadResult.error) throw uploadResult.error;
+            setMaterialProgress(65);
+            const insertResult = await client.from("notes").insert([{
+                course_id: primaryCourseId,
+                subject: subject,
+                title: title,
+                file_path: filePath,
+                created_at: new Date().toISOString()
+            }]).select("id").single();
+            if (insertResult.error) throw insertResult.error;
+            const noteId = insertResult.data && insertResult.data.id;
+            if (!noteId) throw new Error("Study material record was created without an id.");
+            setMaterialProgress(82);
+            const linkRows = courseIds.map(function (courseId) {
+                return { note_id: noteId, course_id: courseId };
+            });
+            const linkResult = await client.from("material_courses").insert(linkRows);
+            if (linkResult.error) {
+                await client.from("notes").delete().eq("id", noteId);
+                await client.storage.from(MATERIAL_BUCKET).remove([filePath]);
+                throw linkResult.error;
+            }
+            setMaterialProgress(100);
+            document.getElementById("materialUploadForm").reset();
+            renderMaterialCourseChecklist([]);
+            setPanelMessage("Study material uploaded once and assigned to " + courseIds.length + " course(s).", "success");
+            notesCache = await fetchOptionalTable("notes");
+            materialCoursesCache = await fetchOptionalTable("material_courses");
+            renderMaterials();
+        } catch (error) {
+            console.error("Study material upload failed", error);
+            setPanelMessage(error.message || "Could not upload study material.", "error");
+        }
+    }
+
+    function findMaterial(id) {
+        return notesCache.find(function (note) { return String(note.id) === String(id); });
+    }
+
+    async function previewMaterial(id) {
+        try {
+            const note = findMaterial(id);
+            if (!note || !note.file_path) throw new Error("PDF path is missing.");
+            const { data, error } = await window.VinayakAuth.getClient().storage.from(MATERIAL_BUCKET).createSignedUrl(note.file_path, 300);
+            if (error) throw error;
+            window.location.href = data.signedUrl;
+        } catch (error) {
+            console.error("Study material preview failed", error);
+            setPanelMessage(error.message || "Could not preview PDF.", "error");
+        }
+    }
+
+    async function editMaterial(id) {
+        const note = findMaterial(id);
+        if (!note) return;
+        const title = window.prompt("Edit title", note.title || "");
+        if (title == null) return;
+        const subject = window.prompt("Edit subject", note.subject || "General");
+        if (subject == null) return;
+        try {
+            const { error } = await window.VinayakAuth.getClient().from("notes").update({ title: title.trim(), subject: subject.trim() || "General" }).eq("id", id);
+            if (error) throw error;
+            setPanelMessage("Study material updated.", "success");
+            notesCache = await fetchOptionalTable("notes");
+            renderMaterials();
+        } catch (error) {
+            console.error("Study material edit failed", error);
+            setPanelMessage(error.message || "Could not update study material.", "error");
+        }
+    }
+
+    function resolveCourseIdsFromText(value) {
+        const entries = String(value || "").split(",").map(function (item) {
+            return normalizeKey(item);
+        }).filter(Boolean);
+        return Array.from(new Set(entries.map(function (entry) {
+            const match = coursesCache.find(function (course) {
+                return normalizeKey(getCourseId(course)) === entry || normalizeKey(getCourseName(course)) === entry;
+            });
+            return match ? getCourseId(match) : "";
+        }).filter(Boolean)));
+    }
+
+    async function saveMaterialCourseLinks(noteId, courseIds) {
+        const client = window.VinayakAuth.getClient();
+        const uniqueCourseIds = Array.from(new Set(courseIds.filter(Boolean)));
+        if (!uniqueCourseIds.length) {
+            throw new Error("Select at least one valid course.");
+        }
+        const primaryCourseId = uniqueCourseIds[0];
+        const updateResult = await client.from("notes").update({ course_id: primaryCourseId }).eq("id", noteId);
+        if (updateResult.error) throw updateResult.error;
+        const deleteResult = await client.from("material_courses").delete().eq("note_id", noteId);
+        if (deleteResult.error) throw deleteResult.error;
+        const insertResult = await client.from("material_courses").insert(uniqueCourseIds.map(function (courseId) {
+            return { note_id: noteId, course_id: courseId };
+        }));
+        if (insertResult.error) throw insertResult.error;
+    }
+
+    async function editMaterialCourses(id) {
+        const note = findMaterial(id);
+        if (!note) return;
+        const current = getNoteCourseLabels(note);
+        const value = window.prompt("Assign courses by course name or UUID, separated by comma", current === "-" ? "" : current);
+        if (value == null) return;
+        const courseIds = resolveCourseIdsFromText(value);
+        if (!courseIds.length) {
+            setPanelMessage("No valid courses found. Use exact course names from Course Management.", "error");
+            return;
+        }
+        try {
+            await saveMaterialCourseLinks(id, courseIds);
+            notesCache = await fetchOptionalTable("notes");
+            materialCoursesCache = await fetchOptionalTable("material_courses");
+            renderMaterials();
+            renderCourses();
+            setPanelMessage("Study material course access updated.", "success");
+        } catch (error) {
+            console.error("Study material course update failed", error);
+            setPanelMessage(error.message || "Could not update course access.", "error");
+        }
+    }
+
+    async function replaceMaterial(id) {
+        const note = findMaterial(id);
+        if (!note) return;
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/pdf,.pdf";
+        input.addEventListener("change", async function () {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            try {
+                const client = window.VinayakAuth.getClient();
+                const newPath = buildMaterialPath(getNoteCourseIds(note)[0] || note.course_id, note.subject, file);
+                setMaterialProgress(20);
+                const uploadResult = await client.storage.from(MATERIAL_BUCKET).upload(newPath, file, { cacheControl: "3600", upsert: false });
+                if (uploadResult.error) throw uploadResult.error;
+                setMaterialProgress(70);
+                const updateResult = await client.from("notes").update({ file_path: newPath, created_at: new Date().toISOString() }).eq("id", id);
+                if (updateResult.error) throw updateResult.error;
+                if (note.file_path) {
+                    await client.storage.from(MATERIAL_BUCKET).remove([note.file_path]);
+                }
+                setMaterialProgress(100);
+                setPanelMessage("PDF replaced successfully.", "success");
+                notesCache = await fetchOptionalTable("notes");
+                materialCoursesCache = await fetchOptionalTable("material_courses");
+                renderMaterials();
+            } catch (error) {
+                console.error("Study material replace failed", error);
+                setPanelMessage(error.message || "Could not replace PDF.", "error");
+            }
+        });
+        input.click();
+    }
+
+    async function deleteMaterial(id) {
+        const note = findMaterial(id);
+        if (!note || !window.confirm("Delete this study material PDF and database record?")) return;
+        try {
+            const client = window.VinayakAuth.getClient();
+            await client.from("material_courses").delete().eq("note_id", id);
+            if (note.file_path) {
+                const storageResult = await client.storage.from(MATERIAL_BUCKET).remove([note.file_path]);
+                if (storageResult.error) throw storageResult.error;
+            }
+            const deleteResult = await client.from("notes").delete().eq("id", id);
+            if (deleteResult.error) throw deleteResult.error;
+            setPanelMessage("Study material deleted.", "success");
+            notesCache = await fetchOptionalTable("notes");
+            materialCoursesCache = await fetchOptionalTable("material_courses");
+            renderMaterials();
+        } catch (error) {
+            console.error("Study material delete failed", error);
+            setPanelMessage(error.message || "Could not delete study material.", "error");
+        }
+    }
+
     async function refreshAll() {
         studentsCache = await fetchStudents();
         feesCache = await fetchTable("student_fees");
         emisCache = await fetchTable("emis");
         paymentsCache = await fetchOptionalTable("payments");
-        coursesCache = await fetchOptionalTable("courses");
         batchesCache = await fetchOptionalTable("batches");
+        notesCache = await fetchOptionalTable("notes");
+        materialCoursesCache = await fetchOptionalTable("material_courses");
+        await loadCourses();
         updateBatchFilter();
         applyStudentFilter();
         renderEmis();
         renderDashboard();
+        renderMaterials();
     }
 
     function setupAdmissionDefaults() {
@@ -1389,6 +1943,20 @@
                 if (pageButton.getAttribute("data-pagination-key") === "emi") renderEmis();
                 if (pageButton.getAttribute("data-pagination-key") === "bulk") renderBulkRows();
             }
+            const previewMaterialButton = event.target.closest("[data-preview-material]");
+            if (previewMaterialButton) previewMaterial(previewMaterialButton.getAttribute("data-preview-material"));
+            const editMaterialButton = event.target.closest("[data-edit-material]");
+            if (editMaterialButton) editMaterial(editMaterialButton.getAttribute("data-edit-material"));
+            const editMaterialCoursesButton = event.target.closest("[data-edit-material-courses]");
+            if (editMaterialCoursesButton) editMaterialCourses(editMaterialCoursesButton.getAttribute("data-edit-material-courses"));
+            const replaceMaterialButton = event.target.closest("[data-replace-material]");
+            if (replaceMaterialButton) replaceMaterial(replaceMaterialButton.getAttribute("data-replace-material"));
+            const deleteMaterialButton = event.target.closest("[data-delete-material]");
+            if (deleteMaterialButton) deleteMaterial(deleteMaterialButton.getAttribute("data-delete-material"));
+            const editCourseButton = event.target.closest("[data-edit-course]");
+            if (editCourseButton) fillCourseForm(editCourseButton.getAttribute("data-edit-course"));
+            const deleteCourseButton = event.target.closest("[data-delete-course]");
+            if (deleteCourseButton) deleteCourse(deleteCourseButton.getAttribute("data-delete-course"));
         });
         document.getElementById("adminMenuBtn").addEventListener("click", function () {
             if (window.innerWidth <= 1024) {
@@ -1433,6 +2001,20 @@
             setValue("studentSearchInput", getValue("adminGlobalSearch"));
             showAdminSection("students");
             applyStudentFilter();
+        });
+        const materialForm = document.getElementById("materialUploadForm");
+        if (materialForm) materialForm.addEventListener("submit", uploadStudyMaterial);
+        const courseForm = document.getElementById("courseForm");
+        if (courseForm) courseForm.addEventListener("submit", saveCourse);
+        const clearCourseButton = document.getElementById("clearCourseFormBtn");
+        if (clearCourseButton) clearCourseButton.addEventListener("click", clearCourseForm);
+        const courseSearchInput = document.getElementById("courseSearchInput");
+        if (courseSearchInput) courseSearchInput.addEventListener("input", renderCourses);
+        ["materialSearchInput", "materialCourseFilter", "materialSubjectFilter"].forEach(function (id) {
+            const field = document.getElementById(id);
+            if (!field) return;
+            field.addEventListener("input", renderMaterials);
+            field.addEventListener("change", renderMaterials);
         });
         document.querySelectorAll("[data-admission-next]").forEach(function (button) {
             button.addEventListener("click", function () {

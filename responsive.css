@@ -1,0 +1,652 @@
+/* Shared responsive overrides only. Desktop stays in existing files. */
+
+:root {
+    --mobile-shell-gap: 16px;
+    --mobile-card-radius: 20px;
+    --touch-target: 48px;
+}
+
+img,
+svg,
+iframe {
+    max-width: 100%;
+}
+
+.blocked-logo {
+    display: block;
+    margin: 0 auto;
+}
+
+.blocked-instructions {
+    margin-top: 1rem;
+}
+
+@media (max-width: 1280px) {
+    .erp-main,
+    .student-shell,
+    .student-page-main,
+    .blocked-shell {
+        max-width: 100%;
+    }
+
+    .erp-topbar,
+    .student-topbar {
+        gap: 0.85rem;
+    }
+}
+
+@media (max-width: 1024px) {
+    .erp-shell {
+        grid-template-columns: 88px minmax(0, 1fr);
+    }
+
+    .erp-sidebar {
+        width: 88px;
+        padding-inline: 0.55rem;
+    }
+
+    .erp-brand div,
+    .erp-nav-link span,
+    .erp-sidebar-footer {
+        display: none;
+    }
+
+    .erp-brand,
+    .erp-nav-link {
+        justify-content: center;
+    }
+
+    .erp-main {
+        padding: 1rem;
+    }
+
+    .erp-topbar {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            "menu heading"
+            "search search"
+            "meta meta";
+        align-items: start;
+    }
+
+    .erp-topbar > :nth-child(1) { grid-area: menu; }
+    .erp-topbar > :nth-child(2) { grid-area: heading; }
+    .erp-topbar > :nth-child(3) { grid-area: search; }
+    .erp-topbar > :nth-child(4) { grid-area: meta; }
+
+    .erp-top-meta {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .erp-stats-grid,
+    .erp-dashboard-grid,
+    .admin-grid,
+    .student-quick-grid,
+    .student-dashboard-grid.compact-grid,
+    .student-notes-boards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .viewer-layout {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+
+    .notes-list,
+    .pdf-panel,
+    .pdf-viewer {
+        min-height: 52vh;
+    }
+
+    .student-page-board,
+    .student-page-board-viewer {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        overflow-x: clip;
+    }
+
+    .student-lms-page .student-topbar,
+    .student-lms-page .student-shell,
+    .student-lms-page .container,
+    .student-lms-page main:not(.student-shell),
+    .student-lms-page .student-footer,
+    .blocked-shell {
+        margin-left: 0 !important;
+        width: min(100%, calc(100% - 12px)) !important;
+    }
+
+    .student-topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "brand menu"
+            "search search"
+            "actions actions";
+        padding: 12px;
+        border-radius: 20px;
+    }
+
+    .student-brand {
+        grid-area: brand;
+        min-width: 0;
+    }
+
+    .student-menu-btn {
+        grid-area: menu;
+        justify-self: end;
+        min-width: var(--touch-target);
+        min-height: var(--touch-target);
+    }
+
+    .student-top-search {
+        grid-area: search;
+        width: 100%;
+    }
+
+    .student-top-actions {
+        grid-area: actions;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .student-top-actions .logout-btn,
+    .student-top-actions .student-icon-btn {
+        min-height: var(--touch-target);
+        width: 100%;
+    }
+
+    .student-brand-copy strong {
+        font-size: 1rem;
+    }
+
+    .student-brand-copy span {
+        font-size: 0.84rem;
+    }
+
+    .student-top-search input,
+    .student-notes-search input,
+    .student-notes-filter select,
+    .login-field input,
+    .login-field select,
+    .login-field textarea,
+    .prototype-field input,
+    .prototype-submit,
+    .prototype-google,
+    .login-btn,
+    .logout-btn,
+    .table-action-btn,
+    .student-quick-link {
+        min-height: var(--touch-target);
+    }
+
+    .student-sidebar {
+        width: min(86vw, 310px) !important;
+        transform: translateX(-105%);
+        transition: transform 0.22s ease;
+    }
+
+    .student-sidebar-open .student-sidebar {
+        transform: translateX(0);
+    }
+
+    .student-sidebar-scrim {
+        position: fixed;
+        inset: 0;
+        display: none;
+        background: rgba(15, 23, 42, 0.38);
+        z-index: 940;
+    }
+
+    .student-sidebar-open .student-sidebar-scrim {
+        display: block;
+    }
+
+    .erp-shell,
+    body.admin-sidebar-collapsed .erp-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .erp-sidebar,
+    body.admin-sidebar-collapsed .erp-sidebar {
+        width: min(86vw, 320px);
+        height: 100vh;
+        position: fixed;
+        left: 0;
+        top: 0;
+        transform: translateX(-104%);
+        transition: transform 0.22s ease;
+        z-index: 1200;
+        padding-inline: 0.85rem;
+    }
+
+    .erp-brand div,
+    .erp-nav-link span,
+    .erp-sidebar-footer {
+        display: block;
+    }
+
+    body.admin-sidebar-open .erp-sidebar {
+        transform: translateX(0);
+    }
+
+    .erp-menu-btn {
+        display: inline-flex !important;
+        min-width: var(--touch-target);
+        min-height: var(--touch-target);
+    }
+
+    .erp-topbar {
+        padding: 12px;
+        border-radius: 20px;
+    }
+
+    .erp-stats-grid,
+    .erp-dashboard-grid,
+    .admin-grid,
+    .student-quick-grid,
+    .student-dashboard-grid.compact-grid,
+    .student-notes-boards,
+    .student-catalog-grid.subjects-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .student-material-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .student-material-subjects {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .student-quick-card,
+    .student-action-item,
+    .erp-list-item,
+    .student-list-item,
+    .student-feature-placeholder {
+        border-radius: var(--mobile-card-radius);
+    }
+
+    .student-quick-card {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .student-quick-link {
+        width: 100%;
+    }
+
+    .student-page-head,
+    .student-inline-hero,
+    .resource-placeholder,
+    .student-panel,
+    .subject-card,
+    .admin-card,
+    .blocked-card,
+    .notes-list,
+    .pdf-panel,
+    .prototype-card,
+    .prototype-panel {
+        border-radius: var(--mobile-card-radius);
+    }
+
+    .student-page-main,
+    .student-shell,
+    .container {
+        width: min(100%, calc(100% - 12px));
+        padding-inline: 0;
+    }
+
+    .student-info-strip {
+        width: min(100%, calc(100% - 12px));
+        border-radius: 14px;
+    }
+
+    .student-page-head h1,
+    .student-inline-hero h2,
+    .admin-hero h2,
+    .blocked-card h1 {
+        font-size: clamp(1.35rem, 5vw, 1.7rem);
+    }
+
+    .admin-table-header {
+        align-items: stretch;
+    }
+
+    .erp-table-tools {
+        width: 100%;
+    }
+
+    .erp-table-tools .login-field,
+    .erp-table-tools .table-action-btn {
+        width: 100%;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-table {
+        min-width: 720px;
+        border-spacing: 0 10px;
+    }
+
+    .blocked-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .blocked-actions {
+        flex-direction: column;
+    }
+
+    .blocked-actions .login-btn,
+    .blocked-actions .logout-btn {
+        width: 100%;
+    }
+
+    .ecce-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.85rem;
+    }
+
+    .viewer-layout {
+        display: flex;
+        flex-direction: column;
+        min-height: auto;
+    }
+
+    .notes-list {
+        order: 1;
+    }
+
+    .pdf-panel {
+        order: 2;
+    }
+
+    .prototype-shell {
+        padding: 14px;
+    }
+
+    .prototype-panel {
+        min-height: auto;
+        grid-template-columns: 1fr;
+        background: rgba(255, 255, 255, 0.56);
+    }
+
+    .prototype-visual {
+        display: block !important;
+        min-height: 220px;
+        max-height: 260px;
+        padding: 8px;
+    }
+
+    .prototype-scene {
+        position: relative;
+        inset: auto;
+        padding: 12px 18px 0;
+    }
+
+    .prototype-illustration {
+        width: min(100%, 260px);
+    }
+
+    .prototype-login {
+        padding: 12px;
+        background: transparent;
+    }
+
+    .prototype-card {
+        width: min(100%, 100%);
+        padding: 24px 18px 18px;
+    }
+
+    .prototype-mobile-mascot {
+        display: none !important;
+    }
+
+    .prototype-copy h1 {
+        font-size: clamp(1.7rem, 8vw, 2rem);
+    }
+
+    .prototype-copy > p,
+    .prototype-logo-lockup p {
+        font-size: 0.86rem;
+    }
+
+    .prototype-toggle button,
+    .prototype-submit,
+    .prototype-google {
+        min-height: var(--touch-target);
+    }
+
+    .prototype-field input,
+    .prototype-password-row input {
+        padding-bottom: 12px;
+        font-size: 0.98rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .student-topbar,
+    .erp-topbar {
+        top: 0.45rem;
+    }
+
+    .student-top-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .student-top-actions .logout-btn {
+        grid-column: 1 / -1;
+    }
+
+    .student-notes-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .student-material-subjects {
+        grid-template-columns: 1fr;
+    }
+
+    .student-material-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-table {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .admin-table thead {
+        display: none;
+    }
+
+    .admin-table,
+    .admin-table tbody,
+    .admin-table tr,
+    .admin-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .admin-table tr {
+        margin-bottom: 0.9rem;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+    }
+
+    .admin-table td {
+        border: 0;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+        padding: 0.8rem 0.9rem;
+    }
+
+    .admin-table td:last-child {
+        border-bottom: 0;
+    }
+
+    .prototype-meta-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .prototype-brand-mark {
+        margin-bottom: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .student-brand-copy strong {
+        font-size: 0.95rem;
+    }
+
+    .student-brand-copy span {
+        font-size: 0.8rem;
+    }
+
+    .student-topbar,
+    .erp-topbar,
+    .student-page-head,
+    .student-inline-hero,
+    .student-panel,
+    .subject-card,
+    .admin-card,
+    .blocked-card,
+    .resource-placeholder,
+    .notes-list,
+    .pdf-panel,
+    .prototype-card {
+        border-radius: 18px;
+    }
+
+    .student-quick-card,
+    .student-action-item,
+    .erp-list-item,
+    .student-list-item {
+        padding: 0.9rem;
+    }
+
+    .prototype-visual {
+        min-height: 190px;
+        max-height: 220px;
+    }
+
+    .prototype-illustration {
+        width: min(100%, 220px);
+    }
+
+    .prototype-card {
+        padding: 20px 16px 16px;
+    }
+}
+
+@media (max-width: 390px) {
+    .student-topbar,
+    .erp-topbar {
+        padding: 10px;
+    }
+
+    .student-top-search input,
+    .student-notes-search input,
+    .student-notes-filter select,
+    .login-field input,
+    .login-field select,
+    .prototype-submit,
+    .prototype-google,
+    .logout-btn,
+    .login-btn {
+        min-height: 46px;
+    }
+
+    .student-brand-copy span {
+        gap: 0.3rem;
+    }
+
+    .prototype-toggle {
+        gap: 8px;
+        margin-top: 24px;
+        margin-bottom: 18px;
+    }
+}
+
+@media (max-width: 360px) {
+    .student-top-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .student-top-actions .logout-btn {
+        grid-column: auto;
+    }
+
+    .prototype-shell {
+        padding: 10px;
+    }
+
+    .prototype-card {
+        padding-inline: 14px;
+    }
+
+    .prototype-copy h1 {
+        font-size: 1.55rem;
+    }
+}
+
+@media (max-width: 320px) {
+    .student-page-main,
+    .student-shell,
+    .container,
+    .blocked-shell,
+    .student-info-strip {
+        width: calc(100% - 8px) !important;
+    }
+
+    .student-brand-copy strong,
+    .erp-topbar h1 {
+        font-size: 0.9rem;
+    }
+
+    .prototype-card {
+        padding-inline: 12px;
+    }
+}
+
+@media (max-width: 1180px) {
+    .student-primary-actions.student-quick-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .student-dashboard-grid.compact-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .student-home-summary,
+    .student-home-meta,
+    .student-primary-actions.student-quick-grid,
+    .student-profile-simple {
+        grid-template-columns: 1fr;
+    }
+
+    .student-primary-actions .student-quick-card {
+        min-height: 132px;
+    }
+
+    .student-assignment-row {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .student-assignment-row em {
+        grid-column: 2;
+    }
+}

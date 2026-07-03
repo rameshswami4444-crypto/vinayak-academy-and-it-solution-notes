@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Viewer - Vinayak Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="responsive.css">
+    <link rel="stylesheet" href="student-portal.css">
+</head>
+<body class="auth-pending student-pdf-page">
+    <main class="student-shell pdf-viewer-shell">
+        <section class="student-pdf-viewer">
+            <div class="student-pdf-toolbar">
+                <button type="button" class="student-pdf-back" id="pdfBackBtn"><i class="fas fa-arrow-left"></i> Back</button>
+                <div class="student-pdf-title">
+                    <h1 id="pdfTitle">Loading PDF...</h1>
+                    <span id="pdfSubject">Please wait</span>
+                </div>
+                <div class="student-pdf-controls">
+                    <button type="button" id="pdfZoomOut" aria-label="Zoom out"><i class="fas fa-minus"></i></button>
+                    <button type="button" id="pdfPrevPage" aria-label="Previous page"><i class="fas fa-chevron-left"></i></button>
+                    <span id="pdfPageInfo">Page - / -</span>
+                    <button type="button" id="pdfNextPage" aria-label="Next page"><i class="fas fa-chevron-right"></i></button>
+                    <button type="button" id="pdfZoomIn" aria-label="Zoom in"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="student-pdf-stage" id="pdfStage">
+                <div class="student-pdf-loading" id="pdfLoading"><span></span><strong>Loading secure PDF...</strong></div>
+                <canvas id="pdfCanvas"></canvas>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="JS/supabase-config.js"></script>
+    <script src="JS/auth.js"></script>
+    <script src="JS/student-layout.js?v=student-routing-20260703"></script>
+    <script src="JS/notes-page.js"></script>
+    <script src="JS/pdf-viewer.js"></script>
+</body>
+</html>

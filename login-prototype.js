@@ -195,6 +195,14 @@
         ensureTick();
     }
 
+    function onTouchMove(event) {
+        const touch = event.touches && event.touches[0];
+        if (!touch) {
+            return;
+        }
+        onPointerMove({ clientX: touch.clientX, clientY: touch.clientY });
+    }
+
     function onPointerLeave() {
         pointerInside = false;
         setTargetsToBase();
@@ -275,7 +283,12 @@
     ensureTick();
 
     window.addEventListener("mousemove", onPointerMove, { passive: true });
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("touchstart", onTouchMove, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
     window.addEventListener("mouseleave", onPointerLeave);
+    window.addEventListener("touchend", onPointerLeave, { passive: true });
+    window.addEventListener("touchcancel", onPointerLeave, { passive: true });
     bindPasswordField(studentPassword);
     bindPasswordField(adminPassword);
     bindFormFeedback(studentForm, studentButton);

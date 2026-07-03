@@ -1,297 +1,312 @@
 (function () {
-    function escapeAttribute(value) {
-        return String(value)
+    const BUCKET = "study-material";
+
+    function escapeHtml(value) {
+        return String(value == null ? "" : value)
             .replace(/&/g, "&amp;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#39;")
             .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
     }
 
-    function openExternalLink(link) {
-        window.open(link, "_blank", "noopener,noreferrer");
+    function getAuth() {
+        if (!window.VinayakAuth) {
+            throw new Error("Session service is not loaded.");
+        }
+        return window.VinayakAuth;
     }
 
-    function showComingSoon(message) {
-        window.alert(message);
+    function normalizeCourse(value) {
+        const auth = getAuth();
+        return auth.normalizeSingleCourse ? auth.normalizeSingleCourse(value) : String(value || "").trim().toUpperCase();
     }
 
-    function flattenTopics(notesData) {
-        return notesData.reduce(function (all, subject) {
-            return all.concat((subject.topics || []).map(function (topic, index) {
-                return {
-                    subject: subject.name,
-                    subjectKey: subject.courseKey || subject.name,
-                    title: topic.name,
-                    link: topic.link,
-                    pinned: index === 0,
-                    type: /assignment/i.test(topic.name) ? "Assignment" : "Notes"
-                };
-            }));
-        }, []);
+    function isUuid(value) {
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
     }
 
-    function applyCourseVisibility(notesData, subjectsGrid) {
-        if (!window.VinayakAuth || typeof window.VinayakAuth.getStoredCourses !== "function") {
+    function getCourseName(course) {
+        return course.course_name || course.name || course.title || course.course || course.code || "";
+    }
+
+    function getStudentCourse() {
+        const auth = getAuth();
+        return normalizeCourse(auth.getStoredCourse ? auth.getStoredCourse() : sessionStorage.getItem("studentCourse"));
+    }
+
+    function formatDate(value) {
+        if (!value) return "Recent";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+        return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    async function resolveCourseId(courseValue) {
+        const course = String(courseValue || "").trim();
+        if (isUuid(course)) {
+            return course;
+        }
+        const normalized = normalizeCourse(course);
+        const { data, error } = await getAuth().getClient()
+            .from("courses")
+            .select("*");
+        if (error) throw error;
+        const match = (data || []).find(function (item) {
+            return normalizeCourse(getCourseName(item)) === normalized || normalizeCourse(item.code) === normalized;
+        });
+        return match && match.id ? String(match.id) : "";
+    }
+
+    async function fetchCourseNotes(course) {
+        const courseId = await resolveCourseId(course);
+        if (!courseId) {
+            return [];
+        }
+        const client = getAuth().getClient();
+        try {
+            const linkResult = await client
+                .from("material_courses")
+                .select("note_id")
+                .eq("course_id", courseId);
+            if (linkResult.error) throw linkResult.error;
+            const noteIds = Array.from(new Set((linkResult.data || []).map(function (row) {
+                return row.note_id;
+            }).filter(Boolean)));
+            const mappedResult = noteIds.length
+                ? await client.from("notes").select("id, course_id, subject, title, created_at, file_path").in("id", noteIds)
+                : { data: [], error: null };
+            if (mappedResult.error) throw mappedResult.error;
+            const legacyResult = await client
+                .from("notes")
+                .select("id, course_id, subject, title, created_at, file_path")
+                .eq("course_id", courseId);
+            if (legacyResult.error) throw legacyResult.error;
+            const byId = {};
+            (mappedResult.data || []).concat(legacyResult.data || []).forEach(function (note) {
+                byId[String(note.id)] = note;
+            });
+            return Object.keys(byId).map(function (id) {
+                return byId[id];
+            }).sort(function (a, b) {
+                return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+            });
+        } catch (error) {
+            console.warn("material_courses lookup failed; using legacy notes.course_id", error);
+            const legacy = await client
+                .from("notes")
+                .select("id, course_id, subject, title, created_at, file_path")
+                .eq("course_id", courseId)
+                .order("created_at", { ascending: false });
+            if (legacy.error) throw legacy.error;
+            return legacy.data || [];
+        }
+    }
+
+    async function createSignedUrl(note) {
+        if (!note || !note.file_path) {
+            throw new Error("This PDF file is not available.");
+        }
+        const studentCourseId = await resolveCourseId(getStudentCourse());
+        if (!studentCourseId) {
+            throw new Error("You do not have access to this course material.");
+        }
+        let hasAccess = String(note.course_id || "") === studentCourseId;
+        if (!hasAccess) {
+            try {
+                const { data, error } = await getAuth().getClient()
+                    .from("material_courses")
+                    .select("id")
+                    .eq("note_id", note.id)
+                    .eq("course_id", studentCourseId)
+                    .limit(1);
+                if (error) throw error;
+                hasAccess = Boolean(data && data.length);
+            } catch (error) {
+                console.warn("material_courses permission check failed; using legacy course_id only", error);
+            }
+        }
+        if (!hasAccess) {
+            throw new Error("You do not have access to this course material.");
+        }
+        const { data, error } = await getAuth().getClient()
+            .storage
+            .from(BUCKET)
+            .createSignedUrl(note.file_path, 300);
+        if (error) throw error;
+        if (!data || !data.signedUrl) {
+            throw new Error("Could not create a secure PDF link.");
+        }
+        return data.signedUrl;
+    }
+
+    async function fetchNoteById(id) {
+        const noteId = String(id || "").trim();
+        if (!noteId) {
+            throw new Error("PDF record was not found.");
+        }
+        const { data, error } = await getAuth().getClient()
+            .from("notes")
+            .select("id, course_id, subject, title, created_at, file_path")
+            .eq("id", noteId)
+            .limit(1);
+        if (error) throw error;
+        if (!data || !data[0]) {
+            throw new Error("This PDF is no longer available.");
+        }
+        return data[0];
+    }
+
+    function getViewerUrl(noteOrId) {
+        const id = typeof noteOrId === "object" && noteOrId ? noteOrId.id : noteOrId;
+        return "pdf-viewer.html?id=" + encodeURIComponent(String(id || ""));
+    }
+
+    function renderMessage(target, title, message) {
+        target.innerHTML = [
+            '<section class="resource-placeholder">',
+            '<h2>', escapeHtml(title), '</h2>',
+            '<p>', escapeHtml(message), '</p>',
+            '</section>'
+        ].join("");
+    }
+
+    function getSubjects(notes) {
+        return Array.from(new Set(notes.map(function (note) {
+            return String(note.subject || "General").trim() || "General";
+        }))).sort();
+    }
+
+    function renderLayout(grid, notes, state) {
+        const subjects = getSubjects(notes);
+        const query = state.query.toLowerCase();
+        const filtered = notes.filter(function (note) {
+            const subject = String(note.subject || "General");
+            const matchesSubject = state.subject === "all" || subject === state.subject;
+            const matchesQuery = !query || [note.title, note.subject, note.created_at].join(" ").toLowerCase().includes(query);
+            return matchesSubject && matchesQuery;
+        });
+
+        if (!notes.length) {
+            renderMessage(grid, "No study material uploaded", "Your course notes will appear here after the admin uploads PDFs.");
             return;
         }
 
-        const allowedCourse = window.VinayakAuth.getStoredCourse();
+        grid.innerHTML = [
+            '<section class="student-material-shell">',
+            '<aside class="student-material-subjects">',
+            '<button type="button" class="student-material-subject', state.subject === "all" ? " active" : "", '" data-material-subject="all">All Subjects <span>', notes.length, '</span></button>',
+            subjects.map(function (subject) {
+                const count = notes.filter(function (note) { return String(note.subject || "General") === subject; }).length;
+                return '<button type="button" class="student-material-subject' + (state.subject === subject ? " active" : "") + '" data-material-subject="' + escapeHtml(subject) + '">' + escapeHtml(subject) + '<span>' + count + '</span></button>';
+            }).join(""),
+            '</aside>',
+            '<section class="student-material-content">',
+            '<div class="student-notes-toolbar">',
+            '<div class="student-notes-search"><i class="fas fa-magnifying-glass"></i><input type="search" data-material-search placeholder="Search title or subject" value="', escapeHtml(state.query), '"></div>',
+            '<div class="student-notes-filter"><label for="studentMaterialSubjectFilter">Subject</label><select id="studentMaterialSubjectFilter" data-material-filter><option value="all">All Subjects</option>',
+            subjects.map(function (subject) {
+                return '<option value="' + escapeHtml(subject) + '"' + (state.subject === subject ? " selected" : "") + '>' + escapeHtml(subject) + '</option>';
+            }).join(""),
+            '</select></div></div>',
+            '<div class="student-material-grid">',
+            filtered.length ? filtered.map(function (note) {
+                return [
+                    '<article class="student-material-card" role="button" tabindex="0" data-open-material-id="', escapeHtml(note.id), '">',
+                    '<div class="student-material-icon"><i class="fas fa-file-pdf"></i></div>',
+                    '<div class="student-material-copy"><span>', escapeHtml(note.subject || "General"), '</span>',
+                    '<h3>', escapeHtml(note.title || "Study Material"), '</h3>',
+                    '<p>Uploaded ', escapeHtml(formatDate(note.created_at)), '</p></div>',
+                    '<button type="button" class="course-continue-btn" data-open-material-id="', escapeHtml(note.id), '">Open PDF</button>',
+                    '</article>'
+                ].join("");
+            }).join("") : '<div class="student-empty">No notes match your search.</div>',
+            '</div></section></section>'
+        ].join("");
+    }
 
-        notesData.forEach(function (subject) {
-            if (!subject.cardId || !subject.courseKey) {
-                return;
-            }
-
-            const card = document.getElementById(subject.cardId);
-            if (!card) {
-                return;
-            }
-
-            if (window.VinayakAuth.normalizeSingleCourse(subject.courseKey) !== allowedCourse) {
-                card.style.display = "none";
-            }
-        });
-
-        const visibleCards = subjectsGrid.querySelectorAll('.subject-card:not([style*="display: none"])');
-        if (!visibleCards.length) {
-            subjectsGrid.innerHTML = [
-                '<section class="resource-placeholder">',
-                "<h2>No courses assigned</h2>",
-                "<p>Your account does not have any course access yet. Please contact the admin.</p>",
-                "</section>"
-            ].join("");
+    function openMaterial(note) {
+        if (!note || !note.id) {
+            window.alert("Could not open this PDF securely.");
+            return;
         }
+        window.location.href = getViewerUrl(note);
     }
 
     function initNotesPage(options) {
         const settings = options || {};
-        const notesData = Array.isArray(settings.notesData) ? settings.notesData : [];
-        const subjectsGrid = document.getElementById(settings.gridId);
-        const modal = document.getElementById(settings.modalId);
-        const modalTitle = document.getElementById(settings.modalTitleId);
-        const topicsContainer = document.getElementById(settings.topicsContainerId);
-        const closeBtn = modal ? modal.querySelector(".close") : null;
-        const comingSoonMessage = settings.comingSoonMessage || "Content will be available soon";
-        const flatTopics = flattenTopics(notesData);
-        let currentFilter = "all";
-        let currentQuery = "";
+        const grid = document.getElementById(settings.gridId) || document.querySelector("[data-material-grid], .subjects-grid");
+        if (!grid || grid.dataset.materialInitialized === "true") return;
+        grid.dataset.materialInitialized = "true";
 
-        if (!subjectsGrid || !modal || !modalTitle || !topicsContainer || !closeBtn) {
-            return;
-        }
+        const state = { subject: "all", query: "", notes: [] };
+        renderMessage(grid, "Loading study material", "Fetching secure notes from Supabase Storage.");
 
-        function ensureToolbar() {
-            if (document.querySelector(".student-notes-toolbar")) {
-                return;
-            }
-            const toolbar = document.createElement("section");
-            toolbar.className = "student-notes-toolbar";
-            toolbar.innerHTML = [
-                '<div class="student-notes-search"><i class="fas fa-magnifying-glass"></i><input type="search" id="notesSearchInput" placeholder="Search notes, subjects, assignments"></div>',
-                '<div class="student-notes-filter"><label for="notesSubjectFilter">Subject</label><select id="notesSubjectFilter"><option value="all">All Subjects</option>',
-                notesData.map(function (subject) {
-                    return '<option value="' + escapeAttribute(subject.name) + '">' + escapeAttribute(subject.name) + '</option>';
-                }).join(""),
-                '</select></div>'
-            ].join("");
-            subjectsGrid.parentNode.insertBefore(toolbar, subjectsGrid);
-        }
-
-        function ensureBoards() {
-            if (document.querySelector(".student-notes-boards")) {
-                return;
-            }
-            const boards = document.createElement("section");
-            boards.className = "student-notes-boards";
-            boards.innerHTML = [
-                '<article class="student-panel"><div class="student-section-head slim"><div><h2>Recent Notes</h2><span>Fresh study items for quick access.</span></div></div><div class="student-notes-list" id="recentNotesBoard"></div></article>',
-                '<article class="student-panel"><div class="student-section-head slim"><div><h2>Pinned Notes</h2><span>Most useful material kept on top.</span></div></div><div class="student-notes-list" id="pinnedNotesBoard"></div></article>',
-                '<article class="student-panel"><div class="student-section-head slim"><div><h2>Latest Uploads</h2><span>Newest material arranged by topic.</span></div></div><div class="student-notes-list" id="latestNotesBoard"></div></article>',
-                '<article class="student-panel"><div class="student-section-head slim"><div><h2>Continue Reading</h2><span>Jump back into your current material.</span></div></div><div class="student-notes-list" id="continueNotesBoard"></div></article>'
-            ].join("");
-            subjectsGrid.insertAdjacentElement("afterend", boards);
-        }
-
-        function renderNoteBoard(targetId, items, emptyMessage) {
-            const target = document.getElementById(targetId);
-            if (!target) {
-                return;
-            }
-            target.innerHTML = items.length ? items.map(function (item) {
-                return [
-                    '<button type="button" class="student-note-chip" data-note-link="', escapeAttribute(item.link), '">',
-                    '<span class="student-note-chip-top">', escapeAttribute(item.subject), '</span>',
-                    '<strong>', escapeAttribute(item.title), '</strong>',
-                    '<small>', escapeAttribute(item.type), '</small>',
-                    '</button>'
-                ].join("");
-            }).join("") : '<div class="student-empty">' + escapeAttribute(emptyMessage) + '</div>';
-        }
-
-        function getFilteredSubjects() {
-            return notesData.filter(function (subject) {
-                if (currentFilter !== "all" && subject.name !== currentFilter) {
-                    return false;
-                }
-                if (!currentQuery) {
-                    return true;
-                }
-                const haystack = [subject.name, subject.description].concat((subject.topics || []).map(function (topic) { return topic.name; })).join(" ").toLowerCase();
-                return haystack.includes(currentQuery);
-            });
-        }
-
-        function syncBoards() {
-            const filteredTopics = flatTopics.filter(function (item) {
-                const matchesFilter = currentFilter === "all" || item.subject === currentFilter;
-                const matchesSearch = !currentQuery || [item.subject, item.title, item.type].join(" ").toLowerCase().includes(currentQuery);
-                return matchesFilter && matchesSearch;
-            });
-            renderNoteBoard("recentNotesBoard", filteredTopics.slice(0, 4), "No recent notes found.");
-            renderNoteBoard("pinnedNotesBoard", filteredTopics.filter(function (item) { return item.pinned; }).slice(0, 4), "No pinned notes yet.");
-            renderNoteBoard("latestNotesBoard", filteredTopics.slice().reverse().slice(0, 4), "No latest uploads yet.");
-            renderNoteBoard("continueNotesBoard", filteredTopics.slice(0, 4), "No reading history yet.");
-        }
-
-        function closeModal() {
-            modal.classList.remove("show");
-            document.body.style.overflow = "";
-        }
-
-        function openPDF(link) {
-            if (!link || link.includes("YOUR_FILE_ID")) {
-                showComingSoon(comingSoonMessage);
-                return;
-            }
-
-            openExternalLink(link);
-        }
-
-        function openModal(subject) {
-            modalTitle.textContent = subject.name;
-            topicsContainer.innerHTML = "";
-
-            subject.topics.forEach(function (topic) {
-                const topicItem = document.createElement("div");
-                const topicButtonMarkup = subject.linkLabel || "View PDF";
-                topicItem.className = "topic-item";
-                topicItem.innerHTML = [
-                    '<span class="topic-name">',
-                    escapeAttribute(topic.name),
-                    "</span>",
-                    '<button class="pdf-btn" type="button" data-topic-link="',
-                    escapeAttribute(topic.link),
-                    '"><i class="fas fa-file-pdf"></i> ',
-                    escapeAttribute(topicButtonMarkup),
-                    "</button>"
-                ].join("");
-                topicsContainer.appendChild(topicItem);
-            });
-
-            modal.classList.add("show");
-            document.body.style.overflow = "hidden";
-        }
-
-        function renderSubjects() {
-            const visibleSubjects = getFilteredSubjects();
-            subjectsGrid.innerHTML = "";
-            if (!visibleSubjects.length) {
-                subjectsGrid.innerHTML = '<section class="resource-placeholder"><h2>No matching notes found</h2><p>Try a different keyword or subject filter.</p></section>';
-                syncBoards();
-                return;
-            }
-
-            visibleSubjects.forEach(function (subject) {
-                const subjectCard = document.createElement("div");
-                subjectCard.className = "subject-card";
-                if (subject.cardId) {
-                    subjectCard.id = subject.cardId;
-                }
-
-                if (subject.courseKey) {
-                    subjectCard.setAttribute("data-course-key", subject.courseKey);
-                }
-
-                subjectCard.innerHTML = [
-                    '<div class="subject-icon"><i class="',
-                    escapeAttribute(subject.icon),
-                    '"></i></div><h2>',
-                    escapeAttribute(subject.name),
-                    "</h2><p>",
-                    escapeAttribute(subject.description),
-                    '</p><span class="topic-count">',
-                    String(subject.topics.length),
-                    ' topics</span><button type="button" class="course-continue-btn">Continue</button>'
-                ].join("");
-
-                subjectCard.addEventListener("click", function () {
-                    if (subject.protected && subject.topics[0] && subject.topics[0].link) {
-                        window.location.href = subject.topics[0].link;
-                        return;
-                    }
-
-                    openModal(subject);
-                });
-
-                subjectsGrid.appendChild(subjectCard);
-            });
-
-            applyCourseVisibility(visibleSubjects, subjectsGrid);
-            syncBoards();
-        }
-
-        closeBtn.addEventListener("click", closeModal);
-        modal.addEventListener("click", function (event) {
-            if (event.target === modal) {
-                closeModal();
-            }
+        fetchCourseNotes(getStudentCourse()).then(function (notes) {
+            state.notes = notes;
+            renderLayout(grid, state.notes, state);
+        }).catch(function (error) {
+            console.error("Study material load failed", error);
+            renderMessage(grid, "Could not load study material", error.message || "Please try again after a moment.");
         });
 
-        topicsContainer.addEventListener("click", function (event) {
-            const button = event.target.closest("[data-topic-link]");
-            if (!button) {
+        grid.addEventListener("input", function (event) {
+            if (!event.target.matches("[data-material-search]")) return;
+            state.query = event.target.value || "";
+            renderLayout(grid, state.notes, state);
+            const input = grid.querySelector("[data-material-search]");
+            if (input) {
+                input.focus();
+                input.setSelectionRange(state.query.length, state.query.length);
+            }
+        });
+        grid.addEventListener("change", function (event) {
+            if (!event.target.matches("[data-material-filter]")) return;
+            state.subject = event.target.value || "all";
+            renderLayout(grid, state.notes, state);
+        });
+        grid.addEventListener("click", function (event) {
+            const subjectButton = event.target.closest("[data-material-subject]");
+            if (subjectButton) {
+                state.subject = subjectButton.getAttribute("data-material-subject") || "all";
+                renderLayout(grid, state.notes, state);
                 return;
             }
-
-            openPDF(button.getAttribute("data-topic-link"));
-        });
-
-        document.addEventListener("click", function (event) {
-            const button = event.target.closest("[data-note-link]");
-            if (!button) {
-                return;
+            const openButton = event.target.closest("[data-open-material-id]");
+            if (!openButton) return;
+            if (event.target.closest("button")) {
+                event.stopPropagation();
             }
-            openPDF(button.getAttribute("data-note-link"));
-        });
-
-        document.addEventListener("keydown", function (event) {
-            if (event.key === "Escape" && modal.classList.contains("show")) {
-                closeModal();
-            }
-        });
-
-        ensureToolbar();
-        ensureBoards();
-        renderSubjects();
-
-        const searchInput = document.getElementById("notesSearchInput");
-        const subjectFilter = document.getElementById("notesSubjectFilter");
-        if (searchInput) {
-            searchInput.addEventListener("input", function () {
-                currentQuery = String(searchInput.value || "").trim().toLowerCase();
-                renderSubjects();
+            const note = state.notes.find(function (item) {
+                return String(item.id) === String(openButton.getAttribute("data-open-material-id"));
             });
-        }
-        if (subjectFilter) {
-            subjectFilter.addEventListener("change", function () {
-                currentFilter = subjectFilter.value || "all";
-                renderSubjects();
+            openMaterial(note);
+        });
+        grid.addEventListener("keydown", function (event) {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            const card = event.target.closest(".student-material-card[data-open-material-id]");
+            if (!card) return;
+            event.preventDefault();
+            const note = state.notes.find(function (item) {
+                return String(item.id) === String(card.getAttribute("data-open-material-id"));
             });
-        }
+            openMaterial(note);
+        });
     }
 
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("[data-material-grid]").forEach(function (grid) {
+            initNotesPage({ gridId: grid.id });
+        });
+    });
+
     window.VinayakNotesPage = {
-        initNotesPage: initNotesPage
+        initNotesPage: initNotesPage,
+        fetchCourseNotes: fetchCourseNotes,
+        resolveCourseId: resolveCourseId,
+        fetchNoteById: fetchNoteById,
+        createSignedUrl: createSignedUrl,
+        getViewerUrl: getViewerUrl,
+        openMaterial: openMaterial
     };
 }());

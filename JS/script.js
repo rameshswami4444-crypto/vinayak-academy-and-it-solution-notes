@@ -1,137 +1,41 @@
-const notesData = [
+const courseData = [
     {
         id: 1,
         name: "ADFA",
-        cardId: "adfa-card",
         courseKey: "ADFA",
-        icon: "fas fa-calculator",
-        description: "advanced deploma in finacial accounting ",
-        topics: [
-            {
-                name: "basic accounting",
-                link: "/HTML/basicnotes.html"
-            },
-            {
-                name: "case studies",
-                link: "/HTML/adfa.html"
-            },
-            {
-                name: "NOTES",
-                link: "/HTML/ADFANOTES.HTML"
-            }
-        ]
+        icon: "fas fa-calculator"
     },
     {
         id: 2,
         name: "DCFA",
-        cardId: "dcfa-card",
         courseKey: "DCFA",
-        icon: "fas fa-file-invoice-dollar",
-        description: "deploma in computerized financial accounting",
-        topics: [
-            {
-                name: "GST Basics and Overview",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_5/view?usp=sharing"
-            },
-            {
-                name: "Registration and Compliance",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_6/view?usp=sharing"
-            },
-            {
-                name: "GST Return Filing",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_7/view?usp=sharing"
-            },
-            {
-                name: "Input Tax Credit",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_8/view?usp=sharing"
-            }
-        ]
+        icon: "fas fa-file-invoice-dollar"
     },
     {
         id: 3,
         name: "Excel",
-        cardId: "excel-card",
         courseKey: "EXCEL",
-        icon: "fas fa-table",
-        description: "Microsoft Excel tutorials and tips",
-        topics: [
-            {
-                name: "case study 1",
-                link: "/adfa.html"
-            }
-        ]
+        icon: "fas fa-table"
     },
     {
         id: 4,
         name: "Rs-cit",
-        cardId: "rscit-card",
         courseKey: "RS-CIT",
-        icon: "fas fa-briefcase",
-        description: "Rs-cit ",
-        topics: [
-            {
-                name: "Introduction to Business",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_13/view?usp=sharing"
-            },
-            {
-                name: "Business Organization",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_14/view?usp=sharing"
-            },
-            {
-                name: "Marketing Strategies",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_15/view?usp=sharing"
-            }
-        ]
+        icon: "fas fa-briefcase"
     },
     {
         id: 5,
         name: "CCC",
-        cardId: "ccc-card",
         courseKey: "CCC",
-        icon: "fas fa-chart-line",
-        description: "CCC",
-        topics: [
-            {
-                name: "Microeconomics",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_16/view?usp=sharing"
-            },
-            {
-                name: "Macroeconomics",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_17/view?usp=sharing"
-            },
-            {
-                name: "Supply and Demand",
-                link: "https://drive.google.com/file/d/YOUR_FILE_ID_18/view?usp=sharing"
-            }
-        ]
+        icon: "fas fa-chart-line"
     },
     {
         id: 6,
         name: "ECCE {IGNOU}",
-        cardId: "ecce-card",
         courseKey: "ECCE",
-        icon: "fa-solid fa-book",
-        description: "Diploma in early childhood care and education",
-        protected: true,
-        topics: [
-            {
-                name: "open",
-                link: "/HTML/DECE.HTML"
-            }
-        ]
+        icon: "fa-solid fa-book"
     }
 ];
-
-document.addEventListener("DOMContentLoaded", function () {
-    window.VinayakNotesPage.initNotesPage({
-        notesData: notesData,
-        gridId: "subjectsGrid",
-        modalId: "modal",
-        modalTitleId: "modalTitle",
-        topicsContainerId: "topicsContainer",
-        comingSoonMessage: "we are cooking your syllabus"
-    });
-});
 
 (function () {
     function setText(id, value) {
@@ -145,61 +49,36 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function getCurrentCourseData(course) {
-        return notesData.find(function (subject) {
+        return courseData.find(function (subject) {
             return window.VinayakAuth && window.VinayakAuth.normalizeSingleCourse(subject.courseKey) === course;
-        }) || notesData[0];
-    }
-
-    function renderSubjects(courseData) {
-        const grid = document.getElementById("subjectsGrid");
-        if (!grid || !courseData) return;
-        grid.innerHTML = [courseData].map(function (courseItem) {
-            return [
-                '<article class="subject-card student-page-card">',
-                '<div class="subject-icon"><i class="', courseItem.icon || "fas fa-book-open", '"></i></div>',
-                '<h2>Open Course</h2>',
-                '<p>Continue into your subjects, notes, and PDF material without extra steps.</p>',
-                '<span class="topic-count">', String((courseItem.topics || []).length), ' subjects</span>',
-                '<button type="button" class="course-continue-btn" data-course-open>Continue</button>',
-                '</article>'
-            ].join("");
-        }).join("");
-        const button = grid.querySelector("[data-course-open]");
-        if (button) {
-            button.addEventListener("click", function () {
-                if (courseData.protected && courseData.topics[0] && courseData.topics[0].link) {
-                    window.location.href = courseData.topics[0].link;
-                    return;
-                }
-                button.closest(".subject-card").click();
-            });
-        }
+        }) || courseData[0];
     }
 
     function renderRecentMaterial(courseData, dbNotes) {
         const list = document.getElementById("recentMaterialList");
         if (!list) return;
-        const fallback = (courseData ? courseData.topics : []).map(function (topic) {
-            return { title: topic.name, type: "PDF", upload_date: "Recent" };
-        });
-        const items = (dbNotes && dbNotes.length ? dbNotes : fallback).slice(0, 5);
+        const items = (dbNotes || []).slice(0, 5);
         list.innerHTML = items.length ? items.map(function (item) {
-            return '<div class="student-list-item"><i class="fas fa-file-pdf"></i><span><strong>' + (item.title || item.name || "Study Material") + '</strong><small>' + (item.type || "PDF") + ' | ' + (item.upload_date || item.created_at || "Recent") + '</small></span></div>';
+            return '<button type="button" class="student-list-item student-list-button" data-dashboard-material-id="' + item.id + '"><i class="fas fa-file-pdf"></i><span><strong>' + (item.title || "Study Material") + '</strong><small>' + (item.subject || "PDF") + ' | ' + (item.created_at || "Recent") + '</small></span></button>';
         }).join("") : '<div class="student-empty">No recent material yet.</div>';
+        list.querySelectorAll("[data-dashboard-material-id]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const note = items.find(function (item) { return String(item.id) === String(button.getAttribute("data-dashboard-material-id")); });
+                if (window.VinayakNotesPage && note) {
+                    window.VinayakNotesPage.openMaterial(note);
+                }
+            });
+        });
     }
 
     function renderQuickAccess(courseData) {
         const grid = document.getElementById("studentQuickGrid");
         if (!grid || !courseData) return;
-        const protectedLink = courseData.protected && courseData.topics[0] ? courseData.topics[0].link : "";
-        const secondLink = courseData.topics[1] ? courseData.topics[1].link : protectedLink;
         const cards = [
-            { icon: "fa-book-open", title: "Study Material", description: "Open notes and subject-wise resources.", href: "#study-material-section" },
-            { icon: "fa-clipboard-list", title: "Assignments", description: "Go straight to assignment material.", href: protectedLink || "#subjectsGrid" },
-            { icon: "fa-square-check", title: "Solved Assignments", description: "Continue from solved or reviewed files.", href: secondLink || protectedLink || "#subjectsGrid" },
-            { icon: "fa-circle-play", title: "Video Lectures", description: "Lecture area reserved for upcoming uploads.", href: "#subjectsGrid" },
-            { icon: "fa-wallet", title: "EMI & Payments", description: "See remaining amount and next due date.", href: "#student-payments-section" },
-            { icon: "fa-user", title: "Profile", description: "Open student ID and account tools.", href: "#profile" }
+            { icon: "fa-book-open", title: "Study Material", description: "Open your course PDFs.", href: "studymaterial.html" },
+          
+           { icon: "fa-wallet", title: "EMI & Payments", description: "See remaining amount and next due date.", href: "emi.html" },
+           
         ];
         grid.innerHTML = cards.map(function (card) {
             return [
@@ -225,6 +104,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderEmi(fee, emis) {
+        const panel = document.getElementById("student-payments-section");
         const card = document.getElementById("studentEmiCard");
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -242,6 +122,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const remaining = fee && fee.remaining_fee != null ? fee.remaining_fee : unpaid.reduce(function (sum, emi) {
             return sum + Number(emi.amount || 0);
         }, 0);
+        if (panel) {
+            panel.hidden = !unpaid.length && Number(remaining || 0) <= 0;
+        }
         if (card) {
             card.innerHTML = [
                 '<strong>', money(remaining), '</strong>',
@@ -252,6 +135,50 @@ document.addEventListener("DOMContentLoaded", function () {
             ].join("");
         }
         return overdue.length > 0;
+    }
+
+    function renderHomeSummary(studentId, student, courseData) {
+        const name = student.name || student.student_name || "Student";
+        const course = courseData ? courseData.name : (student.course || "-");
+        const memberSince = student.admission_date ? new Date(student.admission_date).toLocaleDateString("en-IN", { month: "long", year: "numeric" }) : "-";
+        document.querySelectorAll("[data-home-student-name]").forEach(function (node) { node.textContent = name; });
+        document.querySelectorAll("[data-home-course]").forEach(function (node) { node.textContent = course; });
+        document.querySelectorAll("[data-home-batch]").forEach(function (node) { node.textContent = student.batch || "-"; });
+        document.querySelectorAll("[data-home-status]").forEach(function (node) { node.textContent = student.account_status || "active"; });
+        document.querySelectorAll("[data-home-member-since]").forEach(function (node) { node.textContent = memberSince; });
+        setText("studentIdText", studentId);
+    }
+
+    function renderAssignments(courseData) {
+        const target = document.getElementById("studentAssignmentList");
+        if (!target) return;
+        target.innerHTML = [
+            '<a class="student-assignment-row" href="assignments.html">',
+            '<i class="fas fa-file-pen"></i><span><strong>Assignment Questions</strong><small>Open subject-wise assignment PDFs</small></span><em>Due date shown when uploaded</em>',
+            '</a>',
+            '<a class="student-assignment-row" href="assignments.html">',
+            '<i class="fas fa-square-check"></i><span><strong>Solved Assignments</strong><small>Open solved or reference files</small></span><em>Upload coming later</em>',
+            '</a>'
+        ].join("");
+    }
+
+    function renderProfile(studentId, student, fee) {
+        const target = document.getElementById("studentProfileSummary");
+        if (!target) return;
+        const rows = [
+            ["Student ID", studentId],
+            ["Name", student.name || "-"],
+            ["Course", student.course || "-"],
+            ["Batch", student.batch || "-"],
+            ["Mobile", student.mobile || "-"],
+            ["Email", student.email || "-"],
+            ["Admission Date", student.admission_date || "-"],
+            ["Course Duration", student.course_duration || "-"],
+            ["Fee Status", (fee && fee.status) || student.fees_status || "-"]
+        ];
+        target.innerHTML = rows.map(function (row) {
+            return '<div><small>' + row[0] + '</small><strong>' + row[1] + '</strong></div>';
+        }).join("");
     }
 
     function bindProfileActions(studentId) {
@@ -286,10 +213,9 @@ document.addEventListener("DOMContentLoaded", function () {
     async function loadDashboard(session) {
         const studentId = session.studentId || window.VinayakAuth.getStoredStudentId();
         const course = window.VinayakAuth.normalizeSingleCourse(session.course || window.VinayakAuth.getStoredCourse());
+        const courseId = window.VinayakNotesPage && window.VinayakNotesPage.resolveCourseId ? await window.VinayakNotesPage.resolveCourseId(course) : "";
         const courseData = getCurrentCourseData(course);
 
-        setText("studentIdText", studentId);
-        renderSubjects(courseData);
         renderQuickAccess(courseData);
 
         const students = await safeFetch(window.VinayakAuth.getStudentsTableName(), function (table) {
@@ -302,9 +228,11 @@ document.addEventListener("DOMContentLoaded", function () {
         const emis = await safeFetch("emis", function (table) {
             return table.select("*").eq("student_id", studentId);
         });
-        const notes = await safeFetch("notes", function (table) {
-            return table.select("*").limit(5);
-        });
+        const notes = window.VinayakNotesPage && window.VinayakNotesPage.fetchCourseNotes
+            ? (await window.VinayakNotesPage.fetchCourseNotes(course)).slice(0, 5)
+            : (courseId ? await safeFetch("notes", function (table) {
+                return table.select("id, course_id, subject, title, created_at, file_path").eq("course_id", courseId).order("created_at", { ascending: false }).limit(5);
+            }) : []);
         const announcements = await safeFetch("announcements", function (table) {
             return table.select("*").limit(5);
         });
@@ -315,10 +243,13 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll("[data-layout-batch]").forEach(function (node) {
             node.textContent = student.batch || "-";
         });
+        renderHomeSummary(studentId, student, courseData);
         const hasOverdueEmi = renderEmi(fees[0], emis);
         document.getElementById("studentBlockedBanner").hidden = !hasOverdueEmi;
         renderRecentMaterial(courseData, notes);
         renderAnnouncements(announcements);
+        renderAssignments(courseData);
+        renderProfile(studentId, student, fees[0]);
         bindProfileActions(studentId);
     }
 

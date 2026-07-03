@@ -6,11 +6,12 @@
     <title>Fee Pending - Vinayak Academy</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="responsive.css">
 </head>
 <body class="auth-pending blocked-page">
     <main class="blocked-shell">
         <section class="blocked-card">
-            <img style="margin: 0 auto; display: block;" src="logo.png" alt="Vinayak Academy logo" class="login-logo" >
+            <img src="logo.png" alt="Vinayak Academy logo" class="login-logo blocked-logo">
             <p class="login-badge">Access Restricted</p>
             <h1>Your account has been temporarily locked because your fees are overdue.</h1>
             <p class="blocked-copy">Please scan the QR code below to pay your pending fees.</p>
@@ -37,7 +38,7 @@
                         </div>
                     </div>
 
-                    <p class="blocked-copy" style="margin-top: 1rem;">Payment Instructions<br>Complete the payment, keep a screenshot or receipt ready, and wait for admin confirmation before refreshing your status.</p>
+                    <p class="blocked-copy blocked-instructions">Payment Instructions<br>Complete the payment, keep a screenshot or receipt ready, and wait for admin confirmation before refreshing your status.</p>
                     <p id="blockedStatusMessage" class="auth-message" hidden></p>
 
                     <div class="blocked-actions">

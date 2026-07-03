@@ -6,6 +6,7 @@
     <title>Admin Panel - Vinayak Academy</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="responsive.css">
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="auth-pending admin-page">
@@ -56,7 +57,7 @@
             <section class="admin-section active" data-admin-section="dashboard">
                 <div class="admin-hero erp-hero">
                     <div><h2>Operations Overview</h2><p class="admin-hero-copy">Admissions, active accounts, EMI dues, and blocked students.</p></div>
-                    <div class="erp-filter-row"><select id="dashboardCourseFilter" aria-label="Filter dashboard by course"><option value="">All Courses</option><option value="ECCE">ECCE</option><option value="ADFA">ADFA</option><option value="DCFA">DCFA</option><option value="EXCEL">EXCEL</option><option value="RS-CIT">RS-CIT</option><option value="CCC">CCC</option></select></div>
+                    <div class="erp-filter-row"><select id="dashboardCourseFilter" aria-label="Filter dashboard by course"><option value="">All Courses</option></select></div>
                 </div>
                 <div class="erp-stats-grid">
                     <article class="erp-stat-card"><span><i class="fas fa-users"></i></span><small>Total Students</small><strong id="statTotalStudents">0</strong></article>
@@ -94,7 +95,7 @@
                     <div class="admin-form-actions admission-step-actions" data-admission-step-nav="1"><button type="button" class="login-btn" data-admission-next="2">Continue to Academic</button></div>
 
                     <article class="admin-card" data-admission-step-panel="2" hidden><h3><i class="fas fa-book-open"></i> Course Details</h3><div class="erp-form-grid">
-                        <div class="login-field"><label for="newStudentCourse">Course</label><select id="newStudentCourse" required><option value="">Select course</option><option value="ECCE">ECCE</option><option value="ADFA">ADFA</option><option value="DCFA">DCFA</option><option value="EXCEL">EXCEL</option><option value="RS-CIT">RS-CIT</option><option value="CCC">CCC</option></select></div>
+                        <div class="login-field"><label for="newStudentCourse">Course</label><select id="newStudentCourse" required><option value="">Loading courses...</option></select></div>
                         <div class="login-field"><label for="newBatch">Batch</label><input type="text" id="newBatch" required></div>
                         <div class="login-field"><label for="newAdmissionDate">Admission Date</label><input type="date" id="newAdmissionDate" required></div>
                         <div class="login-field"><label for="newCourseDuration">Course Duration</label><input type="text" id="newCourseDuration" placeholder="e.g. 6 Months" required></div>
@@ -166,7 +167,7 @@
                         <button type="button" class="table-action-btn" id="exportStudentsCsvBtn"><i class="fas fa-file-csv"></i> CSV</button>
                         <button type="button" class="table-action-btn" id="exportStudentsExcelBtn"><i class="fas fa-file-excel"></i> Excel</button>
                         <div class="login-field admin-search-field"><label for="studentSearchInput">Search</label><input type="search" id="studentSearchInput" placeholder="ID, name, mobile"></div>
-                        <div class="login-field erp-filter-field"><label for="studentCourseFilter">Course</label><select id="studentCourseFilter"><option value="">All</option><option value="ECCE">ECCE</option><option value="ADFA">ADFA</option><option value="DCFA">DCFA</option><option value="EXCEL">EXCEL</option><option value="RS-CIT">RS-CIT</option><option value="CCC">CCC</option></select></div>
+                        <div class="login-field erp-filter-field"><label for="studentCourseFilter">Course</label><select id="studentCourseFilter"><option value="">All</option></select></div>
                         <div class="login-field erp-filter-field"><label for="studentBatchFilter">Batch</label><select id="studentBatchFilter"><option value="">All</option></select></div>
                         <div class="login-field erp-filter-field"><label for="studentStatusFilter">Status</label><select id="studentStatusFilter"><option value="">All</option><option value="active">Active</option><option value="blocked">Blocked</option><option value="disabled">Disabled</option></select></div>
                     </div></div>
@@ -187,7 +188,7 @@
                                 <div class="login-field"><label for="editAlternateMobile">Alternate Mobile</label><input type="tel" id="editAlternateMobile"></div>
                                 <div class="login-field"><label for="editEmail">Email</label><input type="email" id="editEmail"></div>
                                 <div class="login-field"><label for="editStudentPassword">Password</label><input type="text" id="editStudentPassword" required></div>
-                                <div class="login-field"><label for="editStudentCourse">Course</label><select id="editStudentCourse" required><option value="">Select course</option><option value="ECCE">ECCE</option><option value="ADFA">ADFA</option><option value="DCFA">DCFA</option><option value="EXCEL">EXCEL</option><option value="RS-CIT">RS-CIT</option><option value="CCC">CCC</option></select></div>
+                                <div class="login-field"><label for="editStudentCourse">Course</label><select id="editStudentCourse" required><option value="">Loading courses...</option></select></div>
                                 <div class="login-field"><label for="editBatch">Batch</label><input type="text" id="editBatch"></div>
                                 <div class="login-field"><label for="editAdmissionDate">Admission Date</label><input type="date" id="editAdmissionDate"></div>
                                 <div class="login-field"><label for="editCourseDuration">Course Duration</label><input type="text" id="editCourseDuration"></div>
@@ -216,9 +217,63 @@
                 <section class="admin-card admin-table-card"><div class="admin-table-header"><h3><i class="fas fa-calendar-days"></i> EMI Records</h3><div class="login-field admin-search-field"><label for="emiSearchInput">Search</label><input type="search" id="emiSearchInput" placeholder="Student ID, status"></div></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Student</th><th>EMI</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Paid Date</th><th>Action</th></tr></thead><tbody id="emiTableBody"></tbody></table></div><div class="erp-pagination" id="emiPagination"></div></section>
             </section>
 
-            <section class="admin-section" data-admin-section="courses"><article class="admin-card erp-placeholder"><h2>Courses</h2><p>Course setup will connect in a future phase.</p></article></section>
+            <section class="admin-section" data-admin-section="courses">
+                <div class="admin-hero"><div><h2>Course Management</h2><p class="admin-hero-copy">Create, update, search, and review courses used across admissions and study material.</p></div></div>
+                <section class="erp-stats-grid">
+                    <article class="erp-stat-card"><span><i class="fas fa-book"></i></span><small>Total Courses</small><strong id="courseStatTotal">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-users"></i></span><small>Linked Students</small><strong id="courseStatStudents">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-file-pdf"></i></span><small>Study Materials</small><strong id="courseStatNotes">0</strong></article>
+                </section>
+                <section class="admin-card">
+                    <h3><i class="fas fa-book-medical"></i> Add / Edit Course</h3>
+                    <form id="courseForm" class="admin-form">
+                        <input type="hidden" id="courseRecordId">
+                        <div class="erp-form-grid">
+                            <div class="login-field"><label for="courseNameInput">Course Name</label><input type="text" id="courseNameInput" required></div>
+                            <div class="login-field"><label for="courseDurationInput">Duration</label><input type="text" id="courseDurationInput" placeholder="Example: 6 Months"></div>
+                            <div class="login-field"><label for="courseTotalFeeInput">Total Fee</label><input type="number" min="0" step="0.01" id="courseTotalFeeInput"></div>
+                            <div class="login-field erp-span-2"><label for="courseDescriptionInput">Description</label><textarea id="courseDescriptionInput" rows="3"></textarea></div>
+                        </div>
+                        <div class="admin-form-actions"><button type="submit" class="login-btn"><i class="fas fa-floppy-disk"></i> Save Course</button><button type="button" class="logout-btn admin-secondary-btn" id="clearCourseFormBtn"><i class="fas fa-eraser"></i> Clear</button></div>
+                    </form>
+                </section>
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header"><h3><i class="fas fa-list"></i> Courses</h3><div class="login-field admin-search-field"><label for="courseSearchInput">Search Course</label><input type="search" id="courseSearchInput" placeholder="Course name, duration"></div></div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Course</th><th>Duration</th><th>Total Fee</th><th>Students</th><th>Materials</th><th>Actions</th></tr></thead><tbody id="coursesTableBody"><tr><td colspan="6" class="admin-empty">Loading courses...</td></tr></tbody></table></div>
+                </section>
+            </section>
             <section class="admin-section" data-admin-section="batches"><article class="admin-card erp-placeholder"><h2>Batches</h2><p>Batch setup will connect in a future phase.</p></article></section>
-            <section class="admin-section" data-admin-section="material"><article class="admin-card erp-placeholder"><h2>Study Material</h2><p>Not part of this phase.</p></article></section>
+            <section class="admin-section" data-admin-section="material">
+                <section class="admin-card">
+                    <div class="erp-card-head">
+                        <div>
+                            <h3><i class="fas fa-book-open"></i> Study Material Management</h3>
+                            <p class="admin-note">Upload PDFs to private Supabase Storage and publish them to the notes table.</p>
+                        </div>
+                    </div>
+                    <form id="materialUploadForm" class="admin-form">
+                        <div class="erp-form-grid">
+                            <div class="login-field"><label for="materialSubjectInput">Subject</label><input type="text" id="materialSubjectInput" placeholder="Example: DECE-1" required></div>
+                            <div class="login-field"><label for="materialTitleInput">Title</label><input type="text" id="materialTitleInput" placeholder="PDF title shown to students" required></div>
+                            <div class="login-field"><label for="materialFileInput">Choose PDF</label><input type="file" id="materialFileInput" accept="application/pdf,.pdf" required></div>
+                            <div class="login-field erp-span-2"><label>Available Courses</label><div class="material-course-picker" id="materialCourseChecklist"><span>Loading courses...</span></div></div>
+                        </div>
+                        <div class="material-progress" id="materialUploadProgress" hidden><span></span></div>
+                        <button type="submit" class="login-btn"><i class="fas fa-cloud-arrow-up"></i> Upload Study Material</button>
+                    </form>
+                </section>
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header">
+                        <h3><i class="fas fa-folder-open"></i> Uploaded PDFs</h3>
+                        <div class="erp-table-tools">
+                            <div class="login-field admin-search-field"><label for="materialSearchInput">Search</label><input type="search" id="materialSearchInput" placeholder="Title or subject"></div>
+                            <div class="login-field admin-search-field"><label for="materialCourseFilter">Course</label><select id="materialCourseFilter"><option value="all">All Courses</option></select></div>
+                            <div class="login-field admin-search-field"><label for="materialSubjectFilter">Subject</label><select id="materialSubjectFilter"><option value="all">All Subjects</option></select></div>
+                        </div>
+                    </div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Title</th><th>Course</th><th>Subject</th><th>Uploaded</th><th>Actions</th></tr></thead><tbody id="materialTableBody"><tr><td colspan="5" class="admin-empty">No study material loaded.</td></tr></tbody></table></div>
+                </section>
+            </section>
             <section class="admin-section" data-admin-section="fees"><article class="admin-card erp-placeholder"><h2>Fee Management</h2><p>Fee summaries are now created during admission. Full fee module comes later.</p></article></section>
             <section class="admin-section" data-admin-section="payments"><article class="admin-card erp-placeholder"><h2>Payments</h2><p>Payment receipts are not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="assignments"><article class="admin-card erp-placeholder"><h2>Assignments</h2><p>Not part of this phase.</p></article></section>

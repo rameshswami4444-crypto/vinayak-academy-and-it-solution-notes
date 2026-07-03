@@ -22,9 +22,9 @@
             '<div class="student-brand student-brand-shell">',
             '<button type="button" class="student-menu-btn" data-student-sidebar-toggle aria-label="Toggle student menu"><i data-lucide="panel-left-close"></i></button>',
             '<img src="', ROOT_PREFIX, 'logo.png" alt="Vinayak Academy logo" class="student-logo">',
-            '<div class="student-brand-copy"><small>Welcome</small><strong data-layout-student-name>', studentName, '</strong><span><b data-layout-course>', course, '</b><em data-layout-batch>', batch, '</em></span></div>',
+            '<div class="student-brand-copy"><small>Student Portal</small><strong data-layout-student-name>', studentName, '</strong><span><b data-layout-course>', course, '</b></span></div>',
             '</div>',
-            '<form class="student-top-search" data-student-search-form><i class="fas fa-magnifying-glass"></i><input type="search" data-student-search-input placeholder="Search courses, notes, EMI, notices" aria-label="Search student dashboard"></form>',
+            '<form class="student-top-search" data-student-search-form><i class="fas fa-magnifying-glass"></i><input type="search" data-student-search-input placeholder="Search notes, assignments, notices" aria-label="Search student dashboard"></form>',
             '<div class="student-top-actions">',
             '<button type="button" class="student-icon-btn" aria-label="Notifications"><i data-lucide="bell-ring"></i><span data-layout-notification-count>0</span></button>',
             '<button type="button" class="logout-btn" id="logoutBtn"><i class="fas fa-right-from-bracket"></i> Logout</button>',
@@ -35,15 +35,13 @@
 
     function createSidebar() {
         const navItems = [
-            ["Dashboard", "layout-dashboard", ROOT_PREFIX + "index.html"],
-            ["My Courses", "layers-3", ROOT_PREFIX + "index.html#subjectsGrid"],
-            ["Study Material", "book-open", ROOT_PREFIX + "index.html#study-material-section"],
-            ["Assignments", "clipboard-check", ROOT_PREFIX + "index.html#subjectsGrid"],
-            ["Video Lectures", "circle-play", ROOT_PREFIX + "index.html#subjectsGrid"],
-            ["EMI & Payments", "wallet-cards", ROOT_PREFIX + "index.html#student-payments-section"],
-            ["Notices", "megaphone", ROOT_PREFIX + "index.html#announcementPanel"],
-            ["Profile", "badge-check", ROOT_PREFIX + "index.html#profile"],
-            ["Settings", "settings-2", ROOT_PREFIX + "index.html#settings"],
+            ["Dashboard", "layout-dashboard", ROOT_PREFIX + "dashboard.html"],
+            ["Study Material", "book-open", ROOT_PREFIX + "studymaterial.html"],
+            ["Assignments", "clipboard-check", ROOT_PREFIX + "assignments.html"],
+            ["Video Lectures", "circle-play", ROOT_PREFIX + "videolecures.html"],
+            ["EMI & Payments", "wallet-cards", ROOT_PREFIX + "emi.html"],
+            ["Notices", "megaphone", ROOT_PREFIX + "notices.html"],
+            ["Profile", "badge-check", ROOT_PREFIX + "profile.html"],
             ["Logout", "log-out", ROOT_PREFIX + "login.html"]
         ];
         return [
@@ -71,15 +69,15 @@
         ].join("");
     }
 
-    function createInfoStrip(message) {
-        const text = String(message || "Vinayak Academy - Notes are for enrolled students only | Do not share").trim();
-        const items = [text, text, text].map(function (item) {
-            return '<span>' + item + '</span>';
-        }).join("");
+    function createInfoStrip() {
+        const text = "📢 Welcome to Vinayak Academy | Do not share study material outside the portal | EMI due students will lose access automatically | Contact Admin for support.";
         return [
-            '<section class="student-info-strip" aria-label="Important notice">',
-            '<div class="student-info-strip-track">', items, '</div>',
-            '</section>'
+            '<div class="student-marquee student-news-ticker" aria-label="Important student updates">',
+            '<div class="student-news-track">',
+            '<span>', text, '</span>',
+            '<span aria-hidden="true">', text, '</span>',
+            '</div>',
+            '</div>'
         ].join("");
     }
 
@@ -171,12 +169,7 @@
         }
         button.dataset.noticeBound = "true";
         button.addEventListener("click", function () {
-            const target = document.getElementById("announcementList");
-            if (target) {
-                target.scrollIntoView({ behavior: "smooth", block: "start" });
-            } else {
-                window.location.href = ROOT_PREFIX + "index.html#announcementList";
-            }
+            window.location.href = ROOT_PREFIX + "notices.html";
         });
     }
 
@@ -192,22 +185,15 @@
             return;
         }
         const actions = topbar.querySelector(".student-top-actions");
-        topbar.insertBefore(createFragment('<form class="student-top-search" data-student-search-form><i class="fas fa-magnifying-glass"></i><input type="search" data-student-search-input placeholder="Search courses, notes, EMI, notices" aria-label="Search student dashboard"></form>'), actions || null);
+        topbar.insertBefore(createFragment('<form class="student-top-search" data-student-search-form><i class="fas fa-magnifying-glass"></i><input type="search" data-student-search-input placeholder="Search notes, assignments, notices" aria-label="Search student dashboard"></form>'), actions || null);
     }
 
     function highlightActiveNav() {
         const currentPath = window.location.pathname.toLowerCase();
         document.querySelectorAll(".student-sidebar a").forEach(function (link) {
             const href = String(link.getAttribute("href") || "").toLowerCase();
-            const currentIsDashboard = currentPath.endsWith("/index.html") || currentPath === "/" || currentPath.endsWith("\\index.html");
             const pathOnly = href.split("#")[0].replace("../", "").replace("./", "");
-            const linkHash = href.indexOf("#") !== -1 ? "#" + href.split("#")[1] : "";
-            const hashOnly = href.charAt(0) === "#";
-            const active = hashOnly
-                ? currentIsDashboard && window.location.hash.toLowerCase() === href
-                : (pathOnly && currentPath.indexOf(pathOnly) !== -1
-                    ? (linkHash ? window.location.hash.toLowerCase() === linkHash : currentIsDashboard && !window.location.hash)
-                    : false);
+            const active = Boolean(pathOnly && currentPath.endsWith("/" + pathOnly));
             link.classList.toggle("active", active);
         });
     }
@@ -225,13 +211,7 @@
                 if (!query) {
                     return;
                 }
-                const currentPath = window.location.pathname.toLowerCase();
-                const isDashboard = currentPath.endsWith("/index.html") || currentPath === "/" || currentPath.endsWith("\\index.html");
-                if (!isDashboard) {
-                    window.location.href = ROOT_PREFIX + "index.html";
-                    return;
-                }
-                const candidates = Array.from(document.querySelectorAll(".subject-card, .student-panel, .student-list-item, .student-quick-card, .student-page-card"));
+                const candidates = Array.from(document.querySelectorAll(".student-panel, .student-list-item, .student-quick-card, .student-page-card, .student-material-card, .student-assignment-row"));
                 const match = candidates.find(function (node) {
                     return String(node.textContent || "").toLowerCase().includes(query);
                 });
@@ -274,9 +254,10 @@
         main.classList.add("student-page-main");
 
         const meta = inferPageMeta();
-        const hasDashboard = document.querySelector(".student-welcome");
+        const hasDashboard = document.querySelector(".student-home-summary");
         const inlineHero = main.querySelector(".ecce-header-row");
-        if (!hasDashboard && !inlineHero) {
+        const hasMaterialGrid = Boolean(main.querySelector("[data-material-grid]"));
+        if (!hasDashboard && !inlineHero && !hasMaterialGrid) {
             main.insertAdjacentHTML("afterbegin", [
                 '<section class="student-page-head">',
                 '<div class="student-page-head-copy">',
@@ -319,8 +300,8 @@
             if (!placeholder.querySelector(".student-placeholder-actions")) {
                 placeholder.insertAdjacentHTML("beforeend", [
                     '<div class="student-placeholder-actions">',
-                    '<a class="login-btn student-link-btn" href="' + ROOT_PREFIX + 'index.html">Go to Dashboard</a>',
-                    '<a class="logout-btn student-link-btn secondary" href="' + ROOT_PREFIX + 'index.html#subjectsGrid">Browse My Courses</a>',
+                    '<a class="login-btn student-link-btn" href="' + ROOT_PREFIX + 'dashboard.html">Go to Dashboard</a>',
+                    '<a class="logout-btn student-link-btn secondary" href="' + ROOT_PREFIX + 'studymaterial.html">Open Study Material</a>',
                     '</div>'
                 ].join(""));
             }
@@ -328,16 +309,18 @@
     }
 
     function ensureInfoStrip() {
-        const oldMarquee = document.querySelector(".student-marquee");
-        const footer = document.querySelector(".student-footer, .footer");
-        const message = oldMarquee ? oldMarquee.textContent : "";
-        if (oldMarquee) {
-            oldMarquee.remove();
+        const oldMarquees = document.querySelectorAll(".student-marquee:not(.student-news-ticker)");
+        oldMarquees.forEach(function (marquee) {
+            marquee.remove();
+        });
+        if (!document.querySelector(".student-news-ticker")) {
+            const footer = document.querySelector(".student-footer");
+            if (footer) {
+                footer.insertAdjacentHTML("beforebegin", createInfoStrip());
+            } else {
+                document.body.insertAdjacentHTML("beforeend", createInfoStrip());
+            }
         }
-        if (document.querySelector(".student-info-strip") || !footer) {
-            return;
-        }
-        footer.insertAdjacentHTML("beforebegin", createInfoStrip(message));
     }
 
     function ensureLucide() {

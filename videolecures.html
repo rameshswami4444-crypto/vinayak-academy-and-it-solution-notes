@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Lectures - Vinayak Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="responsive.css">
+    <link rel="stylesheet" href="student-portal.css">
+</head>
+<body class="auth-pending">
+    <main class="student-shell">
+        <section class="student-panel student-wide-panel">
+            <div class="student-section-head slim"><div><h2>Video Lectures</h2><span>Uploaded lecture videos for your course.</span></div></div>
+            <div id="videoLectureList" class="student-list"><div class="student-empty">No video lectures uploaded yet.</div></div>
+        </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="JS/supabase-config.js"></script>
+    <script src="JS/auth.js"></script>
+    <script src="JS/student-layout.js?v=student-routing-20260703"></script>
+    <script src="JS/student-pages.js?v=student-routing-20260703"></script>
+    <script>window.VinayakAuth.initProtectedPage().then(function () { window.VinayakStudentPages.loadVideos(); });</script>
+</body>
+</html>
