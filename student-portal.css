@@ -1336,3 +1336,236 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
         padding: 12px;
     }
 }
+
+.student-pdf-open {
+    overflow: hidden !important;
+}
+
+.student-pdf-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: grid;
+    place-items: center;
+    padding: 2.5vh 2.5vw;
+    background: rgba(3, 10, 24, 0.74);
+    backdrop-filter: blur(10px);
+}
+
+.student-pdf-modal[hidden] {
+    display: none !important;
+}
+
+.student-pdf-modal,
+.student-pdf-modal * {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.student-pdf-modal-card {
+    width: 95vw;
+    height: 95vh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid rgba(226, 232, 240, 0.3);
+    border-radius: 18px;
+    background: #0b1220;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.4);
+}
+
+.student-pdf-modal-toolbar {
+    min-height: 64px;
+    display: grid;
+    grid-template-columns: auto minmax(180px, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(15, 23, 42, 0.98);
+    color: #ffffff;
+}
+
+.student-pdf-modal-title {
+    min-width: 0;
+}
+
+.student-pdf-modal-title strong,
+.student-pdf-modal-title small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.student-pdf-modal-title strong {
+    font-size: 1rem;
+}
+
+.student-pdf-modal-title small {
+    margin-top: 2px;
+    color: #bac7db;
+    font-weight: 800;
+}
+
+.student-pdf-modal-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    min-width: 0;
+}
+
+.student-pdf-tool {
+    min-width: 40px;
+    height: 40px;
+    border: 1px solid rgba(203, 213, 225, 0.22);
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.student-pdf-tool:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.student-pdf-tool.text {
+    min-width: auto;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.student-pdf-tool.close {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.student-pdf-page,
+.student-pdf-zoom {
+    min-width: 82px;
+    color: #e5edf8;
+    font-weight: 900;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.student-pdf-zoom {
+    min-width: 54px;
+}
+
+.student-pdf-modal-stage {
+    position: relative;
+    overflow: auto;
+    display: grid;
+    place-items: start center;
+    padding: 18px;
+    background:
+        radial-gradient(circle at top, rgba(37, 99, 235, 0.12), transparent 32%),
+        #111827;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: pan-x pan-y;
+}
+
+.student-pdf-modal-stage canvas {
+    max-width: 100%;
+    height: auto;
+    background: #ffffff;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+.student-pdf-modal-loader,
+.student-pdf-modal-error {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(15, 23, 42, 0.74);
+    color: #ffffff;
+}
+
+.student-pdf-modal-loader[hidden] {
+    display: none !important;
+}
+
+.student-pdf-modal-loader span {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #ffffff;
+    border-radius: 999px;
+    animation: studentPdfSpin 0.8s linear infinite;
+}
+
+.student-pdf-modal-error {
+    color: #fecaca;
+}
+
+.student-assignment-row {
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+button.student-assignment-row {
+    font: inherit;
+}
+
+@media (max-width: 980px) {
+    .student-pdf-modal-toolbar {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .student-pdf-modal-controls {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+}
+
+@media (max-width: 760px) {
+    .student-pdf-modal {
+        padding: 0;
+    }
+
+    .student-pdf-modal-card {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
+
+    .student-pdf-modal-toolbar {
+        min-height: 112px;
+        padding: 10px;
+    }
+
+    .student-pdf-tool {
+        min-width: 38px;
+        height: 38px;
+        border-radius: 11px;
+    }
+
+    .student-pdf-tool.text {
+        padding-inline: 9px;
+    }
+
+    .student-pdf-page {
+        min-width: 78px;
+        font-size: 0.82rem;
+    }
+
+    .student-pdf-modal-stage {
+        padding: 10px;
+    }
+}

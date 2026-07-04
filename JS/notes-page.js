@@ -159,7 +159,7 @@
 
     function getViewerUrl(noteOrId) {
         const id = typeof noteOrId === "object" && noteOrId ? noteOrId.id : noteOrId;
-        return "pdf-viewer.html?id=" + encodeURIComponent(String(id || ""));
+        return "#material-" + encodeURIComponent(String(id || ""));
     }
 
     function renderMessage(target, title, message) {
@@ -230,7 +230,11 @@
             window.alert("Could not open this PDF securely.");
             return;
         }
-        window.location.href = getViewerUrl(note);
+        if (window.VinayakPdfModal && typeof window.VinayakPdfModal.openNote === "function") {
+            window.VinayakPdfModal.openNote(note);
+            return;
+        }
+        window.alert("PDF viewer is still loading. Please try again.");
     }
 
     function initNotesPage(options) {

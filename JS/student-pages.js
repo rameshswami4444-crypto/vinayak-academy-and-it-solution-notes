@@ -127,8 +127,18 @@
             });
             if (!target) return;
             target.innerHTML = assignmentNotes.length ? assignmentNotes.map(function (note) {
-                return '<a class="student-assignment-row" href="' + window.VinayakNotesPage.getViewerUrl(note) + '"><i class="fas fa-file-pen"></i><span><strong>' + escapeHtml(note.title || "Assignment PDF") + '</strong><small>' + escapeHtml(note.subject || student.course || "Assignment") + '</small></span><em>Open PDF</em></a>';
+                return '<button type="button" class="student-assignment-row" data-open-assignment-id="' + escapeHtml(note.id) + '"><i class="fas fa-file-pen"></i><span><strong>' + escapeHtml(note.title || "Assignment PDF") + '</strong><small>' + escapeHtml(note.subject || student.course || "Assignment") + '</small></span><em>Open PDF</em></button>';
             }).join("") : '<div class="student-empty">No assignment PDFs uploaded yet.</div>';
+            target.querySelectorAll("[data-open-assignment-id]").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const note = assignmentNotes.find(function (item) {
+                        return String(item.id) === String(button.getAttribute("data-open-assignment-id"));
+                    });
+                    if (window.VinayakNotesPage && note) {
+                        window.VinayakNotesPage.openMaterial(note);
+                    }
+                });
+            });
         } catch (error) {
             console.warn("Assignment PDFs load failed", error);
             if (target) {
