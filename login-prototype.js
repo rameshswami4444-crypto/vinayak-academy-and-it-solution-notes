@@ -154,7 +154,7 @@
     function playSuccess() {
         bounceMascot();
         gsap.fromTo(illustration, {
-            filter: "drop-shadow(0 0 0 rgba(34, 197, 94, 0))"
+            filter: "drop-shadow(0 0 0 rgba(58, 253, 129, 0))"
         }, {
             filter: "drop-shadow(0 0 16px rgba(34, 197, 94, 0.38))",
             duration: 0.18,

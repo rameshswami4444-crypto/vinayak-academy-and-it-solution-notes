@@ -190,34 +190,13 @@ body.auth-pending {
     box-shadow: var(--shadow-soft);
 }
 
-.prototype-brand-mark {
-    position: relative;
-    width: 28px;
-    height: 28px;
-    margin-bottom: 28px;
-}
 
-.prototype-brand-mark span {
-    position: absolute;
-    inset: 0;
-    border-radius: 8px;
-    background: #191b20;
-    transform-origin: center;
-}
 
-.prototype-brand-mark span:nth-child(1) {
-    clip-path: polygon(50% 0, 100% 30%, 78% 100%, 26% 72%);
-}
 
-.prototype-brand-mark span:nth-child(2) {
-    transform: scale(0.58) translate(28%, 12%);
-    background: white;
-}
 
-.prototype-brand-mark span:nth-child(3) {
-    transform: rotate(35deg) scale(0.52) translate(-22%, 15%);
-    background: #191b20;
-}
+
+
+
 
 .prototype-copy {
     width: 100%;
@@ -232,8 +211,8 @@ body.auth-pending {
 }
 
 .prototype-logo {
-    width: 28px;
-    height: 28px;
+    width: 58px;
+    height: 58px;
     object-fit: contain;
 }
 
@@ -351,36 +330,12 @@ body.auth-pending {
     color: #535159;
 }
 
-.prototype-meta-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-top: -2px;
-    margin-bottom: 28px;
-}
 
-.prototype-checkbox {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: #8d8a84;
-    font-size: 0.82rem;
-}
 
-.prototype-checkbox input {
-    width: 14px;
-    height: 14px;
-    accent-color: #1f2025;
-}
 
-.prototype-link {
-    border: 0;
-    background: transparent;
-    color: #c2bdb6;
-    font: inherit;
-    font-size: 0.82rem;
-}
+
+
+
 
 .prototype-submit {
     position: relative;
@@ -428,31 +383,9 @@ body.auth-pending {
     opacity: 0.88;
 }
 
-.prototype-google {
-    width: 100%;
-    min-height: 52px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 16px;
-    border: 0;
-    background: transparent;
-    color: #30323a;
-    font: inherit;
-    font-size: 0.96rem;
-    font-weight: 600;
-}
 
-.prototype-google-mark {
-    width: 24px;
-    height: 24px;
-    display: inline-grid;
-    place-items: center;
-    border-radius: 999px;
-    color: #ea4335;
-    font-weight: 700;
-}
+
+
 
 .prototype-footer-note {
     margin-top: auto;
