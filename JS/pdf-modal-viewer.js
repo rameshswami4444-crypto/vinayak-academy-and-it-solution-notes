@@ -8,7 +8,6 @@
     let fitMode = "width";
     let rendering = false;
     let pendingRender = false;
-    let activeNote = null;
     let touchStartX = 0;
     let touchStartY = 0;
     let pinchStartDistance = 0;
@@ -50,11 +49,6 @@
         return pdfLibPromise;
     }
 
-    function getConfigFlag(key) {
-        const config = window.VinayakPdfViewerConfig || {};
-        return Boolean(config[key]);
-    }
-
     function ensureModal() {
         let modal = document.getElementById("studentPdfModal");
         if (modal) return modal;
@@ -67,8 +61,6 @@
         modal.innerHTML = [
             '<div class="student-pdf-modal-card" id="studentPdfModalCard">',
             '<div class="student-pdf-modal-toolbar">',
-            '<button type="button" class="student-pdf-tool back" data-pdf-close><i class="fas fa-arrow-left"></i><span>Back</span></button>',
-            '<div class="student-pdf-modal-title"><strong id="studentPdfModalTitle">PDF</strong><small id="studentPdfModalSubject">Study Material</small></div>',
             '<div class="student-pdf-modal-controls">',
             '<button type="button" class="student-pdf-tool" data-pdf-prev title="Previous page"><i class="fas fa-chevron-left"></i></button>',
             '<span class="student-pdf-page" id="studentPdfPageInfo">Page - / -</span>',
@@ -79,8 +71,6 @@
             '<button type="button" class="student-pdf-tool text" data-pdf-fit-width>Fit Width</button>',
             '<button type="button" class="student-pdf-tool text" data-pdf-fit-page>Fit Page</button>',
             '<button type="button" class="student-pdf-tool" data-pdf-fullscreen title="Fullscreen"><i class="fas fa-expand"></i></button>',
-            '<button type="button" class="student-pdf-tool optional" data-pdf-download hidden title="Download"><i class="fas fa-download"></i></button>',
-            '<button type="button" class="student-pdf-tool optional" data-pdf-print hidden title="Print"><i class="fas fa-print"></i></button>',
             '<button type="button" class="student-pdf-tool close" data-pdf-close title="Close"><i class="fas fa-xmark"></i></button>',
             '</div>',
             '</div>',
@@ -188,11 +178,23 @@
         if (!modal) return;
         modal.hidden = true;
         document.body.classList.remove("student-pdf-open");
+        document.body.classList.remove("student-pdf-fullscreen-active");
         if (document.fullscreenElement && document.fullscreenElement.id === "studentPdfModalCard") {
             document.exitFullscreen().catch(function () {});
         }
         pdfDoc = null;
-        activeNote = null;
+    }
+
+    function updateFullscreenState() {
+        const isActive = Boolean(document.fullscreenElement && document.fullscreenElement.id === "studentPdfModalCard");
+        document.body.classList.toggle("student-pdf-fullscreen-active", isActive);
+        const icon = document.querySelector("[data-pdf-fullscreen] i");
+        if (icon) {
+            icon.className = isActive ? "fas fa-compress" : "fas fa-expand";
+        }
+        if (pdfDoc && (fitMode === "width" || fitMode === "page")) {
+            window.setTimeout(renderPage, 80);
+        }
     }
 
     function bindModal(modal) {
@@ -224,13 +226,8 @@
                     document.exitFullscreen().catch(function () {});
                 }
             }
-            if (event.target.closest("[data-pdf-download]") && activeNote && activeNote.signedUrl) {
-                window.location.href = activeNote.signedUrl;
-            }
-            if (event.target.closest("[data-pdf-print]")) {
-                window.print();
-            }
         });
+        document.addEventListener("fullscreenchange", updateFullscreenState);
         modal.addEventListener("wheel", function (event) {
             if (event.ctrlKey) {
                 event.preventDefault();
@@ -306,13 +303,8 @@
         try {
             if (!window.VinayakNotesPage) throw new Error("Study material service is not loaded.");
             const note = typeof noteOrId === "object" ? noteOrId : await window.VinayakNotesPage.fetchNoteById(noteOrId);
-            byId("studentPdfModalTitle").textContent = note.title || "Study Material";
-            byId("studentPdfModalSubject").textContent = note.subject || "PDF";
-            modal.querySelector("[data-pdf-download]").hidden = !getConfigFlag("allowDownload");
-            modal.querySelector("[data-pdf-print]").hidden = !getConfigFlag("allowPrint");
             const pdfjsLib = await loadPdfJs();
             const signedUrl = await window.VinayakNotesPage.createSignedUrl(note);
-            activeNote = Object.assign({}, note, { signedUrl: signedUrl });
             setLoading(true, "Loading secure PDF...");
             pageNumber = 1;
             fitMode = "width";
