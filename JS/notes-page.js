@@ -217,7 +217,7 @@
                     '<div class="student-material-copy"><span>', escapeHtml(note.subject || "General"), '</span>',
                     '<h3>', escapeHtml(note.title || "Study Material"), '</h3>',
                     '<p>Uploaded ', escapeHtml(formatDate(note.created_at)), '</p></div>',
-                    '<button type="button" class="course-continue-btn" data-open-material-id="', escapeHtml(note.id), '">Open PDF</button>',
+                   
                     '</article>'
                 ].join("");
             }).join("") : '<div class="student-empty">No notes match your search.</div>',
