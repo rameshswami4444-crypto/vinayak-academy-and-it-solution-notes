@@ -373,10 +373,7 @@ body.auth-pending {
     opacity: 1;
 }
 
-.prototype-submit svg {
-    width: 34px;
-    height: 18px;
-}
+
 
 .prototype-submit:disabled {
     cursor: wait;
