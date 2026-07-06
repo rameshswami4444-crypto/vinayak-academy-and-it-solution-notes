@@ -3,8 +3,6 @@
     const illustration = root.querySelector(".prototype-illustration");
     const studentPassword = root.getElementById("studentPassword");
     const adminPassword = root.getElementById("adminPassword");
-    const studentForm = root.getElementById("studentLoginForm");
-    const adminForm = root.getElementById("adminLoginForm");
     const studentButton = root.getElementById("studentLoginButton");
     const adminButton = root.getElementById("adminLoginButton");
     const studentMessage = root.getElementById("studentAuthMessage");
@@ -230,13 +228,14 @@
         });
     }
 
-    function bindFormFeedback(form, button) {
-        if (!form) {
+    function bindButtonFeedback(button) {
+        if (!button) {
             return;
         }
-        form.addEventListener("submit", function () {
+        button.addEventListener("click", function () {
             pressButton(button);
-            if (form.checkValidity()) {
+            const form = button.closest("form");
+            if (form && form.checkValidity()) {
                 playSuccess();
             }
         });
@@ -291,8 +290,8 @@
     window.addEventListener("touchcancel", onPointerLeave, { passive: true });
     bindPasswordField(studentPassword);
     bindPasswordField(adminPassword);
-    bindFormFeedback(studentForm, studentButton);
-    bindFormFeedback(adminForm, adminButton);
+    bindButtonFeedback(studentButton);
+    bindButtonFeedback(adminButton);
     watchMessage(studentMessage);
     watchMessage(adminMessage);
     bindShowPasswordToggles();

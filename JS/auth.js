@@ -1,25 +1,33 @@
 (function () {
     const LOGIN_PATH = "login.html";
     const BLOCKED_PATH = "blocked.html";
-    const SESSION_KEY = "vinayak_session";
+    const STUDENT_HOME_PATH = "index.html";
+    const LEGACY_SESSION_KEY = "vinayak_session";
+    const STUDENT_SESSION_KEY = "student_session";
+    const ADMIN_SESSION_KEY = "admin_session";
     const COURSES_KEY = "courses";
     const COURSE_KEY = "course";
     const LOCAL_SESSION_ID_KEY = "sessionId";
+    const LOCAL_SESSION_TOKEN_KEY = "session_token";
     const LOCAL_STUDENT_ID_KEY = "studentId";
     const LEGACY_KEYS = [
+        LEGACY_SESSION_KEY,
         "vinayak_is_admin",
         "vinayak_admin_id",
         "studentCourse"
     ];
     const SESSION_DURATION_MS = 6 * 60 * 60 * 1000;
     let logoutBound = false;
+    let silentSessionValidationTimer = null;
+    let silentSessionValidationRunning = false;
+    const SILENT_SESSION_VALIDATION_MS = 20 * 1000;
 
     function getConfig() {
         return window.VINAYAK_SUPABASE_CONFIG || {};
     }
 
     function getHomePath() {
-        return getConfig().loginRedirect || "index.html";
+        return STUDENT_HOME_PATH;
     }
 
     function getAdminPath() {
@@ -277,7 +285,7 @@
     }
 
     function getStoredStudentSessionId() {
-        return window.localStorage.getItem(LOCAL_SESSION_ID_KEY) || "";
+        return window.localStorage.getItem(LOCAL_SESSION_TOKEN_KEY) || window.localStorage.getItem(LOCAL_SESSION_ID_KEY) || "";
     }
 
     function getStoredStudentId() {
@@ -338,6 +346,7 @@
 
     function persistStudentSession(sessionId, studentId) {
         window.localStorage.setItem(LOCAL_SESSION_ID_KEY, String(sessionId || ""));
+        window.localStorage.setItem(LOCAL_SESSION_TOKEN_KEY, String(sessionId || ""));
         window.localStorage.setItem(LOCAL_STUDENT_ID_KEY, String(studentId || ""));
     }
 
@@ -348,6 +357,7 @@
 
     function clearStoredStudentSession() {
         window.localStorage.removeItem(LOCAL_SESSION_ID_KEY);
+        window.localStorage.removeItem(LOCAL_SESSION_TOKEN_KEY);
         window.localStorage.removeItem(LOCAL_STUDENT_ID_KEY);
     }
 
@@ -385,8 +395,8 @@
         return normalizedCourseList.includes(normalizedCourseKey);
     }
 
-    function getStoredSession() {
-        const raw = window.localStorage.getItem(SESSION_KEY);
+    function readSessionKey(key) {
+        const raw = window.localStorage.getItem(key);
         if (!raw) {
             return null;
         }
@@ -404,18 +414,55 @@
         }
     }
 
-    function persistSession(session) {
-        window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    function getStoredSession(role) {
+        if (role === "student") {
+            return readSessionKey(STUDENT_SESSION_KEY) || readSessionKey(LEGACY_SESSION_KEY);
+        }
+        if (role === "admin") {
+            return readSessionKey(ADMIN_SESSION_KEY) || readSessionKey(LEGACY_SESSION_KEY);
+        }
+        return readSessionKey(STUDENT_SESSION_KEY) || readSessionKey(ADMIN_SESSION_KEY) || readSessionKey(LEGACY_SESSION_KEY);
+    }
+
+    function persistStudentSessionPayload(session) {
+        window.localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(session));
+        window.localStorage.removeItem(ADMIN_SESSION_KEY);
+        window.localStorage.removeItem(LEGACY_SESSION_KEY);
+        clearLegacySessionFlags();
+    }
+
+    function persistAdminSessionPayload(session) {
+        window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+        window.localStorage.removeItem(STUDENT_SESSION_KEY);
+        window.localStorage.removeItem(LEGACY_SESSION_KEY);
         clearLegacySessionFlags();
     }
 
     function clearSession() {
-        window.localStorage.removeItem(SESSION_KEY);
+        window.localStorage.removeItem(STUDENT_SESSION_KEY);
+        window.localStorage.removeItem(ADMIN_SESSION_KEY);
+        window.localStorage.removeItem(LEGACY_SESSION_KEY);
         clearStoredCourses();
         clearStoredStudentSession();
         clearLegacySessionFlags();
         window.localStorage.removeItem("loggedIn");
         window.localStorage.removeItem("studentId");
+    }
+
+    function clearStudentSessionOnly() {
+        window.localStorage.removeItem(STUDENT_SESSION_KEY);
+        window.localStorage.removeItem(LEGACY_SESSION_KEY);
+        clearStoredCourses();
+        clearStoredStudentSession();
+        clearLegacySessionFlags();
+        window.localStorage.removeItem("loggedIn");
+        window.localStorage.removeItem("studentId");
+    }
+
+    function clearAdminSessionOnly() {
+        window.localStorage.removeItem(ADMIN_SESSION_KEY);
+        window.localStorage.removeItem(LEGACY_SESSION_KEY);
+        clearLegacySessionFlags();
     }
 
     function isSessionExpired(session) {
@@ -432,7 +479,7 @@
     }
 
     function startAdminSession(adminId, password) {
-        persistSession({
+        persistAdminSessionPayload({
             role: "admin",
             adminId: adminId,
             password: password,
@@ -448,7 +495,8 @@
         session.course = course;
         session.courses = course ? [course] : [];
         session.password = password;
-        session.sessionId = String(sessionId || student.session_id || "");
+        session.sessionId = String(sessionId || student.session_token || student.session_id || "");
+        session.session_token = session.sessionId;
         session.feesStatus = normalizeFeesStatus(student.fees_status);
         session.dueDate = normalizeDateValue(student.due_date);
         session.paymentNote = String(student.payment_note || "");
@@ -465,7 +513,7 @@
 
     function startStudentSession(student, password, sessionId) {
         const session = buildStudentSession(student, password, sessionId);
-        persistSession(session);
+        persistStudentSessionPayload(session);
         persistCourses(session.course);
         persistStudentSession(session.sessionId, session.studentId);
         window.localStorage.setItem("loggedIn", "true");
@@ -475,18 +523,38 @@
         console.log("SESSION:", session.sessionId);
     }
 
+    async function updateStudentSessionToken(client, studentId, sessionId) {
+        const tokenResult = await client
+            .from(getStudentsTableName())
+            .update({ session_token: sessionId })
+            .eq(getStudentIdentifierColumn(), studentId);
+        if (!tokenResult.error) {
+            return;
+        }
+        console.warn("session_token update failed; trying session_id fallback", tokenResult.error);
+        const idResult = await client
+            .from(getStudentsTableName())
+            .update({ session_id: sessionId })
+            .eq(getStudentIdentifierColumn(), studentId);
+        if (idResult.error) {
+            throw idResult.error;
+        }
+    }
+
     function refreshSession(session) {
         const updatedSession = Object.assign({}, session, {
             expiresAt: now() + SESSION_DURATION_MS
         });
 
-        persistSession(updatedSession);
         if (updatedSession.role === "student") {
+            persistStudentSessionPayload(updatedSession);
             persistCourses(updatedSession.course || updatedSession.courses);
             persistStudentSession(updatedSession.sessionId, updatedSession.studentId);
             window.localStorage.setItem("loggedIn", "true");
             window.localStorage.setItem("studentId", updatedSession.studentId || "");
             window.localStorage.setItem("course", normalizeSingleCourse(updatedSession.course || updatedSession.courses));
+        } else if (updatedSession.role === "admin") {
+            persistAdminSessionPayload(updatedSession);
         }
         return updatedSession;
     }
@@ -516,12 +584,6 @@
     function getBlockedRedirectUrl(nextPath) {
         const resolvedNextPath = nextPath || getCurrentPath();
         return toPageUrl(BLOCKED_PATH) + "?next=" + encodeURIComponent(resolvedNextPath);
-    }
-
-    function getPostLoginRedirect() {
-        const params = new URLSearchParams(window.location.search);
-        const next = params.get("next");
-        return next && !next.startsWith("http") ? normalizePagePath(next) : normalizePagePath(getHomePath());
     }
 
     function showBody() {
@@ -608,9 +670,33 @@
     async function forceStudentLogout(message) {
         clearSession();
         if (message) {
-            window.alert(message);
+            showForcedLogoutNotice(message);
         }
-        window.location.href = toPageUrl(LOGIN_PATH);
+        window.setTimeout(function () {
+            window.location.href = toPageUrl(LOGIN_PATH);
+        }, message ? 900 : 0);
+    }
+
+    function showForcedLogoutNotice(message) {
+        let notice = document.getElementById("forcedLogoutNotice");
+        if (!notice) {
+            notice = document.createElement("div");
+            notice.id = "forcedLogoutNotice";
+            notice.style.cssText = [
+                "position:fixed",
+                "inset:18px 18px auto auto",
+                "z-index:99999",
+                "max-width:min(420px,calc(100vw - 36px))",
+                "padding:14px 18px",
+                "border-radius:14px",
+                "background:#0f172a",
+                "color:#fff",
+                "box-shadow:0 22px 60px rgba(15,23,42,.28)",
+                "font:700 14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            ].join(";");
+            document.body.appendChild(notice);
+        }
+        notice.textContent = message;
     }
 
     function bindLogoutButton() {
@@ -679,20 +765,59 @@
     }
 
     async function validateAdminSession(session) {
-        const config = getConfig();
-
         if (!session || session.role !== "admin" || isSessionExpired(session)) {
             return null;
         }
 
-        const expectedId = String(config.adminId || "Vinayak_admin");
-        const expectedPassword = String(config.adminPassword || "Vinayak@8209");
-
-        if (session.adminId !== expectedId || session.password !== expectedPassword) {
+        const admin = await findAdminRecord(session.adminId, session.password);
+        if (!admin) {
             return null;
         }
 
         return refreshSession(session);
+    }
+
+    function getAdminIdentifier(admin) {
+        return String((admin && admin.username) || "").trim();
+    }
+
+    function getAdminPassword(admin) {
+        return String((admin && admin.password) || "");
+    }
+
+    async function findAdminRecord(adminId, password) {
+        const inputId = String(adminId || "").trim();
+        const inputPassword = String(password || "");
+        if (!inputId || !inputPassword) {
+            return null;
+        }
+        try {
+            const { data, error } = await getClient()
+                .from("admins")
+                .select("username,password")
+                .eq("username", inputId)
+                .eq("password", inputPassword)
+                .limit(1);
+            if (error) throw error;
+            return data && data[0] ? data[0] : null;
+        } catch (error) {
+            console.error("Admin table authentication failed", error);
+            throw error;
+        }
+    }
+
+    async function hasAnyAccessibleAdminRows() {
+        try {
+            const { data, error } = await getClient()
+                .from("admins")
+                .select("username")
+                .limit(1);
+            if (error) throw error;
+            return Boolean(data && data.length);
+        } catch (error) {
+            console.error("Admin table access check failed", error);
+            return null;
+        }
     }
 
     async function validateStudentSession(session) {
@@ -735,9 +860,10 @@
         student = await syncStudentEmiStatus(student, getClient());
         const dbStudentId = getStudentIdentifierValue(student);
 
+        const dbSessionTokens = getSessionTokenValues(student);
         if (
-            String(student.session_id || "") !== String(localSessionId) ||
-            String(session.sessionId || "") !== String(localSessionId) ||
+            !dbSessionTokens.includes(String(localSessionId)) ||
+            String(session.sessionId || session.session_token || "") !== String(localSessionId) ||
             String(dbStudentId || "") !== String(localStudentId)
         ) {
             return { invalidSession: true };
@@ -749,7 +875,7 @@
                 session: refreshSession(buildStudentSession(
                     student,
                     session.password,
-                    student.session_id || localSessionId,
+                    student.session_token || student.session_id || localSessionId,
                     session.createdAt || now()
                 ))
             };
@@ -758,13 +884,13 @@
         return refreshSession(buildStudentSession(
             student,
             session.password,
-            student.session_id || localSessionId,
+            student.session_token || student.session_id || localSessionId,
             session.createdAt || now()
         ));
     }
 
-    async function getValidatedSession() {
-        const session = getStoredSession();
+    async function getValidatedSession(role) {
+        const session = getStoredSession(role);
         if (!session) {
             return null;
         }
@@ -776,7 +902,7 @@
         if (session.role === "student") {
             const validatedStudentSession = await validateStudentSession(session);
             if (validatedStudentSession && validatedStudentSession.invalidSession) {
-                await forceStudentLogout("Session expired. Logged in from another device.");
+                await forceStudentLogout("Your account has been logged in from another device.");
                 return null;
             }
             if (validatedStudentSession && validatedStudentSession.blocked) {
@@ -786,6 +912,73 @@
         }
 
         return null;
+    }
+
+    function getSessionTokenValues(student) {
+        if (!student) {
+            return [];
+        }
+        return [student.session_token, student.session_id, student.sessionId]
+            .map(function (value) { return String(value || ""); })
+            .filter(Boolean);
+    }
+
+    function getLocalSessionToken(session) {
+        return String(
+            getStoredStudentSessionId() ||
+            (session && (session.sessionToken || session.session_token || session.sessionId)) ||
+            ""
+        );
+    }
+
+    async function validateSessionSilently() {
+        if (silentSessionValidationRunning) {
+            return;
+        }
+        silentSessionValidationRunning = true;
+        try {
+            const session = getStoredSession();
+            if (!session || session.role !== "student") {
+                return;
+            }
+
+            const studentId = session.studentId || getStoredStudentId();
+            const localToken = getLocalSessionToken(session);
+
+            if (!studentId || !localToken) {
+                await forceStudentLogout("Your account has been logged in from another device.");
+                return;
+            }
+
+            const { data, error } = await getClient()
+                .from(getStudentsTableName())
+                .select("*")
+                .eq(getStudentIdentifierColumn(), studentId)
+                .limit(1);
+
+            if (error) {
+                console.warn("Silent session validation failed", error);
+                return;
+            }
+
+            const student = data && data[0];
+            const latestTokens = getSessionTokenValues(student);
+
+            if (!student || !latestTokens.length || !latestTokens.includes(String(localToken))) {
+                await forceStudentLogout("Your account has been logged in from another device.");
+            }
+        } catch (error) {
+            console.warn("Silent session validation skipped", error);
+        } finally {
+            silentSessionValidationRunning = false;
+        }
+    }
+
+    function startSilentSessionValidation(session) {
+        if (!session || session.role !== "student" || silentSessionValidationTimer) {
+            return;
+        }
+        silentSessionValidationTimer = window.setInterval(validateSessionSilently, SILENT_SESSION_VALIDATION_MS);
     }
 
     async function handleStudentLogin(event) {
@@ -830,12 +1023,9 @@
             let student = await syncStudentFeesStatus(data[0], client);
             student = await syncStudentEmiStatus(student, client);
 
-            const { error: sessionError } = await client
-                .from(getStudentsTableName())
-                .update({ session_id: sessionId })
-                .eq(getStudentIdentifierColumn(), studentId);
-
-            if (sessionError) {
+            try {
+                await updateStudentSessionToken(client, studentId, sessionId);
+            } catch (sessionError) {
                 console.error("Session update failed", sessionError);
                 showMessage("Database error. Could not start student session.", "error", "studentAuthMessage");
                 return;
@@ -845,11 +1035,11 @@
             startStudentSession(student, password, sessionId);
 
             if (isStudentBlocked(student)) {
-                window.location.href = getBlockedRedirectUrl(getPostLoginRedirect());
+                window.location.href = getBlockedRedirectUrl(getHomePath());
                 return;
             }
 
-            window.location.href = toPageUrl(getPostLoginRedirect());
+            window.location.href = toPageUrl(getHomePath());
         } catch (error) {
             console.error("Student login failed", error);
             showMessage(error.message || "Login failed.", "error", "studentAuthMessage");
@@ -862,7 +1052,6 @@
         event.preventDefault();
         clearMessage("studentAuthMessage");
         clearMessage("adminAuthMessage");
-        const config = getConfig();
 
         const adminIdField = document.getElementById("adminId");
         const passwordField = document.getElementById("adminPassword");
@@ -878,15 +1067,18 @@
         setLoginButtonState(submitButton, true, "Checking...");
 
         try {
-            const expectedId = String(config.adminId || "Vinayak_admin");
-            const expectedPassword = String(config.adminPassword || "Vinayak@8209");
+            const admin = await findAdminRecord(adminId, password);
 
-            if (adminId !== expectedId || password !== expectedPassword) {
+            if (!admin) {
+                const hasRows = await hasAnyAccessibleAdminRows();
+                if (hasRows === false) {
+                    throw new Error("No admin account is accessible from the admins table. Check admin row data or RLS policy.");
+                }
                 throw new Error("Invalid admin credentials.");
             }
 
             clearSession();
-            startAdminSession(adminId, password);
+            startAdminSession(getAdminIdentifier(admin) || adminId, password);
             window.location.replace(toPageUrl(getAdminPath()));
         } catch (error) {
             console.error("Admin login failed", error);
@@ -911,7 +1103,7 @@
             return null;
         }
 
-        const session = await getValidatedSession();
+        const session = await getValidatedSession(settings.adminOnly ? "admin" : "student");
         if (!session) {
             clearSession();
             window.location.href = getLoginRedirectUrl();
@@ -923,12 +1115,6 @@
             return null;
         }
 
-        if (settings.adminOnly && session.role !== "admin") {
-            clearSession();
-            window.location.href = getLoginRedirectUrl();
-            return null;
-        }
-
         if (settings.requiredCourse && !hasCourseAccess(settings.requiredCourse, session.courses || session.course)) {
             window.location.href = toPageUrl(getHomePath());
             return null;
@@ -937,6 +1123,9 @@
         clearFallbackMessage();
         ensureLogoutButton();
         showBody();
+        if (!settings.adminOnly && session.role === "student") {
+            startSilentSessionValidation(session);
+        }
         return session;
     }
 
@@ -948,7 +1137,7 @@
             return null;
         }
 
-        const session = await getValidatedSession();
+        const session = await getValidatedSession("student");
         if (!session) {
             clearSession();
             window.location.href = getLoginRedirectUrl();
@@ -986,7 +1175,7 @@
                     refreshButton.disabled = true;
 
                     try {
-                        const refreshedSession = await getValidatedSession();
+                        const refreshedSession = await getValidatedSession("student");
 
                         if (!refreshedSession) {
                             clearSession();
@@ -1033,12 +1222,7 @@
             return blockedSession;
         }
 
-        if (session.role === "admin") {
-            window.location.href = toPageUrl(getAdminPath());
-            return session;
-        }
-
-        window.location.href = toPageUrl(getPostLoginRedirect());
+        window.location.href = toPageUrl(getHomePath());
         return session;
     }
 
@@ -1052,23 +1236,24 @@
 
         bindLoginTabs();
 
-        const session = await getValidatedSession();
-        if (session) {
-            if (session.blocked) {
+        const studentSession = await getValidatedSession("student");
+        if (studentSession) {
+            if (studentSession.blocked) {
                 window.location.href = getBlockedRedirectUrl();
                 return;
             }
-
-            if (session.role === "admin") {
-                window.location.href = toPageUrl(getAdminPath());
-                return;
-            }
-
-            window.location.href = toPageUrl(getPostLoginRedirect());
+            window.location.href = toPageUrl(getHomePath());
             return;
         }
 
-        clearSession();
+        const adminSession = await getValidatedSession("admin");
+        if (adminSession) {
+            window.location.href = toPageUrl(getAdminPath());
+            return;
+        }
+
+        clearStudentSessionOnly();
+        clearAdminSessionOnly();
 
         const studentForm = document.getElementById("studentLoginForm");
         const adminForm = document.getElementById("adminLoginForm");

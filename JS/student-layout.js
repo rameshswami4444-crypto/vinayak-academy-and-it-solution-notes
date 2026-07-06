@@ -6,7 +6,7 @@
 
     function getSession() {
         try {
-            return JSON.parse(window.localStorage.getItem("vinayak_session") || "null") || {};
+            return JSON.parse(window.localStorage.getItem("student_session") || window.localStorage.getItem("vinayak_session") || "null") || {};
         } catch (error) {
             return {};
         }
