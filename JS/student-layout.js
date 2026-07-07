@@ -64,7 +64,7 @@
         return [
             '<footer class="student-footer student-common-footer">',
             '<strong>', INSTITUTE_NAME, '</strong>',
-            '<span>Copyright 2026 | Contact: vinayak_it_solutions_ | ', VERSION, '</span>',
+            '<span>Copyright 2026 | Contact: Support | ', VERSION, '</span>',
             '</footer>'
         ].join("");
     }
