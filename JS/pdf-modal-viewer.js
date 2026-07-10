@@ -19,6 +19,7 @@
     let visiblePages = new Set();
     let renderedPages = new Map();
     let renderingPages = new Map();
+    let pageSizeCache = new Map();
     let watermarkText = "";
 
     function escapeHtml(value) {
@@ -145,12 +146,21 @@
     function makeWatermarkText() {
         const now = new Date();
         let studentId = "";
+        let studentName = "";
         try {
             studentId = window.VinayakAuth && window.VinayakAuth.getStoredStudentId ? window.VinayakAuth.getStoredStudentId() : "";
+            const raw = window.localStorage.getItem("student_session") || window.localStorage.getItem("vinayak_session") || "";
+            const session = raw ? JSON.parse(raw) : null;
+            studentName = session && (session.studentName || session.name) ? (session.studentName || session.name) : "";
+            if (!studentName) {
+                const nameNode = document.querySelector("[data-layout-student-name], [data-home-student-name]");
+                studentName = nameNode ? String(nameNode.textContent || "").trim() : "";
+            }
         } catch (error) {
             studentId = "";
+            studentName = "";
         }
-        return ["Vinayak Academy", studentId ? "Student ID: " + studentId : "Enrolled Student", now.toLocaleString()].join(" | ");
+        return ["Vinayak Academy", studentName || "Enrolled Student", studentId ? "Student ID: " + studentId : "", now.toLocaleString()].filter(Boolean).join(" | ");
     }
 
     async function calculateScale() {
@@ -158,8 +168,13 @@
         const page = await pdfDoc.getPage(currentPage || 1);
         const viewport = page.getViewport({ scale: 1 });
         const stage = getStage();
-        const widthScale = Math.max(MIN_SCALE, ((stage ? stage.clientWidth : window.innerWidth) - 76) / viewport.width);
-        const heightScale = Math.max(MIN_SCALE, ((stage ? stage.clientHeight : window.innerHeight) - 120) / viewport.height);
+        const isMobile = window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+        const horizontalPadding = isMobile ? 18 : 76;
+        const verticalPadding = isMobile ? 88 : 120;
+        const availableWidth = Math.max(220, (stage ? stage.clientWidth : window.innerWidth) - horizontalPadding);
+        const availableHeight = Math.max(260, (stage ? stage.clientHeight : window.innerHeight) - verticalPadding);
+        const widthScale = Math.max(MIN_SCALE, availableWidth / viewport.width);
+        const heightScale = Math.max(MIN_SCALE, availableHeight / viewport.height);
         return fitMode === "page" ? clamp(Math.min(widthScale, heightScale), MIN_SCALE, MAX_SCALE) : clamp(widthScale, MIN_SCALE, MAX_SCALE);
     }
 
@@ -189,6 +204,7 @@
         renderedPages.clear();
         renderingPages.clear();
         visiblePages.clear();
+        pageSizeCache.clear();
         if (observer) {
             observer.disconnect();
             observer = null;
@@ -199,23 +215,42 @@
         return document.querySelector('.student-pdf-page-shell[data-page-number="' + number + '"]');
     }
 
-    async function renderPage(number) {
-        if (!pdfDoc || renderedPages.has(number) || renderingPages.has(number)) return;
+    async function getBasePageSize(number) {
+        if (pageSizeCache.has(number)) return pageSizeCache.get(number);
+        const page = await pdfDoc.getPage(number);
+        const viewport = page.getViewport({ scale: 1 });
+        const size = { width: viewport.width, height: viewport.height, page: page };
+        pageSizeCache.set(number, size);
+        return size;
+    }
+
+    async function renderPage(number, options) {
+        const settings = options || {};
+        const existing = renderedPages.get(number);
+        if (!pdfDoc) return;
         const shell = getPageShell(number);
         if (!shell) return;
-        renderingPages.set(number, true);
+        if (renderingPages.has(number)) {
+            shell.dataset.pendingRender = "true";
+            return renderingPages.get(number);
+        }
+        if (existing && !settings.force && Math.abs(existing.scale - scale) < 0.001) return;
+        const renderScale = scale;
         shell.classList.add("is-rendering");
-        try {
-            const page = await pdfDoc.getPage(number);
-            const viewport = page.getViewport({ scale: scale });
+        const renderPromise = (async function () {
+            const pageInfo = await getBasePageSize(number);
+            const page = pageInfo.page || await pdfDoc.getPage(number);
+            const viewport = page.getViewport({ scale: renderScale });
             const ratio = window.devicePixelRatio || 1;
             const canvas = document.createElement("canvas");
             canvas.draggable = false;
             canvas.setAttribute("aria-label", "Page " + number);
             canvas.width = Math.floor(viewport.width * ratio);
             canvas.height = Math.floor(viewport.height * ratio);
-            canvas.style.width = Math.floor(viewport.width) + "px";
-            canvas.style.height = Math.floor(viewport.height) + "px";
+            canvas.style.width = viewport.width.toFixed(2) + "px";
+            canvas.style.height = viewport.height.toFixed(2) + "px";
+            shell.style.width = viewport.width.toFixed(2) + "px";
+            shell.style.minHeight = viewport.height.toFixed(2) + "px";
             const context = canvas.getContext("2d", { alpha: false });
             context.setTransform(ratio, 0, 0, ratio, 0, 0);
             await page.render({ canvasContext: context, viewport: viewport }).promise;
@@ -223,22 +258,31 @@
             shell.appendChild(canvas);
             shell.classList.add("is-rendered");
             shell.classList.remove("is-rendering");
-            renderedPages.set(number, canvas);
+            renderedPages.set(number, { canvas: canvas, scale: renderScale });
+        }());
+        renderingPages.set(number, renderPromise);
+        try {
+            await renderPromise;
         } catch (error) {
             console.error("PDF page render failed", error);
             shell.innerHTML = '<div class="student-pdf-modal-error"><strong>Page failed to render</strong><p>Please scroll away and try again.</p></div>';
         } finally {
             renderingPages.delete(number);
+            if (Math.abs(renderScale - scale) > 0.001) {
+                delete shell.dataset.pendingRender;
+                return renderPage(number, { force: true });
+            }
+            delete shell.dataset.pendingRender;
         }
     }
 
     function unloadFarPages() {
         if (!pdfDoc) return;
-        renderedPages.forEach(function (canvas, number) {
+        renderedPages.forEach(function (entry, number) {
             if (Math.abs(number - currentPage) <= 3 || visiblePages.has(number)) return;
             const shell = getPageShell(number);
             if (!shell) return;
-            canvas.remove();
+            entry.canvas.remove();
             shell.classList.remove("is-rendered");
             renderedPages.delete(number);
         });
@@ -304,29 +348,37 @@
         });
     }
 
-    function scrollToPage(number) {
+    function getPageScrollAnchor(number) {
+        const stage = getStage();
         const shell = getPageShell(number);
-        if (shell) shell.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (!stage || !shell) return { page: number, ratio: 0 };
+        const rawOffset = stage.scrollTop - shell.offsetTop;
+        const ratio = shell.offsetHeight ? clamp(rawOffset / shell.offsetHeight, 0, 1) : 0;
+        return { page: number, ratio: ratio };
+    }
+
+    function restorePageScrollAnchor(anchor, smooth) {
+        const stage = getStage();
+        const shell = getPageShell(anchor && anchor.page);
+        if (!stage || !shell) return;
+        const target = shell.offsetTop + shell.offsetHeight * (anchor.ratio || 0);
+        stage.scrollTo({ top: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
+    }
+
+    function scrollToPage(number) {
+        restorePageScrollAnchor({ page: number, ratio: 0 }, true);
     }
 
     async function rerenderVisible(keepPage) {
         const pageToKeep = keepPage || currentPage;
-        const root = getPagesRoot();
-        if (root) root.classList.add("is-zooming");
+        const anchor = getPageScrollAnchor(pageToKeep);
         await applyFitScale();
-        renderedPages.forEach(function (canvas) { canvas.remove(); });
-        renderedPages.clear();
-        renderingPages.clear();
-        document.querySelectorAll(".student-pdf-page-shell").forEach(function (shell) {
-            shell.classList.remove("is-rendered", "is-rendering");
-        });
         const toRender = Array.from(visiblePages);
         if (!toRender.includes(pageToKeep)) toRender.push(pageToKeep);
-        await Promise.all(toRender.map(renderPage));
-        scrollToPage(pageToKeep);
-        window.setTimeout(function () {
-            if (root) root.classList.remove("is-zooming");
-        }, 220);
+        await Promise.all(toRender.map(function (number) {
+            return renderPage(number, { force: true });
+        }));
+        restorePageScrollAnchor(anchor, false);
     }
 
     function setManualZoom(nextScale) {
@@ -343,7 +395,7 @@
         window.clearTimeout(pinchZoomTimer);
         pinchZoomTimer = window.setTimeout(function () {
             rerenderVisible(currentPage);
-        }, 90);
+        }, 150);
     }
 
     function setFit(mode) {

@@ -1501,23 +1501,16 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
 
 .student-pdf-pages {
     width: min-content;
-    min-width: min(100%, 820px);
+    max-width: 100%;
     margin: 0 auto;
     display: grid;
     justify-items: center;
     gap: 28px;
-    transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.student-pdf-pages.is-zooming {
-    opacity: 0.72;
-    transform: scale(0.992);
+    transition: opacity 0.18s ease;
 }
 
 .student-pdf-page-shell {
     position: relative;
-    min-width: 280px;
-    min-height: 420px;
     display: grid;
     place-items: center;
     border-radius: 18px;
@@ -1529,7 +1522,7 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
 
 .student-pdf-page-shell canvas {
     display: block;
-    max-width: 100%;
+    max-width: none;
     height: auto;
     background: #ffffff;
     border-radius: inherit;
@@ -1748,8 +1741,6 @@ button.student-assignment-row {
 
     .student-pdf-page-shell {
         border-radius: 13px;
-        min-width: 220px;
-        min-height: 340px;
     }
 
     .student-pdf-page-skeleton {
