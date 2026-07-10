@@ -94,13 +94,19 @@ const courseData = [
     function renderAnnouncements(items) {
         const list = document.getElementById("announcementList");
         if (!list) return;
+        if (window.VinayakAnnouncements) {
+            window.VinayakAnnouncements.renderPreview("announcementList", items || [], 5);
+            const unread = window.VinayakAnnouncements.getUnreadCount(items || []);
+            setText("notificationCount", unread);
+            document.querySelectorAll("[data-layout-notification-count]").forEach(function (node) {
+                node.textContent = String(unread);
+                node.hidden = unread <= 0;
+            });
+            return;
+        }
         list.innerHTML = items && items.length ? items.slice(0, 5).map(function (item) {
             return '<div class="student-list-item"><i class="fas fa-bullhorn"></i><span><strong>' + (item.title || item.heading || "Announcement") + '</strong><small>' + (item.message || item.description || item.created_at || "New notice") + '</small></span></div>';
         }).join("") : '<div class="student-empty">No announcements yet.</div>';
-        setText("notificationCount", items ? items.length : 0);
-        document.querySelectorAll("[data-layout-notification-count]").forEach(function (node) {
-            node.textContent = String(items ? items.length : 0);
-        });
     }
 
     function renderEmi(fee, emis) {
@@ -233,9 +239,11 @@ const courseData = [
             : (courseId ? await safeFetch("notes", function (table) {
                 return table.select("id, course_id, subject, title, created_at, file_path").eq("course_id", courseId).order("created_at", { ascending: false }).limit(5);
             }) : []);
-        const announcements = await safeFetch("announcements", function (table) {
-            return table.select("*").limit(5);
-        });
+        const announcements = window.VinayakAnnouncements
+            ? await window.VinayakAnnouncements.fetchVisibleAnnouncements(5)
+            : await safeFetch("announcements", function (table) {
+                return table.select("*").limit(5);
+            });
 
         document.querySelectorAll("[data-layout-course]").forEach(function (node) {
             node.textContent = courseData ? courseData.name : course;
@@ -248,6 +256,9 @@ const courseData = [
         document.getElementById("studentBlockedBanner").hidden = !hasOverdueEmi;
         renderRecentMaterial(courseData, notes);
         renderAnnouncements(announcements);
+        if (window.VinayakAnnouncements) {
+            window.VinayakAnnouncements.updateBell();
+        }
         renderAssignments(courseData);
         renderProfile(studentId, student, fees[0]);
         bindProfileActions(studentId);

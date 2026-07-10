@@ -9,6 +9,7 @@
     let batchesCache = [];
     let notesCache = [];
     let materialCoursesCache = [];
+    let announcementsCache = [];
     let bulkRows = [];
     let emiMode = "auto";
     let currentAdmissionStep = 1;
@@ -146,6 +147,27 @@
         }).join("");
     }
 
+    function getSelectedAnnouncementCourseIds() {
+        return Array.from(document.querySelectorAll('[name="announcementCourseIds"]:checked'))
+            .map(function (input) { return input.value; })
+            .filter(Boolean);
+    }
+
+    function renderAnnouncementCourseChecklist(selectedIds) {
+        const target = document.getElementById("announcementCourseChecklist");
+        if (!target) return;
+        const selected = selectedIds || getSelectedAnnouncementCourseIds();
+        const options = getCourseOptions();
+        if (!options.length) {
+            target.innerHTML = '<span>No courses available</span>';
+            return;
+        }
+        target.innerHTML = options.map(function (course) {
+            const checked = selected.includes(course.id) ? " checked" : "";
+            return '<label class="material-course-option"><input type="checkbox" name="announcementCourseIds" value="' + escapeHtml(course.id) + '"' + checked + '><span>' + escapeHtml(course.name) + '</span></label>';
+        }).join("");
+    }
+
     function initLucideIcons() {
         if (window.lucide && typeof window.lucide.createIcons === "function") {
             window.lucide.createIcons();
@@ -181,7 +203,7 @@
             button.classList.toggle("active", button.getAttribute("data-admin-section-target") === sectionName);
         });
         document.body.classList.remove("admin-sidebar-open");
-        if (["admissions", "courses", "material", "batches"].includes(sectionName)) {
+        if (["admissions", "courses", "material", "batches", "notifications"].includes(sectionName)) {
             loadCourses();
         }
     }
@@ -1430,6 +1452,8 @@
         setFilterOptions("dashboardCourseFilter", nameOptions, "All Courses");
 
         renderMaterialCourseChecklist();
+        renderAnnouncementCourseChecklist();
+        setAnnouncementAllCoursesState();
         const materialFilter = document.getElementById("materialCourseFilter");
         if (materialFilter) {
             const currentFilter = materialFilter.value;
@@ -1803,6 +1827,186 @@
         }
     }
 
+    function getAnnouncementTitle(item) {
+        return String((item && (item.title || item.heading)) || "Announcement");
+    }
+
+    function getAnnouncementContent(item) {
+        return String((item && (item.content || item.message || item.description)) || "");
+    }
+
+    function getAnnouncementCourseIds(item) {
+        const raw = item && (item.target_courses || item.course_ids || item.courses || item.course_id);
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+        if (typeof raw === "string") {
+            try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+            } catch (error) {}
+            return raw.split(",").map(function (entry) { return entry.trim(); }).filter(Boolean);
+        }
+        return [String(raw)];
+    }
+
+    function isAnnouncementAllCourses(item) {
+        if (!item) return false;
+        return item.all_courses === true || item.all_courses === "true" || item.target === "all" || item.audience === "all";
+    }
+
+    function getAnnouncementAudienceLabel(item) {
+        if (isAnnouncementAllCourses(item)) return "All Courses";
+        const ids = getAnnouncementCourseIds(item);
+        const labels = ids.map(getCourseLabelById).filter(Boolean);
+        return labels.length ? labels.join(", ") : "Selected Courses";
+    }
+
+    function setAnnouncementAllCoursesState() {
+        const allInput = document.getElementById("announcementAllCoursesInput");
+        const picker = document.getElementById("announcementCourseChecklist");
+        const disabled = Boolean(allInput && allInput.checked);
+        if (picker) {
+            picker.classList.toggle("is-disabled", disabled);
+            picker.querySelectorAll("input").forEach(function (input) {
+                input.disabled = disabled;
+            });
+        }
+    }
+
+    function clearAnnouncementForm() {
+        const form = document.getElementById("announcementForm");
+        if (form) form.reset();
+        setValue("announcementRecordId", "");
+        const editor = document.getElementById("announcementContentInput");
+        if (editor) editor.innerHTML = "";
+        const allInput = document.getElementById("announcementAllCoursesInput");
+        if (allInput) allInput.checked = true;
+        renderAnnouncementCourseChecklist([]);
+        setAnnouncementAllCoursesState();
+    }
+
+    function fillAnnouncementForm(id) {
+        const item = announcementsCache.find(function (row) { return String(row.id) === String(id); });
+        if (!item) return;
+        setValue("announcementRecordId", item.id);
+        setValue("announcementTitleInput", getAnnouncementTitle(item));
+        setValue("announcementExpiryInput", item.expires_at ? String(item.expires_at).slice(0, 10) : "");
+        const editor = document.getElementById("announcementContentInput");
+        if (editor) editor.innerHTML = getAnnouncementContent(item);
+        const pinned = document.getElementById("announcementPinnedInput");
+        if (pinned) pinned.checked = Boolean(item.is_pinned || item.pinned);
+        const allInput = document.getElementById("announcementAllCoursesInput");
+        if (allInput) allInput.checked = isAnnouncementAllCourses(item);
+        renderAnnouncementCourseChecklist(getAnnouncementCourseIds(item));
+        setAnnouncementAllCoursesState();
+        const form = document.getElementById("announcementForm");
+        if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function renderAnnouncementsAdmin() {
+        const tbody = document.getElementById("announcementTableBody");
+        if (!tbody) return;
+        const query = getValue("announcementSearchInput").toLowerCase();
+        const rows = announcementsCache.filter(function (item) {
+            return !query || [getAnnouncementTitle(item), getAnnouncementContent(item), getAnnouncementAudienceLabel(item)].join(" ").toLowerCase().includes(query);
+        }).sort(function (a, b) {
+            const pinnedDiff = Number(Boolean(b.is_pinned || b.pinned)) - Number(Boolean(a.is_pinned || a.pinned));
+            if (pinnedDiff) return pinnedDiff;
+            return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        });
+        tbody.innerHTML = rows.length ? rows.map(function (item) {
+            const pinned = Boolean(item.is_pinned || item.pinned);
+            return [
+                "<tr>",
+                "<td><strong>", escapeHtml(getAnnouncementTitle(item)), "</strong><small>", escapeHtml(getAnnouncementContent(item).replace(/<[^>]+>/g, "").slice(0, 90)), "</small></td>",
+                "<td>", escapeHtml(getAnnouncementAudienceLabel(item)), "</td>",
+                '<td><span class="status-badge ', pinned ? "status-paid" : "status-due", '">', pinned ? "Pinned" : "Normal", "</span></td>",
+                "<td>", escapeHtml(item.expires_at ? String(item.expires_at).slice(0, 10) : "No expiry"), "</td>",
+                '<td><button type="button" class="table-action-btn" data-edit-announcement="', escapeHtml(item.id), '">Edit</button> ',
+                '<button type="button" class="table-action-btn" data-toggle-announcement-pin="', escapeHtml(item.id), '">', pinned ? "Unpin" : "Pin", "</button> ",
+                '<button type="button" class="table-action-btn danger-btn" data-delete-announcement="', escapeHtml(item.id), '">Delete</button></td>',
+                "</tr>"
+            ].join("");
+        }).join("") : '<tr><td colspan="5" class="admin-empty">No announcements found.</td></tr>';
+    }
+
+    async function saveAnnouncement(event) {
+        event.preventDefault();
+        clearPanelMessage();
+        const id = getValue("announcementRecordId");
+        const editor = document.getElementById("announcementContentInput");
+        const allInput = document.getElementById("announcementAllCoursesInput");
+        const allCourses = Boolean(allInput && allInput.checked);
+        const selectedCourses = allCourses ? [] : getSelectedAnnouncementCourseIds();
+        const title = getValue("announcementTitleInput");
+        const content = editor ? editor.innerHTML.trim() : "";
+        if (!title || !content) {
+            setPanelMessage("Enter announcement title and content.", "error");
+            return;
+        }
+        if (!allCourses && !selectedCourses.length) {
+            setPanelMessage("Select at least one target course or choose All Courses.", "error");
+            return;
+        }
+        const payload = {
+            title: title,
+            content: content,
+            message: content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+            is_pinned: Boolean(document.getElementById("announcementPinnedInput") && document.getElementById("announcementPinnedInput").checked),
+            all_courses: allCourses,
+            target_courses: selectedCourses,
+            expires_at: getValue("announcementExpiryInput") || null
+        };
+        if (!id) {
+            payload.created_at = new Date().toISOString();
+        }
+        try {
+            const client = window.VinayakAuth.getClient();
+            const result = id
+                ? await client.from("announcements").update(payload).eq("id", id)
+                : await client.from("announcements").insert([payload]);
+            if (result.error) throw result.error;
+            setPanelMessage(id ? "Announcement updated." : "Announcement published.", "success");
+            clearAnnouncementForm();
+            announcementsCache = await fetchOptionalTable("announcements");
+            renderAnnouncementsAdmin();
+        } catch (error) {
+            console.error("Announcement save failed", error);
+            setPanelMessage(error.message || "Could not save announcement.", "error");
+        }
+    }
+
+    async function toggleAnnouncementPin(id) {
+        const item = announcementsCache.find(function (row) { return String(row.id) === String(id); });
+        if (!item) return;
+        try {
+            const pinned = !Boolean(item.is_pinned || item.pinned);
+            const result = await window.VinayakAuth.getClient().from("announcements").update({ is_pinned: pinned }).eq("id", id);
+            if (result.error) throw result.error;
+            announcementsCache = await fetchOptionalTable("announcements");
+            renderAnnouncementsAdmin();
+            setPanelMessage(pinned ? "Announcement pinned." : "Announcement unpinned.", "success");
+        } catch (error) {
+            console.error("Announcement pin update failed", error);
+            setPanelMessage(error.message || "Could not update pinned state.", "error");
+        }
+    }
+
+    async function deleteAnnouncement(id) {
+        const item = announcementsCache.find(function (row) { return String(row.id) === String(id); });
+        if (!item || !window.confirm("Delete announcement '" + getAnnouncementTitle(item) + "'?")) return;
+        try {
+            const result = await window.VinayakAuth.getClient().from("announcements").delete().eq("id", id);
+            if (result.error) throw result.error;
+            announcementsCache = await fetchOptionalTable("announcements");
+            renderAnnouncementsAdmin();
+            setPanelMessage("Announcement deleted.", "success");
+        } catch (error) {
+            console.error("Announcement delete failed", error);
+            setPanelMessage(error.message || "Could not delete announcement.", "error");
+        }
+    }
+
     async function refreshAll() {
         studentsCache = await fetchStudents();
         feesCache = await fetchTable("student_fees");
@@ -1811,12 +2015,14 @@
         batchesCache = await fetchOptionalTable("batches");
         notesCache = await fetchOptionalTable("notes");
         materialCoursesCache = await fetchOptionalTable("material_courses");
+        announcementsCache = await fetchOptionalTable("announcements");
         await loadCourses();
         updateBatchFilter();
         applyStudentFilter();
         renderEmis();
         renderDashboard();
         renderMaterials();
+        renderAnnouncementsAdmin();
     }
 
     function setupAdmissionDefaults() {
@@ -1957,6 +2163,12 @@
             if (editCourseButton) fillCourseForm(editCourseButton.getAttribute("data-edit-course"));
             const deleteCourseButton = event.target.closest("[data-delete-course]");
             if (deleteCourseButton) deleteCourse(deleteCourseButton.getAttribute("data-delete-course"));
+            const editAnnouncementButton = event.target.closest("[data-edit-announcement]");
+            if (editAnnouncementButton) fillAnnouncementForm(editAnnouncementButton.getAttribute("data-edit-announcement"));
+            const toggleAnnouncementButton = event.target.closest("[data-toggle-announcement-pin]");
+            if (toggleAnnouncementButton) toggleAnnouncementPin(toggleAnnouncementButton.getAttribute("data-toggle-announcement-pin"));
+            const deleteAnnouncementButton = event.target.closest("[data-delete-announcement]");
+            if (deleteAnnouncementButton) deleteAnnouncement(deleteAnnouncementButton.getAttribute("data-delete-announcement"));
         });
         document.getElementById("adminMenuBtn").addEventListener("click", function () {
             if (window.innerWidth <= 1024) {
@@ -2010,6 +2222,28 @@
         if (clearCourseButton) clearCourseButton.addEventListener("click", clearCourseForm);
         const courseSearchInput = document.getElementById("courseSearchInput");
         if (courseSearchInput) courseSearchInput.addEventListener("input", renderCourses);
+        const announcementForm = document.getElementById("announcementForm");
+        if (announcementForm) announcementForm.addEventListener("submit", saveAnnouncement);
+        const clearAnnouncementButton = document.getElementById("clearAnnouncementFormBtn");
+        if (clearAnnouncementButton) clearAnnouncementButton.addEventListener("click", clearAnnouncementForm);
+        const announcementSearchInput = document.getElementById("announcementSearchInput");
+        if (announcementSearchInput) announcementSearchInput.addEventListener("input", renderAnnouncementsAdmin);
+        const announcementAllCoursesInput = document.getElementById("announcementAllCoursesInput");
+        if (announcementAllCoursesInput) announcementAllCoursesInput.addEventListener("change", setAnnouncementAllCoursesState);
+        document.querySelectorAll("[data-announcement-command]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                document.execCommand(button.getAttribute("data-announcement-command"), false, null);
+                const editor = document.getElementById("announcementContentInput");
+                if (editor) editor.focus();
+            });
+        });
+        const announcementLinkButton = document.querySelector("[data-announcement-link]");
+        if (announcementLinkButton) {
+            announcementLinkButton.addEventListener("click", function () {
+                const url = window.prompt("Paste link URL");
+                if (url) document.execCommand("createLink", false, url);
+            });
+        }
         ["materialSearchInput", "materialCourseFilter", "materialSubjectFilter"].forEach(function (id) {
             const field = document.getElementById(id);
             if (!field) return;

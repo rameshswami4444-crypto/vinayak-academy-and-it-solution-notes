@@ -17,6 +17,9 @@
         "studentCourse"
     ];
     const SESSION_DURATION_MS = 6 * 60 * 60 * 1000;
+    const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+    const LOGIN_LOCK_MS = 60 * 60 * 1000;
+    const FAILED_LOGIN_DELAY_MS = 1000;
     let logoutBound = false;
     let silentSessionValidationTimer = null;
     let silentSessionValidationRunning = false;
@@ -636,6 +639,64 @@
         box.hidden = false;
     }
 
+    function delay(ms) {
+        return new Promise(function (resolve) {
+            window.setTimeout(resolve, ms);
+        });
+    }
+
+    function isDevelopmentHost() {
+        return ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
+    }
+
+    function parseTimestamp(value) {
+        if (!value) return 0;
+        const time = new Date(value).getTime();
+        return Number.isFinite(time) ? time : 0;
+    }
+
+    function isLoginLocked(record) {
+        return parseTimestamp(record && record.locked_until) > Date.now();
+    }
+
+    async function updateLoginLimitFields(tableName, matchColumn, matchValue, payload) {
+        try {
+            const { error } = await getClient()
+                .from(tableName)
+                .update(payload)
+                .eq(matchColumn, matchValue);
+            if (error) throw error;
+        } catch (error) {
+            console.warn("Login rate-limit update failed", tableName, error);
+        }
+    }
+
+    async function recordFailedLogin(tableName, matchColumn, record, label) {
+        await delay(FAILED_LOGIN_DELAY_MS);
+        if (!record) {
+            if (isDevelopmentHost()) console.warn("Failed login for unknown " + label);
+            return;
+        }
+        const previousLock = parseTimestamp(record.locked_until);
+        const baseAttempts = previousLock && previousLock <= Date.now() ? 0 : Number(record.failed_attempts || 0);
+        const attempts = baseAttempts + 1;
+        const payload = {
+            failed_attempts: attempts,
+            last_failed_login: new Date().toISOString(),
+            locked_until: attempts >= MAX_FAILED_LOGIN_ATTEMPTS ? new Date(Date.now() + LOGIN_LOCK_MS).toISOString() : null
+        };
+        if (isDevelopmentHost()) console.warn("Failed login attempt", { type: label, attempts: attempts, locked: Boolean(payload.locked_until) });
+        await updateLoginLimitFields(tableName, matchColumn, record[matchColumn], payload);
+    }
+
+    async function resetLoginLimit(tableName, matchColumn, matchValue) {
+        await updateLoginLimitFields(tableName, matchColumn, matchValue, {
+            failed_attempts: 0,
+            locked_until: null,
+            last_failed_login: null
+        });
+    }
+
     function clearMessage(targetId) {
         const box = document.getElementById(targetId || "authMessage");
         if (!box) {
@@ -794,16 +855,28 @@
         try {
             const { data, error } = await getClient()
                 .from("admins")
-                .select("username,password")
+                .select("*")
                 .eq("username", inputId)
-                .eq("password", inputPassword)
                 .limit(1);
             if (error) throw error;
-            return data && data[0] ? data[0] : null;
+            const admin = data && data[0] ? data[0] : null;
+            return admin && getAdminPassword(admin) === inputPassword ? admin : null;
         } catch (error) {
             console.error("Admin table authentication failed", error);
             throw error;
         }
+    }
+
+    async function findAdminByUsername(adminId) {
+        const inputId = String(adminId || "").trim();
+        if (!inputId) return null;
+        const { data, error } = await getClient()
+            .from("admins")
+            .select("*")
+            .eq("username", inputId)
+            .limit(1);
+        if (error) throw error;
+        return data && data[0] ? data[0] : null;
     }
 
     async function hasAnyAccessibleAdminRows() {
@@ -1006,21 +1079,29 @@
                 .from(getStudentsTableName())
                 .select("*")
                 .eq(getStudentIdentifierColumn(), studentId)
-                .eq("password", password)
                 .limit(1);
 
             if (error) {
                 console.error("Student login query failed", error);
-                showMessage("Database error. Check Supabase table access or RLS policy.", "error", "studentAuthMessage");
+                showMessage("Invalid username or password.", "error", "studentAuthMessage");
                 return;
             }
 
-            if (!data || !data.length) {
-                showMessage("Invalid ID or Password", "error", "studentAuthMessage");
+            const studentRecord = data && data[0] ? data[0] : null;
+            if (studentRecord && isLoginLocked(studentRecord)) {
+                showMessage("Too many failed login attempts. Please try again after 1 hour.", "error", "studentAuthMessage");
                 return;
             }
 
-            let student = await syncStudentFeesStatus(data[0], client);
+            if (!studentRecord || String(studentRecord.password || "") !== password) {
+                await recordFailedLogin(getStudentsTableName(), getStudentIdentifierColumn(), studentRecord, "student");
+                showMessage("Invalid username or password.", "error", "studentAuthMessage");
+                return;
+            }
+
+            await resetLoginLimit(getStudentsTableName(), getStudentIdentifierColumn(), getStudentIdentifierValue(studentRecord));
+
+            let student = await syncStudentFeesStatus(studentRecord, client);
             student = await syncStudentEmiStatus(student, client);
 
             try {
@@ -1042,7 +1123,7 @@
             window.location.href = toPageUrl(getHomePath());
         } catch (error) {
             console.error("Student login failed", error);
-            showMessage(error.message || "Login failed.", "error", "studentAuthMessage");
+            showMessage("Invalid username or password.", "error", "studentAuthMessage");
         } finally {
             setLoginButtonState(submitButton, false);
         }
@@ -1067,22 +1148,30 @@
         setLoginButtonState(submitButton, true, "Checking...");
 
         try {
-            const admin = await findAdminRecord(adminId, password);
+            const admin = await findAdminByUsername(adminId);
 
-            if (!admin) {
-                const hasRows = await hasAnyAccessibleAdminRows();
-                if (hasRows === false) {
-                    throw new Error("No admin account is accessible from the admins table. Check admin row data or RLS policy.");
-                }
-                throw new Error("Invalid admin credentials.");
+            if (admin && isLoginLocked(admin)) {
+                showMessage("Too many failed login attempts. Please try again after 1 hour.", "error", "adminAuthMessage");
+                return;
             }
 
+            if (!admin || getAdminPassword(admin) !== password) {
+                await recordFailedLogin("admins", "username", admin, "admin");
+                const hasRows = await hasAnyAccessibleAdminRows();
+                if (hasRows === false) {
+                    console.error("No admin account is accessible from the admins table. Check admin row data or RLS policy.");
+                }
+                showMessage("Invalid username or password.", "error", "adminAuthMessage");
+                return;
+            }
+
+            await resetLoginLimit("admins", "username", getAdminIdentifier(admin) || adminId);
             clearSession();
             startAdminSession(getAdminIdentifier(admin) || adminId, password);
             window.location.replace(toPageUrl(getAdminPath()));
         } catch (error) {
             console.error("Admin login failed", error);
-            showMessage(error.message || "Admin login failed.", "error", "adminAuthMessage");
+            showMessage("Invalid username or password.", "error", "adminAuthMessage");
         } finally {
             setLoginButtonState(submitButton, false);
         }

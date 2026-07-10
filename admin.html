@@ -278,7 +278,47 @@
             <section class="admin-section" data-admin-section="payments"><article class="admin-card erp-placeholder"><h2>Payments</h2><p>Payment receipts are not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="assignments"><article class="admin-card erp-placeholder"><h2>Assignments</h2><p>Not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="attendance"><article class="admin-card erp-placeholder"><h2>Attendance</h2><p>Not part of this phase.</p></article></section>
-            <section class="admin-section" data-admin-section="notifications"><article class="admin-card erp-placeholder"><h2>Notifications</h2><p>Not part of this phase.</p></article></section>
+            <section class="admin-section" data-admin-section="notifications">
+                <section class="admin-card">
+                    <div class="erp-card-head">
+                        <div>
+                            <h3><i class="fas fa-bullhorn"></i> Announcement Management</h3>
+                            <p class="admin-note">Publish course-specific or all-course announcements for the student portal.</p>
+                        </div>
+                    </div>
+                    <form id="announcementForm" class="admin-form">
+                        <input type="hidden" id="announcementRecordId">
+                        <div class="erp-form-grid">
+                            <div class="login-field"><label for="announcementTitleInput">Title</label><input type="text" id="announcementTitleInput" placeholder="Announcement title" required></div>
+                            <div class="login-field"><label for="announcementExpiryInput">Expiry Date (optional)</label><input type="date" id="announcementExpiryInput"></div>
+                            <div class="login-field erp-span-2">
+                                <label>Rich Text</label>
+                                <div class="announcement-editor-toolbar">
+                                    <button type="button" data-announcement-command="bold"><b>B</b></button>
+                                    <button type="button" data-announcement-command="insertUnorderedList">List</button>
+                                    <button type="button" data-announcement-link>Link</button>
+                                </div>
+                                <div id="announcementContentInput" class="announcement-rich-editor" contenteditable="true" role="textbox" aria-label="Announcement content"></div>
+                            </div>
+                            <div class="login-field erp-span-2">
+                                <label><input type="checkbox" id="announcementAllCoursesInput" checked> All Courses</label>
+                                <div class="material-course-picker announcement-course-picker" id="announcementCourseChecklist"><span>Loading courses...</span></div>
+                            </div>
+                            <div class="login-field"><label><input type="checkbox" id="announcementPinnedInput"> Pin announcement</label></div>
+                        </div>
+                        <div class="admin-form-actions"><button type="submit" class="login-btn"><i class="fas fa-paper-plane"></i> Publish Announcement</button><button type="button" class="logout-btn admin-secondary-btn" id="clearAnnouncementFormBtn"><i class="fas fa-eraser"></i> Clear</button></div>
+                    </form>
+                </section>
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header">
+                        <h3><i class="fas fa-list"></i> Published Announcements</h3>
+                        <div class="erp-table-tools">
+                            <div class="login-field admin-search-field"><label for="announcementSearchInput">Search</label><input type="search" id="announcementSearchInput" placeholder="Title, content, course"></div>
+                        </div>
+                    </div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Title</th><th>Audience</th><th>Pinned</th><th>Expiry</th><th>Actions</th></tr></thead><tbody id="announcementTableBody"><tr><td colspan="5" class="admin-empty">No announcements loaded.</td></tr></tbody></table></div>
+                </section>
+            </section>
             <section class="admin-section" data-admin-section="reports"><article class="admin-card erp-placeholder"><h2>Reports</h2><p>Not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="settings"><article class="admin-card erp-placeholder"><h2>Settings</h2><p>Not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="admins"><article class="admin-card erp-placeholder"><h2>Admins</h2><p>Admin roles are not part of this phase.</p></article></section>

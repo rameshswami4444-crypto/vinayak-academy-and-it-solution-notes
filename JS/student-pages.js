@@ -43,14 +43,18 @@
     }
 
     async function loadNotices() {
-        const notices = await safeFetch("announcements", function (table) {
-            return table.select("*").order("created_at", { ascending: false });
-        });
+        const notices = window.VinayakAnnouncements
+            ? await window.VinayakAnnouncements.fetchVisibleAnnouncements()
+            : await safeFetch("announcements", function (table) {
+                return table.select("*").order("created_at", { ascending: false });
+            });
+        if (window.VinayakAnnouncements) {
+            window.VinayakAnnouncements.renderPage("noticesPageList", notices);
+            window.VinayakAnnouncements.updateBell();
+            return;
+        }
         renderList("noticesPageList", notices, "No announcements yet.", function (item) {
             return '<div class="student-list-item"><i class="fas fa-bullhorn"></i><span><strong>' + escapeHtml(item.title || item.heading || "Announcement") + '</strong><small>' + escapeHtml(item.message || item.description || item.created_at || "New notice") + '</small></span></div>';
-        });
-        document.querySelectorAll("[data-layout-notification-count]").forEach(function (node) {
-            node.textContent = String(notices.length);
         });
     }
 

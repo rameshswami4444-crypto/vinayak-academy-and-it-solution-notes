@@ -167,6 +167,10 @@
         if (!button || button.dataset.noticeBound) {
             return;
         }
+        if (window.VinayakAnnouncements && typeof window.VinayakAnnouncements.initBell === "function") {
+            window.VinayakAnnouncements.initBell();
+            return;
+        }
         button.dataset.noticeBound = "true";
         button.addEventListener("click", function () {
             window.location.href = ROOT_PREFIX + "notices.html";

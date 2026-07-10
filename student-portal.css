@@ -222,6 +222,7 @@ body.student-lms-page {
     display: flex;
     gap: 14px;
     align-items: center;
+    position: relative;
 }
 
 .student-icon-btn,
@@ -508,6 +509,120 @@ body.student-lms-page {
     color: #087a54;
     background: #f2fffb;
     font-weight: 900;
+}
+
+.student-notification-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    z-index: 1200;
+    width: min(360px, calc(100vw - 24px));
+    padding: 14px;
+    border: 1px solid var(--sp-line);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 24px 60px rgba(10, 31, 68, 0.16);
+}
+
+.student-notification-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.student-notification-head a {
+    color: #4f46e5;
+    font-weight: 900;
+    text-decoration: none;
+}
+
+.student-notification-dropdown [data-notification-preview] {
+    display: grid;
+    gap: 8px;
+}
+
+.student-notification-dropdown [data-notification-preview] button {
+    width: 100%;
+    display: grid;
+    gap: 3px;
+    padding: 12px;
+    border: 1px solid var(--sp-line);
+    border-radius: 13px;
+    background: #fff;
+    color: var(--sp-ink);
+    text-align: left;
+    cursor: pointer;
+}
+
+.student-notification-dropdown small {
+    color: var(--sp-muted);
+}
+
+.announcement-card {
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.announcement-card.is-pinned {
+    border-color: rgba(249, 115, 22, 0.34);
+    background: linear-gradient(135deg, rgba(255, 247, 237, 0.95), #fff);
+}
+
+.announcement-detail-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2200;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.announcement-detail-modal[hidden] {
+    display: none;
+}
+
+.announcement-detail-modal article {
+    width: min(720px, 100%);
+    max-height: min(760px, calc(100vh - 36px));
+    overflow: auto;
+    position: relative;
+    padding: 30px;
+    border-radius: 22px;
+    background: #fff;
+    color: var(--sp-ink);
+    box-shadow: 0 28px 80px rgba(10, 31, 68, 0.22);
+}
+
+.announcement-detail-modal button {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--sp-line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--sp-ink);
+    font-size: 1.4rem;
+    cursor: pointer;
+}
+
+.announcement-detail-modal h2 {
+    margin: 0 44px 6px 0;
+}
+
+.announcement-detail-modal small {
+    color: var(--sp-muted);
+    font-weight: 800;
+}
+
+.announcement-detail-modal div {
+    margin-top: 18px;
+    line-height: 1.75;
 }
 
 .student-material-shell {
@@ -810,6 +925,24 @@ body.student-lms-page {
         min-height: 68px;
         border-radius: 14px;
         padding: 10px 14px;
+    }
+
+    .student-notification-dropdown {
+        position: fixed;
+        top: 76px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+    }
+
+    .announcement-detail-modal {
+        padding: 10px;
+    }
+
+    .announcement-detail-modal article {
+        max-height: calc(100vh - 20px);
+        padding: 24px 18px;
+        border-radius: 18px;
     }
 
     .student-material-shell {

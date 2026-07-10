@@ -3998,6 +3998,45 @@ body.admin-sidebar-collapsed .erp-sidebar {
     accent-color: #f97316;
 }
 
+.announcement-editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 0.55rem;
+}
+
+.announcement-editor-toolbar button {
+    min-height: 36px;
+    border: 1px solid rgba(203, 213, 225, 0.9);
+    border-radius: 10px;
+    padding: 0.45rem 0.75rem;
+    background: #ffffff;
+    color: #0f172a;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.announcement-rich-editor {
+    min-height: 150px;
+    padding: 1rem;
+    border: 1px solid rgba(203, 213, 225, 0.95);
+    border-radius: 14px;
+    background: #ffffff;
+    color: #0f172a;
+    outline: none;
+    line-height: 1.7;
+}
+
+.announcement-rich-editor:focus {
+    border-color: #f97316;
+    box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
+}
+
+.announcement-course-picker.is-disabled {
+    opacity: 0.58;
+    pointer-events: none;
+}
+
 .student-notes-boards {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
