@@ -40,7 +40,8 @@ function loadDotEnv() {
 }
 
 function getConfig() {
-    const env = loadDotEnv();
+    const localEnv = loadDotEnv();
+    const env = Object.assign({}, localEnv, process.env);
     const accountId = env.R2_ACCOUNT_ID || "";
     const generatedEndpoint = accountId ? "https://" + accountId + ".r2.cloudflarestorage.com" : "";
 
@@ -79,6 +80,11 @@ function printStartupCheck() {
     startupCheckPrinted = true;
     const config = getConfig();
     console.log("Cloudflare R2 Startup Check");
+    console.log("R2_ACCOUNT_ID loaded:", Boolean(config.accountId));
+    console.log("R2_ACCESS_KEY loaded:", Boolean(config.accessKey));
+    console.log("R2_SECRET_KEY loaded:", Boolean(config.secretKey));
+    console.log("R2_BUCKET loaded:", Boolean(config.bucket));
+    console.log("R2_ENDPOINT loaded:", Boolean(config.endpoint));
     console.log("✓ Cloudflare Endpoint:", config.endpoint || "NOT LOADED");
     console.log("✓ Bucket Name:", config.bucket || "NOT LOADED");
     console.log("✓ Credentials Loaded:", Boolean(config.accessKey && config.secretKey));
