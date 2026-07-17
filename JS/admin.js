@@ -10,12 +10,23 @@
     let notesCache = [];
     let materialCoursesCache = [];
     let announcementsCache = [];
+    let attendanceHistoryCache = [];
+    let attendanceReportCache = null;
+    let activeAttendanceSessionId = "";
+    let attendancePollTimer = null;
+    let attendanceCountdownTimer = null;
+    let attendanceRealtimeChannel = null;
+    let activeAttendanceEndTime = "";
+    let attendanceClosing = false;
+    let attendanceRealtimeActive = false;
+    const loadedAdminTables = {};
+    let materialUploadQueue = [];
     let bulkRows = [];
     let emiMode = "auto";
     let currentAdmissionStep = 1;
-    const paginationState = { students: 1, emi: 1, bulk: 1 };
-    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10 };
-    const MATERIAL_BUCKET = "study-material";
+    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, attendanceHistory: 1 };
+    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, attendanceHistory: 10 };
+    const MAX_PDF_SIZE = 200 * 1024 * 1024;
     const BULK_COLUMNS = [
         "Student ID", "Password", "Student Name", "Father Name", "Mobile", "Alternate Mobile", "Email", "Address", "Course", "Batch", "Admission Date", "Course Duration", "Total Fee", "Advance Fee", "Remaining Fee", "Number of EMI", "First EMI Due Date"
     ];
@@ -203,8 +214,14 @@
             button.classList.toggle("active", button.getAttribute("data-admin-section-target") === sectionName);
         });
         document.body.classList.remove("admin-sidebar-open");
-        if (["admissions", "courses", "material", "batches", "notifications"].includes(sectionName)) {
-            loadCourses();
+        const courseBackedSections = ["admissions", "courses", "material", "batches", "notifications"];
+        if (courseBackedSections.includes(sectionName) || sectionName === "attendance") loadCourses();
+        if (sectionName === "courses") ensureMaterialLoaded();
+        if (sectionName === "material") ensureMaterialLoaded();
+        if (sectionName === "notifications") ensureAnnouncementsLoaded();
+        if (sectionName === "attendance") {
+            updateAttendanceControls();
+            loadAttendanceHistory();
         }
     }
 
@@ -282,24 +299,88 @@
         });
     }
 
-    async function fetchTable(tableName) {
-        const { data, error } = await window.VinayakAuth.getClient().from(tableName).select("*");
+    async function fetchTable(tableName, options) {
+        const settings = options || {};
+        let query = window.VinayakAuth.getClient()
+            .from(tableName)
+            .select(settings.columns || "*");
+        if (settings.orderBy) {
+            query = query.order(settings.orderBy, { ascending: Boolean(settings.ascending) });
+        }
+        if (settings.limit) {
+            query = query.limit(settings.limit);
+        }
+        const { data, error } = await query;
         if (error) {
             throw error;
         }
         return data || [];
     }
 
-    async function fetchOptionalTable(tableName) {
+    async function fetchOptionalTable(tableName, options) {
         try {
-            return await fetchTable(tableName);
+            return await fetchTable(tableName, options);
         } catch (error) {
             console.warn("Optional table fetch failed", tableName, error);
             return [];
         }
     }
 
-    async function loadCourses() {
+    async function ensureMaterialLoaded(force) {
+        if (!force && loadedAdminTables.material) {
+            renderMaterials();
+            renderCourses();
+            return;
+        }
+        try {
+            await loadMaterialManagerRows();
+        } catch (error) {
+            console.error("R2 study material manager load failed", error);
+            notesCache = [];
+            materialCoursesCache = [];
+            setPanelMessage(error.message || "Could not load R2 study material.", "error");
+        }
+        loadedAdminTables.material = true;
+        renderMaterials();
+        renderCourses();
+    }
+
+    async function loadMaterialManagerRows() {
+        const response = await fetch("/api/admin/materials", {
+            method: "GET",
+            headers: { "Accept": "application/json" }
+        });
+        const result = await response.json().catch(function () { return {}; });
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || result.error || "Could not load R2 study material.");
+        }
+        notesCache = result.materials || [];
+        materialCoursesCache = result.material_courses || [];
+    }
+
+    async function ensureAnnouncementsLoaded(force) {
+        if (!force && loadedAdminTables.announcements) {
+            renderAnnouncementsAdmin();
+            return;
+        }
+        announcementsCache = await fetchOptionalTable("announcements");
+        loadedAdminTables.announcements = true;
+        renderAnnouncementsAdmin();
+    }
+
+    async function ensurePaymentsLoaded(force) {
+        if (!force && loadedAdminTables.payments) return paymentsCache;
+        paymentsCache = await fetchOptionalTable("payments");
+        loadedAdminTables.payments = true;
+        return paymentsCache;
+    }
+
+    async function loadCourses(force) {
+        if (!force && coursesCache.length) {
+            updateCourseControls();
+            renderCourses();
+            return coursesCache;
+        }
         console.group("loadCourses");
         try {
             const { data, error } = await window.VinayakAuth.getClient()
@@ -962,11 +1043,12 @@
         }
     }
 
-    function renderProfile(studentId) {
+    async function renderProfile(studentId) {
         const student = getStudentById(studentId);
         if (!student) {
             return;
         }
+        await ensurePaymentsLoaded();
         const fees = getStudentFees(studentId);
         const emis = getStudentEmis(studentId);
         const payments = getStudentPayments(studentId);
@@ -1395,30 +1477,181 @@
         window.XLSX.writeFile(workbook, "students-export.xlsx");
     }
 
-    function slugPart(value) {
-        return String(value || "general").trim().toLowerCase()
-            .replace(/[^a-z0-9-]+/g, "-")
-            .replace(/^-+|-+$/g, "") || "general";
+    function validatePdfFile(file) {
+        if (!file) {
+            throw new Error("Choose a PDF file.");
+        }
+        if (file.size > MAX_PDF_SIZE) {
+            throw new Error("PDF must be 200 MB or smaller.");
+        }
+        if (file.type && file.type !== "application/pdf") {
+            throw new Error("Only PDF files are allowed.");
+        }
+        if (!/\.pdf$/i.test(file.name || "") && file.type !== "application/pdf") {
+            throw new Error("Only PDF files are allowed.");
+        }
     }
 
-    function buildMaterialPath(course, subject, file) {
-        const extension = (file.name.split(".").pop() || "pdf").toLowerCase();
-        const baseName = file.name.replace(/\.[^/.]+$/, "");
-        return [
-            normalizeKey(course).toUpperCase(),
-            slugPart(subject),
-            Date.now() + "-" + slugPart(baseName) + "." + extension
-        ].join("/");
+    async function uploadMaterialToBackend(file, title, subject, courseIds, noteId, options) {
+        const settings = options || {};
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("title", title);
+        formData.append("subject", subject);
+        formData.append("chapter", settings.chapter || "");
+        formData.append("uploaded_by", settings.uploadedBy || "admin");
+        formData.append("course_id", courseIds[0] || "");
+        formData.append("course_ids", JSON.stringify(courseIds));
+        formData.append("original_filename", file.name || title || "material.pdf");
+        if (noteId) formData.append("note_id", noteId);
+
+        return new Promise(function (resolve, reject) {
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/api/upload-material");
+            xhr.upload.onprogress = function (event) {
+                if (event.lengthComputable && typeof settings.onProgress === "function") {
+                    settings.onProgress(Math.round((event.loaded / event.total) * 100));
+                }
+            };
+            xhr.onload = function () {
+                let result = {};
+                try {
+                    result = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+                } catch (error) {
+                    result = {
+                        message: "R2 upload endpoint returned non-JSON response.",
+                        rawBody: xhr.responseText
+                    };
+                }
+                if (xhr.status < 200 || xhr.status >= 300 || !result.success) {
+                    console.error("Study material backend upload returned an error", result);
+                    const detailLines = [
+                        result.message || result.error || "Study material upload failed.",
+                        "HTTP Status: " + xhr.status,
+                        result.code ? "Code: " + result.code : "",
+                        result.status ? "Status: " + result.status : "",
+                        result.stack ? "Stack: " + result.stack : "",
+                        result.rawBody ? "Raw Response: " + result.rawBody : ""
+                    ].filter(Boolean);
+                    reject(new Error(detailLines.join("\n")));
+                    return;
+                }
+                resolve(result);
+            };
+            xhr.onerror = function () {
+                reject(new Error("Network error while uploading PDF to R2."));
+            };
+            xhr.send(formData);
+        });
+    }
+
+    async function deletePdfFromR2(key) {
+        if (!key) return;
+        const response = await fetch("/api/r2/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: key })
+        });
+        const result = await response.json().catch(function () { return {}; });
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || "Could not delete PDF from Cloudflare R2.");
+        }
+    }
+
+    async function getR2SignedUrl(key) {
+        const response = await fetch("/api/r2/sign?key=" + encodeURIComponent(key), {
+            method: "GET"
+        });
+        const result = await response.json().catch(function () { return {}; });
+        if (!response.ok || !result.success || !result.signedUrl) {
+            throw new Error(result.error || "Could not create a secure R2 PDF link.");
+        }
+        return result.signedUrl;
     }
 
     function setMaterialProgress(percent) {
         const bar = document.getElementById("materialUploadProgress");
         if (!bar) return;
-        bar.hidden = false;
+        const shell = document.getElementById("materialUploadStatus");
+        if (shell) shell.hidden = false;
         const fill = bar.querySelector("span");
         if (fill) fill.style.width = Math.max(0, Math.min(100, percent)) + "%";
         if (percent >= 100) {
-            window.setTimeout(function () { bar.hidden = true; if (fill) fill.style.width = "0%"; }, 900);
+            window.setTimeout(function () { if (fill) fill.style.width = "0%"; }, 900);
+        }
+    }
+
+    function getMaterialKey(note) {
+        return String((note && (note.r2_key || note.file_path)) || "");
+    }
+
+    function getMaterialChapter(note) {
+        return String((note && note.chapter) || "");
+    }
+
+    function getMaterialUploadDate(note) {
+        return String((note && (note.uploaded_at || note.created_at)) || "");
+    }
+
+    function getMaterialSize(note) {
+        const size = Number(note && note.file_size || 0);
+        if (!Number.isFinite(size) || size <= 0) return "-";
+        if (size >= 1024 * 1024) return (size / (1024 * 1024)).toFixed(1) + " MB";
+        return Math.max(1, Math.round(size / 1024)) + " KB";
+    }
+
+    function getMaterialTitleFromFile(file) {
+        return String(file && file.name || "Study Material").replace(/\.[^/.]+$/, "");
+    }
+
+    function setMaterialUploadStatus(text) {
+        const status = document.getElementById("materialUploadStatusText");
+        if (status) status.textContent = text;
+    }
+
+    function updateMaterialUploadCounts() {
+        const count = document.getElementById("materialUploadCountText");
+        if (!count) return;
+        const completed = materialUploadQueue.filter(function (item) { return item.status === "completed"; }).length;
+        const failed = materialUploadQueue.filter(function (item) { return item.status === "failed"; }).length;
+        count.textContent = completed + " completed / " + failed + " failed / " + materialUploadQueue.length + " total";
+        const retry = document.getElementById("retryFailedMaterialBtn");
+        if (retry) retry.hidden = failed <= 0;
+    }
+
+    function renderMaterialUploadQueue() {
+        const target = document.getElementById("materialUploadQueue");
+        if (!target) return;
+        target.hidden = !materialUploadQueue.length;
+        const previewRows = materialUploadQueue.slice(0, 120);
+        target.innerHTML = [
+            '<div class="material-queue-head"><strong>Upload Queue</strong><span>', materialUploadQueue.length, ' PDF(s)</span></div>',
+            '<div class="material-queue-list">',
+            previewRows.map(function (item) {
+                return '<div class="material-queue-row ' + escapeHtml(item.status || "waiting") + '"><span>' + escapeHtml(item.file.name) + '</span><small>' + escapeHtml(item.status || "waiting") + (item.progress ? " " + item.progress + "%" : "") + (item.error ? " - " + item.error : "") + '</small></div>';
+            }).join(""),
+            materialUploadQueue.length > previewRows.length ? '<div class="material-queue-row"><span>+' + (materialUploadQueue.length - previewRows.length) + ' more files queued</span><small>They will upload in order.</small></div>' : "",
+            "</div>"
+        ].join("");
+        updateMaterialUploadCounts();
+    }
+
+    function addMaterialFiles(files) {
+        const pdfs = Array.from(files || []).filter(function (file) {
+            return file && (/\.pdf$/i.test(file.name || "") || file.type === "application/pdf");
+        });
+        materialUploadQueue = pdfs.map(function (file, index) {
+            return {
+                id: Date.now() + "-" + index + "-" + Math.random().toString(16).slice(2),
+                file: file,
+                status: "waiting",
+                progress: 0,
+                error: ""
+            };
+        });
+        renderMaterialUploadQueue();
+        if (!pdfs.length && files && files.length) {
+            setPanelMessage("Only PDF files can be uploaded.", "error");
         }
     }
 
@@ -1426,13 +1659,15 @@
         const query = getValue("materialSearchInput").toLowerCase();
         const course = getValue("materialCourseFilter");
         const subject = getValue("materialSubjectFilter");
+        const uploadDate = getValue("materialDateFilter");
         return notesCache.filter(function (note) {
             const courseIds = getNoteCourseIds(note);
             const courseLabel = getNoteCourseLabels(note);
-            const matchesQuery = !query || [note.title, note.subject, note.course_id, courseLabel].join(" ").toLowerCase().includes(query);
+            const matchesQuery = !query || [note.title, note.original_filename, note.subject, getMaterialChapter(note), note.course_id, courseLabel].join(" ").toLowerCase().includes(query);
             const matchesCourse = !course || course === "all" || courseIds.includes(String(course));
             const matchesSubject = !subject || subject === "all" || String(note.subject || "General") === subject;
-            return matchesQuery && matchesCourse && matchesSubject;
+            const matchesDate = !uploadDate || getMaterialUploadDate(note).slice(0, 10) === uploadDate;
+            return matchesQuery && matchesCourse && matchesSubject && matchesDate;
         });
     }
 
@@ -1454,6 +1689,7 @@
         renderMaterialCourseChecklist();
         renderAnnouncementCourseChecklist();
         setAnnouncementAllCoursesState();
+        updateAttendanceControls();
         const materialFilter = document.getElementById("materialCourseFilter");
         if (materialFilter) {
             const currentFilter = materialFilter.value;
@@ -1570,7 +1806,7 @@
             if (result.error) throw result.error;
             setPanelMessage(courseId ? "Course updated successfully." : "Course added successfully.", "success");
             clearCourseForm();
-            await loadCourses();
+            await loadCourses(true);
             renderDashboard();
             applyStudentFilter(false);
         } catch (error) {
@@ -1596,7 +1832,7 @@
             console.log("Course delete response", result);
             if (result.error) throw result.error;
             setPanelMessage("Course deleted successfully.", "success");
-            await loadCourses();
+            await loadCourses(true);
         } catch (error) {
             console.error("Course delete failed", error);
             setPanelMessage(error.message || "Could not delete course.", "error");
@@ -1608,21 +1844,28 @@
         if (!tbody) return;
         updateMaterialSubjectFilter();
         const rows = getFilteredNotes();
-        tbody.innerHTML = rows.length ? rows.map(function (note) {
+        const pageData = paginateRows(rows, "material");
+        tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (note) {
             return [
                 "<tr>",
                 "<td>", escapeHtml(note.title || "Study Material"), "</td>",
-                "<td>", escapeHtml(getNoteCourseLabels(note)), "</td>",
                 "<td>", escapeHtml(note.subject || "General"), "</td>",
-                "<td>", escapeHtml(note.created_at ? String(note.created_at).slice(0, 10) : "-"), "</td>",
+                "<td>", escapeHtml(getMaterialChapter(note) || "-"), "</td>",
+                "<td>", escapeHtml(getNoteCourseLabels(note)), "</td>",
+                "<td>", escapeHtml(getMaterialSize(note)), "</td>",
+                "<td>", escapeHtml(getMaterialUploadDate(note) ? getMaterialUploadDate(note).slice(0, 10) : "-"), "</td>",
                 '<td><button type="button" class="table-action-btn" data-preview-material="', escapeHtml(note.id), '">Preview</button> ',
-                '<button type="button" class="table-action-btn" data-edit-material="', escapeHtml(note.id), '">Edit</button> ',
-                '<button type="button" class="table-action-btn" data-edit-material-courses="', escapeHtml(note.id), '">Courses</button> ',
+                '<button type="button" class="table-action-btn" data-edit-material="', escapeHtml(note.id), '">Rename</button> ',
+                '<button type="button" class="table-action-btn" data-move-material-subject="', escapeHtml(note.id), '">Move Subject</button> ',
+                '<button type="button" class="table-action-btn" data-edit-material-courses="', escapeHtml(note.id), '">Assign Courses</button> ',
+                '<button type="button" class="table-action-btn" data-remove-material-course="', escapeHtml(note.id), '">Remove Course</button> ',
                 '<button type="button" class="table-action-btn" data-replace-material="', escapeHtml(note.id), '">Replace</button> ',
+                '<button type="button" class="table-action-btn" data-copy-r2-link="', escapeHtml(note.id), '">Copy R2 Link</button> ',
                 '<button type="button" class="table-action-btn danger-btn" data-delete-material="', escapeHtml(note.id), '">Delete</button></td>',
                 "</tr>"
             ].join("");
-        }).join("") : '<tr><td colspan="5" class="admin-empty">No study material found.</td></tr>';
+        }).join("") : '<tr><td colspan="7" class="admin-empty">No study material found.</td></tr>';
+        renderPagination("materialPagination", "material", pageData.page, pageData.totalPages, pageData.totalItems);
     }
 
     async function uploadStudyMaterial(event) {
@@ -1630,55 +1873,87 @@
         clearPanelMessage();
         const courseIds = getSelectedMaterialCourseIds();
         const subject = getValue("materialSubjectInput");
-        const title = getValue("materialTitleInput");
+        const chapter = getValue("materialChapterInput");
         const fileInput = document.getElementById("materialFileInput");
-        const file = fileInput && fileInput.files ? fileInput.files[0] : null;
-        if (!courseIds.length || !subject || !title || !file) {
-            setPanelMessage("Select at least one course, subject, title and PDF file.", "error");
+        if (!materialUploadQueue.length && fileInput && fileInput.files && fileInput.files.length) {
+            addMaterialFiles(fileInput.files);
+        }
+        const targets = materialUploadQueue.filter(function (item) {
+            return item.status === "waiting" || item.status === "failed";
+        });
+        if (!courseIds.length || !subject || !targets.length) {
+            setPanelMessage("Select at least one course, a subject, and one or more PDF files.", "error");
             return;
         }
-        if (file.type && file.type !== "application/pdf") {
-            setPanelMessage("Only PDF files are allowed.", "error");
-            return;
-        }
-        try {
-            const client = window.VinayakAuth.getClient();
-            const primaryCourseId = courseIds[0];
-            const filePath = buildMaterialPath(primaryCourseId, subject, file);
-            setMaterialProgress(20);
-            const uploadResult = await client.storage.from(MATERIAL_BUCKET).upload(filePath, file, { cacheControl: "3600", upsert: false });
-            if (uploadResult.error) throw uploadResult.error;
-            setMaterialProgress(65);
-            const insertResult = await client.from("notes").insert([{
-                course_id: primaryCourseId,
-                subject: subject,
-                title: title,
-                file_path: filePath,
-                created_at: new Date().toISOString()
-            }]).select("id").single();
-            if (insertResult.error) throw insertResult.error;
-            const noteId = insertResult.data && insertResult.data.id;
-            if (!noteId) throw new Error("Study material record was created without an id.");
-            setMaterialProgress(82);
-            const linkRows = courseIds.map(function (courseId) {
-                return { note_id: noteId, course_id: courseId };
-            });
-            const linkResult = await client.from("material_courses").insert(linkRows);
-            if (linkResult.error) {
-                await client.from("notes").delete().eq("id", noteId);
-                await client.storage.from(MATERIAL_BUCKET).remove([filePath]);
-                throw linkResult.error;
+        targets.forEach(function (item) {
+            try {
+                validatePdfFile(item.file);
+            } catch (error) {
+                item.status = "failed";
+                item.error = error.message;
             }
-            setMaterialProgress(100);
-            document.getElementById("materialUploadForm").reset();
-            renderMaterialCourseChecklist([]);
-            setPanelMessage("Study material uploaded once and assigned to " + courseIds.length + " course(s).", "success");
-            notesCache = await fetchOptionalTable("notes");
-            materialCoursesCache = await fetchOptionalTable("material_courses");
-            renderMaterials();
+        });
+        const uploadable = targets.filter(function (item) { return item.status !== "failed"; });
+        if (!uploadable.length) {
+            renderMaterialUploadQueue();
+            setPanelMessage("No valid PDF files to upload.", "error");
+            return;
+        }
+        const button = document.getElementById("materialBulkUploadBtn");
+        if (button) button.disabled = true;
+        setMaterialUploadStatus("Uploading...");
+        setMaterialProgress(0);
+        try {
+            let completed = materialUploadQueue.filter(function (item) { return item.status === "completed"; }).length;
+            const concurrency = 3;
+            let cursor = 0;
+            async function worker() {
+                while (cursor < uploadable.length) {
+                    const item = uploadable[cursor];
+                    cursor += 1;
+                    item.status = "uploading";
+                    item.error = "";
+                    renderMaterialUploadQueue();
+                    try {
+                        await uploadMaterialToBackend(item.file, getMaterialTitleFromFile(item.file), subject, courseIds, "", {
+                            chapter: chapter,
+                            uploadedBy: "admin",
+                            onProgress: function (progress) {
+                                item.progress = progress;
+                                renderMaterialUploadQueue();
+                            }
+                        });
+                        item.status = "completed";
+                        item.progress = 100;
+                        completed += 1;
+                        setMaterialProgress(Math.round((completed / materialUploadQueue.length) * 100));
+                    } catch (error) {
+                        item.status = "failed";
+                        item.error = error.message || "Upload failed.";
+                    }
+                    renderMaterialUploadQueue();
+                }
+            }
+            await Promise.all(Array.from({ length: Math.min(concurrency, uploadable.length) }, worker));
+            const failed = materialUploadQueue.filter(function (item) { return item.status === "failed"; }).length;
+            setMaterialUploadStatus(failed ? "Completed with failed uploads" : "Completed");
+            if (!failed) {
+                document.getElementById("materialUploadForm").reset();
+                renderMaterialCourseChecklist([]);
+                materialUploadQueue = [];
+                renderMaterialUploadQueue();
+            }
+            const fileInput = document.getElementById("materialFileInput");
+            const folderInput = document.getElementById("materialFolderInput");
+            if (fileInput) fileInput.value = "";
+            if (folderInput) folderInput.value = "";
+            setPanelMessage("Bulk upload complete. Uploaded: " + completed + ". Failed: " + failed + ".", failed ? "error" : "success");
+            await ensureMaterialLoaded(true);
         } catch (error) {
             console.error("Study material upload failed", error);
             setPanelMessage(error.message || "Could not upload study material.", "error");
+        } finally {
+            if (button) button.disabled = false;
         }
     }
 
@@ -1689,10 +1964,10 @@
     async function previewMaterial(id) {
         try {
             const note = findMaterial(id);
-            if (!note || !note.file_path) throw new Error("PDF path is missing.");
-            const { data, error } = await window.VinayakAuth.getClient().storage.from(MATERIAL_BUCKET).createSignedUrl(note.file_path, 300);
-            if (error) throw error;
-            window.location.href = data.signedUrl;
+            const key = getMaterialKey(note);
+            if (!note || !key) throw new Error("PDF path is missing.");
+            const signedUrl = await getR2SignedUrl(key);
+            window.location.href = signedUrl;
         } catch (error) {
             console.error("Study material preview failed", error);
             setPanelMessage(error.message || "Could not preview PDF.", "error");
@@ -1702,19 +1977,32 @@
     async function editMaterial(id) {
         const note = findMaterial(id);
         if (!note) return;
-        const title = window.prompt("Edit title", note.title || "");
+        const title = window.prompt("Rename PDF title", note.title || "");
         if (title == null) return;
-        const subject = window.prompt("Edit subject", note.subject || "General");
+        try {
+            const { error } = await window.VinayakAuth.getClient().from("notes").update({ title: title.trim() || "Study Material" }).eq("id", id);
+            if (error) throw error;
+            setPanelMessage("Study material renamed.", "success");
+            await ensureMaterialLoaded(true);
+        } catch (error) {
+            console.error("Study material rename failed", error);
+            setPanelMessage(error.message || "Could not rename study material.", "error");
+        }
+    }
+
+    async function moveMaterialSubject(id) {
+        const note = findMaterial(id);
+        if (!note) return;
+        const subject = window.prompt("Move to subject", note.subject || "General");
         if (subject == null) return;
         try {
-            const { error } = await window.VinayakAuth.getClient().from("notes").update({ title: title.trim(), subject: subject.trim() || "General" }).eq("id", id);
+            const { error } = await window.VinayakAuth.getClient().from("notes").update({ subject: subject.trim() || "General" }).eq("id", id);
             if (error) throw error;
-            setPanelMessage("Study material updated.", "success");
-            notesCache = await fetchOptionalTable("notes");
-            renderMaterials();
+            setPanelMessage("Study material moved to " + (subject.trim() || "General") + ".", "success");
+            await ensureMaterialLoaded(true);
         } catch (error) {
-            console.error("Study material edit failed", error);
-            setPanelMessage(error.message || "Could not update study material.", "error");
+            console.error("Study material subject move failed", error);
+            setPanelMessage(error.message || "Could not move study material.", "error");
         }
     }
 
@@ -1760,14 +2048,65 @@
         }
         try {
             await saveMaterialCourseLinks(id, courseIds);
-            notesCache = await fetchOptionalTable("notes");
-            materialCoursesCache = await fetchOptionalTable("material_courses");
-            renderMaterials();
-            renderCourses();
+            await ensureMaterialLoaded(true);
             setPanelMessage("Study material course access updated.", "success");
         } catch (error) {
             console.error("Study material course update failed", error);
             setPanelMessage(error.message || "Could not update course access.", "error");
+        }
+    }
+
+    async function removeMaterialCourse(id) {
+        const note = findMaterial(id);
+        if (!note) return;
+        const currentIds = getNoteCourseIds(note);
+        if (currentIds.length <= 1) {
+            setPanelMessage("A PDF must stay assigned to at least one course. Use Delete to remove it completely.", "error");
+            return;
+        }
+        const current = getNoteCourseLabels(note);
+        const value = window.prompt("Remove which course? Enter exact course name or UUID.\nCurrent: " + current, "");
+        if (value == null) return;
+        const removeIds = resolveCourseIdsFromText(value);
+        if (!removeIds.length) {
+            setPanelMessage("No matching course found.", "error");
+            return;
+        }
+        const nextIds = currentIds.filter(function (courseId) {
+            return !removeIds.includes(String(courseId));
+        });
+        if (!nextIds.length) {
+            setPanelMessage("Cannot remove all courses from a PDF. Use Delete instead.", "error");
+            return;
+        }
+        try {
+            await saveMaterialCourseLinks(id, nextIds);
+            await ensureMaterialLoaded(true);
+            setPanelMessage("Course access removed.", "success");
+        } catch (error) {
+            console.error("Study material remove course failed", error);
+            setPanelMessage(error.message || "Could not remove course access.", "error");
+        }
+    }
+
+    async function copyMaterialR2Link(id) {
+        const note = findMaterial(id);
+        const key = getMaterialKey(note);
+        if (!key) {
+            setPanelMessage("R2 key is missing for this PDF.", "error");
+            return;
+        }
+        try {
+            const signedUrl = await getR2SignedUrl(key);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(signedUrl);
+                setPanelMessage("Secure R2 preview link copied.", "success");
+                return;
+            }
+            window.prompt("Copy R2 link", signedUrl);
+        } catch (error) {
+            console.error("Copy R2 link failed", error);
+            setPanelMessage(error.message || "Could not copy R2 link.", "error");
         }
     }
 
@@ -1781,22 +2120,15 @@
             const file = input.files && input.files[0];
             if (!file) return;
             try {
-                const client = window.VinayakAuth.getClient();
-                const newPath = buildMaterialPath(getNoteCourseIds(note)[0] || note.course_id, note.subject, file);
+                validatePdfFile(file);
+                const noteCourseIds = getNoteCourseIds(note);
+                const courseIds = noteCourseIds.length ? noteCourseIds : [note.course_id].filter(Boolean);
                 setMaterialProgress(20);
-                const uploadResult = await client.storage.from(MATERIAL_BUCKET).upload(newPath, file, { cacheControl: "3600", upsert: false });
-                if (uploadResult.error) throw uploadResult.error;
-                setMaterialProgress(70);
-                const updateResult = await client.from("notes").update({ file_path: newPath, created_at: new Date().toISOString() }).eq("id", id);
-                if (updateResult.error) throw updateResult.error;
-                if (note.file_path) {
-                    await client.storage.from(MATERIAL_BUCKET).remove([note.file_path]);
-                }
+                console.log("Replacing study material through backend", { oldKey: note.file_path, courses: courseIds, size: file.size });
+                await uploadMaterialToBackend(file, note.title, note.subject || "General", courseIds, id, { chapter: getMaterialChapter(note), uploadedBy: "admin" });
                 setMaterialProgress(100);
                 setPanelMessage("PDF replaced successfully.", "success");
-                notesCache = await fetchOptionalTable("notes");
-                materialCoursesCache = await fetchOptionalTable("material_courses");
-                renderMaterials();
+                await ensureMaterialLoaded(true);
             } catch (error) {
                 console.error("Study material replace failed", error);
                 setPanelMessage(error.message || "Could not replace PDF.", "error");
@@ -1811,16 +2143,15 @@
         try {
             const client = window.VinayakAuth.getClient();
             await client.from("material_courses").delete().eq("note_id", id);
-            if (note.file_path) {
-                const storageResult = await client.storage.from(MATERIAL_BUCKET).remove([note.file_path]);
-                if (storageResult.error) throw storageResult.error;
-            }
             const deleteResult = await client.from("notes").delete().eq("id", id);
             if (deleteResult.error) throw deleteResult.error;
+            const key = getMaterialKey(note);
+            if (key) {
+                console.log("Deleting study material PDF from Cloudflare R2", { key: key });
+                await deletePdfFromR2(key);
+            }
             setPanelMessage("Study material deleted.", "success");
-            notesCache = await fetchOptionalTable("notes");
-            materialCoursesCache = await fetchOptionalTable("material_courses");
-            renderMaterials();
+            await ensureMaterialLoaded(true);
         } catch (error) {
             console.error("Study material delete failed", error);
             setPanelMessage(error.message || "Could not delete study material.", "error");
@@ -1914,7 +2245,8 @@
             if (pinnedDiff) return pinnedDiff;
             return String(b.created_at || "").localeCompare(String(a.created_at || ""));
         });
-        tbody.innerHTML = rows.length ? rows.map(function (item) {
+        const pageData = paginateRows(rows, "announcements");
+        tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (item) {
             const pinned = Boolean(item.is_pinned || item.pinned);
             return [
                 "<tr>",
@@ -1928,6 +2260,7 @@
                 "</tr>"
             ].join("");
         }).join("") : '<tr><td colspan="5" class="admin-empty">No announcements found.</td></tr>';
+        renderPagination("announcementPagination", "announcements", pageData.page, pageData.totalPages, pageData.totalItems);
     }
 
     async function saveAnnouncement(event) {
@@ -1968,8 +2301,7 @@
             if (result.error) throw result.error;
             setPanelMessage(id ? "Announcement updated." : "Announcement published.", "success");
             clearAnnouncementForm();
-            announcementsCache = await fetchOptionalTable("announcements");
-            renderAnnouncementsAdmin();
+            await ensureAnnouncementsLoaded(true);
         } catch (error) {
             console.error("Announcement save failed", error);
             setPanelMessage(error.message || "Could not save announcement.", "error");
@@ -1983,8 +2315,7 @@
             const pinned = !Boolean(item.is_pinned || item.pinned);
             const result = await window.VinayakAuth.getClient().from("announcements").update({ is_pinned: pinned }).eq("id", id);
             if (result.error) throw result.error;
-            announcementsCache = await fetchOptionalTable("announcements");
-            renderAnnouncementsAdmin();
+            await ensureAnnouncementsLoaded(true);
             setPanelMessage(pinned ? "Announcement pinned." : "Announcement unpinned.", "success");
         } catch (error) {
             console.error("Announcement pin update failed", error);
@@ -1998,8 +2329,7 @@
         try {
             const result = await window.VinayakAuth.getClient().from("announcements").delete().eq("id", id);
             if (result.error) throw result.error;
-            announcementsCache = await fetchOptionalTable("announcements");
-            renderAnnouncementsAdmin();
+            await ensureAnnouncementsLoaded(true);
             setPanelMessage("Announcement deleted.", "success");
         } catch (error) {
             console.error("Announcement delete failed", error);
@@ -2007,15 +2337,392 @@
         }
     }
 
+    function getStoredAdminId() {
+        try {
+            const session = JSON.parse(window.localStorage.getItem("admin_session") || "{}");
+            return session.adminId || session.username || "admin";
+        } catch (error) {
+            return "admin";
+        }
+    }
+
+    function updateAttendanceControls() {
+        const courseOptions = getCourseOptions();
+        const uuidOptions = courseOptions.map(function (course) {
+            return { value: course.id, label: course.name };
+        });
+        setSelectOptions("attendanceCourseInput", uuidOptions, "Select course", "No courses available");
+        setFilterOptions("attendanceHistoryCourseFilter", uuidOptions, "All Courses");
+    }
+
+    function getAttendanceCourseLabel(courseId) {
+        const match = getCourseOptions().find(function (course) {
+            return String(course.id) === String(courseId);
+        });
+        return match ? match.name : String(courseId || "-");
+    }
+
+    function formatClock(totalSeconds) {
+        const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+        const minutes = Math.floor(safeSeconds / 60);
+        const seconds = safeSeconds % 60;
+        return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+    }
+
+    function formatDateTime(value) {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value);
+        return date.toLocaleString();
+    }
+
+    function attendanceStatusClass(status) {
+        const normalized = String(status || "").toUpperCase();
+        if (normalized === "PRESENT") return "status-paid";
+        if (normalized === "ABSENT" || normalized === "AUTO_ABSENT") return "status-due";
+        return "status-waiting";
+    }
+
+    function attendanceStatusLabel(status) {
+        const normalized = String(status || "WAITING").toUpperCase();
+        if (normalized === "AUTO_ABSENT") return "Auto Absent";
+        return normalized.charAt(0) + normalized.slice(1).toLowerCase();
+    }
+
+    async function attendanceRequest(path, options) {
+        const response = await window.fetch(path, Object.assign({
+            headers: { "Content-Type": "application/json" }
+        }, options || {}));
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.message || payload.error || "Attendance request failed.");
+        }
+        return payload;
+    }
+
+    function getSelectedCourseName(selectId) {
+        const select = document.getElementById(selectId);
+        return select && select.selectedOptions && select.selectedOptions[0] ? select.selectedOptions[0].textContent : "";
+    }
+
+    async function startAttendance(event) {
+        event.preventDefault();
+        const payload = {
+            course_id: getValue("attendanceCourseInput"),
+            course_name: getSelectedCourseName("attendanceCourseInput"),
+            subject: getValue("attendanceSubjectInput"),
+            lecture_title: getValue("attendanceLectureTitleInput"),
+            duration_minutes: Math.max(1, Math.floor(toNumber(getValue("attendanceDurationInput")) || 5)),
+            created_by: getStoredAdminId()
+        };
+        if (!payload.course_id || !payload.subject || !payload.lecture_title) {
+            setPanelMessage("Fill all attendance fields.", "error");
+            return;
+        }
+        try {
+            const button = document.getElementById("startAttendanceBtn");
+            if (button) button.disabled = true;
+            const result = await attendanceRequest("/api/attendance/start", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            activeAttendanceSessionId = result.session.id;
+            setPanelMessage("Attendance started.", "success");
+            renderLiveAttendance(result);
+            startAttendancePolling();
+            loadAttendanceHistory();
+        } catch (error) {
+            console.error("Attendance start failed", error);
+            setPanelMessage(error.message || "Could not start attendance.", "error");
+        } finally {
+            const button = document.getElementById("startAttendanceBtn");
+            if (button) button.disabled = false;
+        }
+    }
+
+    function renderLiveAttendance(payload) {
+        const session = payload.session || {};
+        const summary = payload.summary || {};
+        const rows = payload.students || [];
+        const remaining = Number(payload.remaining_seconds || 0);
+        setText("attendanceTotalStudents", summary.total_students || rows.length || 0);
+        setText("attendancePresentCount", summary.present || 0);
+        setText("attendanceAbsentCount", summary.absent || 0);
+        setText("attendanceWaitingCount", summary.waiting || 0);
+        setText("attendanceResponseCount", summary.live_responses || 0);
+        setText("attendancePercentage", (summary.attendance_percentage || 0) + "%");
+        setText("attendanceRemainingTime", session.status === "OPEN" ? formatClock(remaining) : "Closed");
+        activeAttendanceEndTime = session.status === "OPEN" ? String(session.end_time || "") : "";
+        if (activeAttendanceEndTime) {
+            startAttendanceCountdown();
+        } else {
+            stopAttendanceCountdown();
+        }
+        setText("attendanceLiveMeta", session.id ? [
+            session.lecture_title || "Lecture",
+            getAttendanceCourseLabel(session.course_id),
+            String(session.status || "").toUpperCase()
+        ].join(" | ") : "No active attendance session.");
+        const closeButton = document.getElementById("closeAttendanceBtn");
+        if (closeButton) closeButton.disabled = !session.id || session.status !== "OPEN";
+        const tbody = document.getElementById("attendanceLiveTableBody");
+        if (tbody) {
+            tbody.innerHTML = rows.length ? rows.map(function (row) {
+                return "<tr><td>" + escapeHtml(row.student_name || "-") + "</td><td>" + escapeHtml(row.student_id || "-") + '</td><td><span class="status-badge ' + attendanceStatusClass(row.response) + '">' + escapeHtml(attendanceStatusLabel(row.response)) + "</span></td><td>" + escapeHtml(formatDateTime(row.response_time)) + "</td></tr>";
+            }).join("") : '<tr><td colspan="4" class="admin-empty">No students found for this course.</td></tr>';
+        }
+        if (session.status !== "OPEN") {
+            stopAttendancePolling();
+            stopAttendanceCountdown();
+            activeAttendanceSessionId = "";
+            loadAttendanceHistory();
+        }
+    }
+
+    async function refreshLiveAttendance() {
+        if (!activeAttendanceSessionId) return;
+        try {
+            const result = await attendanceRequest("/api/attendance/live/" + encodeURIComponent(activeAttendanceSessionId));
+            renderLiveAttendance(result);
+        } catch (error) {
+            console.error("Live attendance refresh failed", error);
+            stopAttendancePolling();
+            setPanelMessage(error.message || "Could not refresh live attendance.", "error");
+        }
+    }
+
+    function startAttendancePolling() {
+        stopAttendancePolling();
+        startAttendanceRealtime();
+        attendancePollTimer = window.setInterval(function () {
+            if (!attendanceRealtimeActive) refreshLiveAttendance();
+        }, 10000);
+    }
+
+    function stopAttendancePolling() {
+        if (attendancePollTimer) {
+            window.clearInterval(attendancePollTimer);
+            attendancePollTimer = null;
+        }
+        stopAttendanceRealtime();
+    }
+
+    function startAttendanceRealtime() {
+        stopAttendanceRealtime();
+        if (!activeAttendanceSessionId || !window.VinayakAuth || typeof window.VinayakAuth.getClient !== "function") {
+            return;
+        }
+        try {
+            const client = window.VinayakAuth.getClient();
+            if (!client || typeof client.channel !== "function") return;
+            attendanceRealtimeActive = false;
+            attendanceRealtimeChannel = client
+                .channel("attendance-live-" + activeAttendanceSessionId)
+                .on("postgres_changes", {
+                    event: "*",
+                    schema: "public",
+                    table: "attendance_responses",
+                    filter: "session_id=eq." + activeAttendanceSessionId
+                }, function (payload) {
+                    console.log("Admin attendance realtime event received", payload);
+                    refreshLiveAttendance();
+                })
+                .subscribe(function (status) {
+                    console.log("Admin attendance realtime status", status);
+                    attendanceRealtimeActive = status === "SUBSCRIBED";
+                    if (attendanceRealtimeActive && attendancePollTimer) {
+                        window.clearInterval(attendancePollTimer);
+                        attendancePollTimer = null;
+                    }
+                });
+        } catch (error) {
+            console.warn("Admin attendance realtime setup failed; polling remains active.", error);
+        }
+    }
+
+    function stopAttendanceRealtime() {
+        if (!attendanceRealtimeChannel || !window.VinayakAuth || typeof window.VinayakAuth.getClient !== "function") {
+            attendanceRealtimeChannel = null;
+            return;
+        }
+        try {
+            const client = window.VinayakAuth.getClient();
+            if (client && typeof client.removeChannel === "function") {
+                client.removeChannel(attendanceRealtimeChannel);
+            }
+        } catch (error) {
+            console.warn("Admin attendance realtime cleanup failed", error);
+        }
+        attendanceRealtimeChannel = null;
+        attendanceRealtimeActive = false;
+    }
+
+    function tickAttendanceCountdown() {
+        if (!activeAttendanceEndTime) return;
+        const seconds = Math.max(0, Math.ceil((new Date(activeAttendanceEndTime).getTime() - Date.now()) / 1000));
+        setText("attendanceRemainingTime", formatClock(seconds));
+        if (seconds === 0 && activeAttendanceSessionId) {
+            refreshLiveAttendance();
+        }
+    }
+
+    function startAttendanceCountdown() {
+        if (!attendanceCountdownTimer) {
+            attendanceCountdownTimer = window.setInterval(tickAttendanceCountdown, 1000);
+        }
+        tickAttendanceCountdown();
+    }
+
+    function stopAttendanceCountdown() {
+        if (attendanceCountdownTimer) {
+            window.clearInterval(attendanceCountdownTimer);
+            attendanceCountdownTimer = null;
+        }
+        activeAttendanceEndTime = "";
+    }
+
+    async function closeAttendance() {
+        if (!activeAttendanceSessionId || attendanceClosing) return;
+        attendanceClosing = true;
+        try {
+            const result = await attendanceRequest("/api/attendance/close", {
+                method: "POST",
+                body: JSON.stringify({ session_id: activeAttendanceSessionId })
+            });
+            renderLiveAttendance(result);
+            setPanelMessage("Attendance closed. Pending students remain Not Responded.", "success");
+        } catch (error) {
+            console.error("Attendance close failed", error);
+            setPanelMessage(error.message || "Could not close attendance.", "error");
+        } finally {
+            attendanceClosing = false;
+        }
+    }
+
+    async function loadAttendanceHistory() {
+        const params = new URLSearchParams();
+        if (getValue("attendanceHistoryCourseFilter")) params.set("course_id", getValue("attendanceHistoryCourseFilter"));
+        if (getValue("attendanceHistoryDateFilter")) params.set("date", getValue("attendanceHistoryDateFilter"));
+        try {
+            const result = await attendanceRequest("/api/attendance/history" + (params.toString() ? "?" + params.toString() : ""));
+            attendanceHistoryCache = result.sessions || [];
+            renderAttendanceHistory();
+        } catch (error) {
+            console.error("Attendance history failed", error);
+            const tbody = document.getElementById("attendanceHistoryTableBody");
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="admin-empty">' + escapeHtml(error.message || "Could not load attendance history.") + "</td></tr>";
+        }
+    }
+
+    function renderAttendanceHistory() {
+        const tbody = document.getElementById("attendanceHistoryTableBody");
+        if (!tbody) return;
+        const pageData = paginateRows(attendanceHistoryCache, "attendanceHistory");
+        tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (session) {
+            return "<tr><td>" + escapeHtml(formatDateTime(session.start_time)) + "</td><td>" + escapeHtml(getAttendanceCourseLabel(session.course_id)) + "</td><td>" + escapeHtml(session.lecture_title || "-") + '</td><td><span class="status-badge ' + (session.status === "OPEN" ? "status-waiting" : "status-paid") + '">' + escapeHtml(session.status || "-") + '</span></td><td><button type="button" class="table-action-btn" data-view-attendance-report="' + escapeHtml(session.id) + '"><i class="fas fa-eye"></i> View</button></td></tr>';
+        }).join("") : '<tr><td colspan="5" class="admin-empty">No attendance sessions found.</td></tr>';
+        renderPagination("attendanceHistoryPagination", "attendanceHistory", pageData.page, pageData.totalPages, pageData.totalItems);
+    }
+
+    async function viewAttendanceReport(sessionId) {
+        try {
+            const result = await attendanceRequest("/api/attendance/report/" + encodeURIComponent(sessionId));
+            attendanceReportCache = result;
+            renderAttendanceReport();
+            const card = document.getElementById("attendanceReportCard");
+            if (card) {
+                card.hidden = false;
+                card.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        } catch (error) {
+            console.error("Attendance report failed", error);
+            setPanelMessage(error.message || "Could not load attendance report.", "error");
+        }
+    }
+
+    function renderAttendanceReport() {
+        const session = attendanceReportCache && attendanceReportCache.session ? attendanceReportCache.session : {};
+        const rows = attendanceReportCache && attendanceReportCache.students ? attendanceReportCache.students : [];
+        setText("attendanceReportMeta", session.id ? [
+            session.lecture_title || "Lecture",
+            getAttendanceCourseLabel(session.course_id),
+            formatDateTime(session.start_time)
+        ].join(" | ") : "Select a session to view report.");
+        const tbody = document.getElementById("attendanceReportTableBody");
+        if (!tbody) return;
+        tbody.innerHTML = rows.length ? rows.map(function (row) {
+            return "<tr><td>" + escapeHtml(row.student_name || "-") + "</td><td>" + escapeHtml(row.student_id || "-") + '</td><td><span class="status-badge ' + attendanceStatusClass(row.response) + '">' + escapeHtml(attendanceStatusLabel(row.response)) + "</span></td><td>" + escapeHtml(formatDateTime(row.response_time)) + "</td></tr>";
+        }).join("") : '<tr><td colspan="4" class="admin-empty">No report rows found.</td></tr>';
+    }
+
+    function exportAttendanceExcel() {
+        if (!attendanceReportCache || !attendanceReportCache.students) {
+            setPanelMessage("Open an attendance report before export.", "error");
+            return;
+        }
+        const rows = attendanceReportCache.students.map(function (row) {
+            return {
+                "Student Name": row.student_name || "",
+                "Student ID": row.student_id || "",
+                "Status": attendanceStatusLabel(row.response),
+                "Response Time": formatDateTime(row.response_time)
+            };
+        });
+        if (window.XLSX) {
+            const worksheet = window.XLSX.utils.json_to_sheet(rows);
+            const workbook = window.XLSX.utils.book_new();
+            window.XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+            window.XLSX.writeFile(workbook, "attendance-" + attendanceReportCache.session.id + ".xlsx");
+            return;
+        }
+        const csv = ["Student Name,Student ID,Status,Response Time"].concat(rows.map(function (row) {
+            return [row["Student Name"], row["Student ID"], row.Status, row["Response Time"]].map(function (cell) {
+                return '"' + String(cell).replace(/"/g, '""') + '"';
+            }).join(",");
+        })).join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "attendance-" + attendanceReportCache.session.id + ".csv";
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    function exportAttendancePdf() {
+        if (!attendanceReportCache || !attendanceReportCache.students) {
+            setPanelMessage("Open an attendance report before export.", "error");
+            return;
+        }
+        const session = attendanceReportCache.session || {};
+        const rows = attendanceReportCache.students.map(function (row) {
+            return "<tr><td>" + escapeHtml(row.student_name || "-") + "</td><td>" + escapeHtml(row.student_id || "-") + "</td><td>" + escapeHtml(attendanceStatusLabel(row.response)) + "</td><td>" + escapeHtml(formatDateTime(row.response_time)) + "</td></tr>";
+        }).join("");
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) {
+            setPanelMessage("Allow popups to export PDF.", "error");
+            return;
+        }
+        printWindow.document.write("<!doctype html><html><head><title>Attendance Report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111827}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:left}th{background:#f3f4f6}h1{margin:0 0 8px}</style></head><body><h1>Attendance Report</h1><p>" + escapeHtml(session.lecture_title || "Lecture") + " | " + escapeHtml(getAttendanceCourseLabel(session.course_id)) + " | " + escapeHtml(formatDateTime(session.start_time)) + "</p><table><thead><tr><th>Student Name</th><th>Student ID</th><th>Status</th><th>Response Time</th></tr></thead><tbody>" + rows + "</tbody></table><script>window.onload=function(){window.print();};<\/script></body></html>");
+        printWindow.document.close();
+    }
+
     async function refreshAll() {
         studentsCache = await fetchStudents();
         feesCache = await fetchTable("student_fees");
-        emisCache = await fetchTable("emis");
+        emisCache = await fetchTable("emis", { orderBy: "due_date", ascending: true });
         paymentsCache = await fetchOptionalTable("payments");
         batchesCache = await fetchOptionalTable("batches");
-        notesCache = await fetchOptionalTable("notes");
-        materialCoursesCache = await fetchOptionalTable("material_courses");
+        try {
+            await loadMaterialManagerRows();
+        } catch (error) {
+            console.error("R2 study material preload failed", error);
+            notesCache = [];
+            materialCoursesCache = [];
+        }
         announcementsCache = await fetchOptionalTable("announcements");
+        loadedAdminTables.payments = true;
+        loadedAdminTables.material = true;
+        loadedAdminTables.announcements = true;
         await loadCourses();
         updateBatchFilter();
         applyStudentFilter();
@@ -2023,6 +2730,7 @@
         renderDashboard();
         renderMaterials();
         renderAnnouncementsAdmin();
+        updateAttendanceControls();
     }
 
     function setupAdmissionDefaults() {
@@ -2148,15 +2856,24 @@
                 if (pageButton.getAttribute("data-pagination-key") === "students") applyStudentFilter(false);
                 if (pageButton.getAttribute("data-pagination-key") === "emi") renderEmis();
                 if (pageButton.getAttribute("data-pagination-key") === "bulk") renderBulkRows();
+                if (pageButton.getAttribute("data-pagination-key") === "material") renderMaterials();
+                if (pageButton.getAttribute("data-pagination-key") === "announcements") renderAnnouncementsAdmin();
+                if (pageButton.getAttribute("data-pagination-key") === "attendanceHistory") renderAttendanceHistory();
             }
             const previewMaterialButton = event.target.closest("[data-preview-material]");
             if (previewMaterialButton) previewMaterial(previewMaterialButton.getAttribute("data-preview-material"));
             const editMaterialButton = event.target.closest("[data-edit-material]");
             if (editMaterialButton) editMaterial(editMaterialButton.getAttribute("data-edit-material"));
+            const moveMaterialSubjectButton = event.target.closest("[data-move-material-subject]");
+            if (moveMaterialSubjectButton) moveMaterialSubject(moveMaterialSubjectButton.getAttribute("data-move-material-subject"));
             const editMaterialCoursesButton = event.target.closest("[data-edit-material-courses]");
             if (editMaterialCoursesButton) editMaterialCourses(editMaterialCoursesButton.getAttribute("data-edit-material-courses"));
+            const removeMaterialCourseButton = event.target.closest("[data-remove-material-course]");
+            if (removeMaterialCourseButton) removeMaterialCourse(removeMaterialCourseButton.getAttribute("data-remove-material-course"));
             const replaceMaterialButton = event.target.closest("[data-replace-material]");
             if (replaceMaterialButton) replaceMaterial(replaceMaterialButton.getAttribute("data-replace-material"));
+            const copyR2LinkButton = event.target.closest("[data-copy-r2-link]");
+            if (copyR2LinkButton) copyMaterialR2Link(copyR2LinkButton.getAttribute("data-copy-r2-link"));
             const deleteMaterialButton = event.target.closest("[data-delete-material]");
             if (deleteMaterialButton) deleteMaterial(deleteMaterialButton.getAttribute("data-delete-material"));
             const editCourseButton = event.target.closest("[data-edit-course]");
@@ -2169,6 +2886,8 @@
             if (toggleAnnouncementButton) toggleAnnouncementPin(toggleAnnouncementButton.getAttribute("data-toggle-announcement-pin"));
             const deleteAnnouncementButton = event.target.closest("[data-delete-announcement]");
             if (deleteAnnouncementButton) deleteAnnouncement(deleteAnnouncementButton.getAttribute("data-delete-announcement"));
+            const attendanceReportButton = event.target.closest("[data-view-attendance-report]");
+            if (attendanceReportButton) viewAttendanceReport(attendanceReportButton.getAttribute("data-view-attendance-report"));
         });
         document.getElementById("adminMenuBtn").addEventListener("click", function () {
             if (window.innerWidth <= 1024) {
@@ -2216,6 +2935,34 @@
         });
         const materialForm = document.getElementById("materialUploadForm");
         if (materialForm) materialForm.addEventListener("submit", uploadStudyMaterial);
+        const materialFileInput = document.getElementById("materialFileInput");
+        const materialFolderInput = document.getElementById("materialFolderInput");
+        const selectMaterialFilesButton = document.getElementById("selectMaterialFilesBtn");
+        const selectMaterialFolderButton = document.getElementById("selectMaterialFolderBtn");
+        const materialDropzone = document.getElementById("materialDropzone");
+        const retryFailedMaterialButton = document.getElementById("retryFailedMaterialBtn");
+        if (selectMaterialFilesButton && materialFileInput) selectMaterialFilesButton.addEventListener("click", function () { materialFileInput.click(); });
+        if (selectMaterialFolderButton && materialFolderInput) selectMaterialFolderButton.addEventListener("click", function () { materialFolderInput.click(); });
+        if (materialFileInput) materialFileInput.addEventListener("change", function () { addMaterialFiles(materialFileInput.files); });
+        if (materialFolderInput) materialFolderInput.addEventListener("change", function () { addMaterialFiles(materialFolderInput.files); });
+        if (retryFailedMaterialButton && materialForm) retryFailedMaterialButton.addEventListener("click", function () { materialForm.requestSubmit(); });
+        if (materialDropzone) {
+            ["dragenter", "dragover"].forEach(function (type) {
+                materialDropzone.addEventListener(type, function (event) {
+                    event.preventDefault();
+                    materialDropzone.classList.add("is-dragging");
+                });
+            });
+            ["dragleave", "drop"].forEach(function (type) {
+                materialDropzone.addEventListener(type, function (event) {
+                    event.preventDefault();
+                    materialDropzone.classList.remove("is-dragging");
+                });
+            });
+            materialDropzone.addEventListener("drop", function (event) {
+                addMaterialFiles(event.dataTransfer ? event.dataTransfer.files : []);
+            });
+        }
         const courseForm = document.getElementById("courseForm");
         if (courseForm) courseForm.addEventListener("submit", saveCourse);
         const clearCourseButton = document.getElementById("clearCourseFormBtn");
@@ -2227,9 +2974,32 @@
         const clearAnnouncementButton = document.getElementById("clearAnnouncementFormBtn");
         if (clearAnnouncementButton) clearAnnouncementButton.addEventListener("click", clearAnnouncementForm);
         const announcementSearchInput = document.getElementById("announcementSearchInput");
-        if (announcementSearchInput) announcementSearchInput.addEventListener("input", renderAnnouncementsAdmin);
+        if (announcementSearchInput) announcementSearchInput.addEventListener("input", function () {
+            paginationState.announcements = 1;
+            renderAnnouncementsAdmin();
+        });
         const announcementAllCoursesInput = document.getElementById("announcementAllCoursesInput");
         if (announcementAllCoursesInput) announcementAllCoursesInput.addEventListener("change", setAnnouncementAllCoursesState);
+        const attendanceStartForm = document.getElementById("attendanceStartForm");
+        if (attendanceStartForm) attendanceStartForm.addEventListener("submit", startAttendance);
+        const closeAttendanceButton = document.getElementById("closeAttendanceBtn");
+        if (closeAttendanceButton) closeAttendanceButton.addEventListener("click", closeAttendance);
+        ["attendanceHistoryCourseFilter", "attendanceHistoryDateFilter"].forEach(function (id) {
+            const field = document.getElementById(id);
+            if (!field) return;
+            field.addEventListener("input", function () {
+                paginationState.attendanceHistory = 1;
+                loadAttendanceHistory();
+            });
+            field.addEventListener("change", function () {
+                paginationState.attendanceHistory = 1;
+                loadAttendanceHistory();
+            });
+        });
+        const exportAttendanceExcelButton = document.getElementById("exportAttendanceExcelBtn");
+        if (exportAttendanceExcelButton) exportAttendanceExcelButton.addEventListener("click", exportAttendanceExcel);
+        const exportAttendancePdfButton = document.getElementById("exportAttendancePdfBtn");
+        if (exportAttendancePdfButton) exportAttendancePdfButton.addEventListener("click", exportAttendancePdf);
         document.querySelectorAll("[data-announcement-command]").forEach(function (button) {
             button.addEventListener("click", function () {
                 document.execCommand(button.getAttribute("data-announcement-command"), false, null);
@@ -2244,11 +3014,17 @@
                 if (url) document.execCommand("createLink", false, url);
             });
         }
-        ["materialSearchInput", "materialCourseFilter", "materialSubjectFilter"].forEach(function (id) {
+        ["materialSearchInput", "materialCourseFilter", "materialSubjectFilter", "materialDateFilter"].forEach(function (id) {
             const field = document.getElementById(id);
             if (!field) return;
-            field.addEventListener("input", renderMaterials);
-            field.addEventListener("change", renderMaterials);
+            field.addEventListener("input", function () {
+                paginationState.material = 1;
+                renderMaterials();
+            });
+            field.addEventListener("change", function () {
+                paginationState.material = 1;
+                renderMaterials();
+            });
         });
         document.querySelectorAll("[data-admission-next]").forEach(function (button) {
             button.addEventListener("click", function () {

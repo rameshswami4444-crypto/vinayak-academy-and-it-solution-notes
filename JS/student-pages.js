@@ -46,7 +46,7 @@
         const notices = window.VinayakAnnouncements
             ? await window.VinayakAnnouncements.fetchVisibleAnnouncements()
             : await safeFetch("announcements", function (table) {
-                return table.select("*").order("created_at", { ascending: false });
+                return table.select("*").limit(100);
             });
         if (window.VinayakAnnouncements) {
             window.VinayakAnnouncements.renderPage("noticesPageList", notices);
@@ -93,7 +93,7 @@
             return table.select("*").eq("student_id", studentId).limit(1);
         });
         const emis = await safeFetch("emis", function (table) {
-            return table.select("*").eq("student_id", studentId).order("due_date", { ascending: true });
+            return table.select("*").eq("student_id", studentId).order("due_date", { ascending: true }).limit(60);
         });
         const fee = fees[0] || {};
         const unpaid = emis.filter(function (emi) {

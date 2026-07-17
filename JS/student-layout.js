@@ -348,6 +348,26 @@
         document.head.appendChild(script);
     }
 
+    function ensureStudentAttendance() {
+        if (window.VinayakStudentAttendance && typeof window.VinayakStudentAttendance.initWatcher === "function") {
+            window.VinayakStudentAttendance.initWatcher();
+            return;
+        }
+        if (document.querySelector('script[data-student-attendance-loader="true"]')) {
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = ROOT_PREFIX + "JS/student-attendance.js?v=student-attendance-course-only-20260716";
+        script.async = true;
+        script.dataset.studentAttendanceLoader = "true";
+        script.onload = function () {
+            if (window.VinayakStudentAttendance && typeof window.VinayakStudentAttendance.initWatcher === "function") {
+                window.VinayakStudentAttendance.initWatcher();
+            }
+        };
+        document.body.appendChild(script);
+    }
+
     function restoreSidebarPreference() {
         if (window.innerWidth <= 1024) {
             document.body.classList.remove("student-sidebar-collapsed");
@@ -389,6 +409,7 @@
         restoreSidebarPreference();
         ensureLucide();
         hydrateStudent();
+        ensureStudentAttendance();
     }
 
     if (document.readyState === "loading") {

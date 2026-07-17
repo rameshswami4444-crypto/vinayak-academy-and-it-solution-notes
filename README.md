@@ -1,12 +1,12 @@
 # Vinayak Academy Coaching ERP + LMS
 
-Responsive HTML, CSS and JavaScript portal for student learning, admissions, fees, EMI tracking, admin operations and study material delivery through Supabase.
+Responsive HTML, CSS and JavaScript portal for student learning, admissions, fees, EMI tracking, admin operations and study material delivery through Supabase and Cloudflare R2.
 
 ## Current Stack
 
 - HTML, CSS and JavaScript
 - Supabase tables for students, admins, courses, fees, EMI, payments, notes and announcements
-- Private Supabase Storage bucket: `study-material`
+- Private Cloudflare R2 bucket for PDFs and study material
 - Shared student layout and protected page checks
 
 ## Study Material Flow
@@ -20,10 +20,10 @@ Admin upload fields:
 - Title
 - PDF file
 
-Files are uploaded to the private `study-material` bucket using this path format:
+Files are uploaded to the private Cloudflare R2 bucket using this path format:
 
 ```text
-COURSE/subject/timestamp-filename.pdf
+course_uuid/subject/timestamp-filename.pdf
 ```
 
 The `notes` table stores:
@@ -50,7 +50,7 @@ styles.css              Main design system
 responsive.css          Responsive overrides
 JS/auth.js              Login/session/course/EMI protection
 JS/student-layout.js    Shared student header/sidebar/footer
-JS/notes-page.js        Supabase Storage study material renderer
+JS/notes-page.js        R2 signed URL study material renderer
 JS/script.js            Student dashboard logic
 JS/admin.js             Admin dashboard, admission, EMI and material management
 JS/supabase-config.js   Supabase project config
@@ -58,7 +58,7 @@ JS/supabase-config.js   Supabase project config
 
 ## Notes For Development
 
-- Do not make the `study-material` bucket public.
+- Do not make the Cloudflare R2 bucket public.
 - Use signed URLs for PDF access.
 - Keep authentication, session checks and EMI blocking inside the existing auth flow.
 - Add new study material through the admin module instead of hard-coded JavaScript data.

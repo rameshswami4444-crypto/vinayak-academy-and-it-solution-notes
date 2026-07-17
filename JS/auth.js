@@ -527,20 +527,20 @@
     }
 
     async function updateStudentSessionToken(client, studentId, sessionId) {
-        const tokenResult = await client
-            .from(getStudentsTableName())
-            .update({ session_token: sessionId })
-            .eq(getStudentIdentifierColumn(), studentId);
-        if (!tokenResult.error) {
-            return;
-        }
-        console.warn("session_token update failed; trying session_id fallback", tokenResult.error);
         const idResult = await client
             .from(getStudentsTableName())
             .update({ session_id: sessionId })
             .eq(getStudentIdentifierColumn(), studentId);
-        if (idResult.error) {
-            throw idResult.error;
+        if (!idResult.error) {
+            return;
+        }
+        console.warn("session_id update failed; trying legacy session_token fallback", idResult.error);
+        const tokenResult = await client
+            .from(getStudentsTableName())
+            .update({ session_token: sessionId })
+            .eq(getStudentIdentifierColumn(), studentId);
+        if (tokenResult.error) {
+            throw tokenResult.error;
         }
     }
 

@@ -23,7 +23,7 @@
                 <button type="button" class="erp-nav-link" data-admin-section-target="students"><i data-lucide="users-round"></i><span>Students</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="courses"><i data-lucide="book-open"></i><span>Courses</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="batches"><i data-lucide="layers-3"></i><span>Batches</span></button>
-                <button type="button" class="erp-nav-link" data-admin-section-target="material"><i data-lucide="folder-open-dot"></i><span>Study Material</span></button>
+                <button type="button" class="erp-nav-link" data-admin-section-target="material"><i data-lucide="folder-open-dot"></i><span>Study Material Manager</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="fees"><i data-lucide="wallet-cards"></i><span>Fee Management</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="emi"><i data-lucide="calendar-range"></i><span>EMI Management</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="payments"><i data-lucide="receipt-indian-rupee"></i><span>Payments</span></button>
@@ -247,37 +247,116 @@
                 <section class="admin-card">
                     <div class="erp-card-head">
                         <div>
-                            <h3><i class="fas fa-book-open"></i> Study Material Management</h3>
-                            <p class="admin-note">Upload PDFs to private Supabase Storage and publish them to the notes table.</p>
+                            <h3><i class="fas fa-book-open"></i> Study Material Manager</h3>
+                            <p class="admin-note">Bulk upload PDFs to private Cloudflare R2 and assign each file to one or multiple courses.</p>
                         </div>
                     </div>
                     <form id="materialUploadForm" class="admin-form">
-                        <div class="erp-form-grid">
-                            <div class="login-field"><label for="materialSubjectInput">Subject</label><input type="text" id="materialSubjectInput" placeholder="Example: DECE-1" required></div>
-                            <div class="login-field"><label for="materialTitleInput">Title</label><input type="text" id="materialTitleInput" placeholder="PDF title shown to students" required></div>
-                            <div class="login-field"><label for="materialFileInput">Choose PDF</label><input type="file" id="materialFileInput" accept="application/pdf,.pdf" required></div>
-                            <div class="login-field erp-span-2"><label>Available Courses</label><div class="material-course-picker" id="materialCourseChecklist"><span>Loading courses...</span></div></div>
+                        <div class="material-steps">
+                            <span>1. Courses</span>
+                            <span>2. Subject</span>
+                            <span>3. Chapter</span>
+                            <span>4. PDFs</span>
                         </div>
-                        <div class="material-progress" id="materialUploadProgress" hidden><span></span></div>
-                        <button type="submit" class="login-btn"><i class="fas fa-cloud-arrow-up"></i> Upload Study Material</button>
+                        <div class="erp-form-grid">
+                            <div class="login-field erp-span-2"><label>Available Courses</label><div class="material-course-picker" id="materialCourseChecklist"><span>Loading courses...</span></div></div>
+                            <div class="login-field"><label for="materialSubjectInput">Subject</label><input type="text" id="materialSubjectInput" placeholder="GST, Tally Prime, Advanced Excel" required></div>
+                            <div class="login-field"><label for="materialChapterInput">Chapter (Optional)</label><input type="text" id="materialChapterInput" placeholder="Example: Chapter 1"></div>
+                            <div class="login-field erp-span-2"><label for="materialFileInput">PDFs</label><div class="material-dropzone" id="materialDropzone"><i class="fas fa-cloud-arrow-up"></i><strong>Drag & drop PDFs here</strong><span>Select multiple PDFs or upload a full folder.</span><div class="material-drop-actions"><button type="button" class="table-action-btn" id="selectMaterialFilesBtn">Select PDFs</button><button type="button" class="table-action-btn" id="selectMaterialFolderBtn">Upload Folder</button></div></div><input type="file" id="materialFileInput" accept="application/pdf,.pdf" multiple hidden><input type="file" id="materialFolderInput" accept="application/pdf,.pdf" multiple webkitdirectory hidden></div>
+                        </div>
+                        <div class="material-progress-shell" id="materialUploadStatus" hidden><div class="material-progress-meta"><strong id="materialUploadStatusText">Uploading...</strong><span id="materialUploadCountText">0 / 0</span></div><div class="material-progress" id="materialUploadProgress"><span></span></div></div>
+                        <div class="material-upload-queue" id="materialUploadQueue" hidden></div>
+                        <div class="admin-form-actions"><button type="submit" class="login-btn" id="materialBulkUploadBtn"><i class="fas fa-cloud-arrow-up"></i> Upload PDFs</button><button type="button" class="logout-btn admin-secondary-btn" id="retryFailedMaterialBtn" hidden><i class="fas fa-rotate-right"></i> Retry Failed Upload</button></div>
                     </form>
                 </section>
                 <section class="admin-card admin-table-card">
                     <div class="admin-table-header">
                         <h3><i class="fas fa-folder-open"></i> Uploaded PDFs</h3>
                         <div class="erp-table-tools">
-                            <div class="login-field admin-search-field"><label for="materialSearchInput">Search</label><input type="search" id="materialSearchInput" placeholder="Title or subject"></div>
+                            <div class="login-field admin-search-field"><label for="materialSearchInput">Search</label><input type="search" id="materialSearchInput" placeholder="Title, subject, course, chapter"></div>
                             <div class="login-field admin-search-field"><label for="materialCourseFilter">Course</label><select id="materialCourseFilter"><option value="all">All Courses</option></select></div>
                             <div class="login-field admin-search-field"><label for="materialSubjectFilter">Subject</label><select id="materialSubjectFilter"><option value="all">All Subjects</option></select></div>
+                            <div class="login-field admin-search-field"><label for="materialDateFilter">Upload Date</label><input type="date" id="materialDateFilter"></div>
                         </div>
                     </div>
-                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Title</th><th>Course</th><th>Subject</th><th>Uploaded</th><th>Actions</th></tr></thead><tbody id="materialTableBody"><tr><td colspan="5" class="admin-empty">No study material loaded.</td></tr></tbody></table></div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Title</th><th>Subject</th><th>Chapter</th><th>Courses</th><th>Size</th><th>Upload Date</th><th>Actions</th></tr></thead><tbody id="materialTableBody"><tr><td colspan="7" class="admin-empty">No study material loaded.</td></tr></tbody></table></div><div class="erp-pagination" id="materialPagination"></div>
                 </section>
             </section>
             <section class="admin-section" data-admin-section="fees"><article class="admin-card erp-placeholder"><h2>Fee Management</h2><p>Fee summaries are now created during admission. Full fee module comes later.</p></article></section>
             <section class="admin-section" data-admin-section="payments"><article class="admin-card erp-placeholder"><h2>Payments</h2><p>Payment receipts are not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="assignments"><article class="admin-card erp-placeholder"><h2>Assignments</h2><p>Not part of this phase.</p></article></section>
-            <section class="admin-section" data-admin-section="attendance"><article class="admin-card erp-placeholder"><h2>Attendance</h2><p>Not part of this phase.</p></article></section>
+            <section class="admin-section" data-admin-section="attendance">
+                <div class="admin-hero">
+                    <div><h2>Attendance Dashboard</h2><p class="admin-hero-copy">Start live lecture attendance, monitor responses, and export completed reports.</p></div>
+                </div>
+
+                <section class="admin-card">
+                    <div class="erp-card-head">
+                        <div>
+                            <h3><i class="fas fa-circle-play"></i> Start Attendance</h3>
+                            <p class="admin-note">Create an open attendance window for a course.</p>
+                        </div>
+                    </div>
+                    <form id="attendanceStartForm" class="admin-form">
+                        <div class="erp-form-grid">
+                            <div class="login-field"><label for="attendanceCourseInput">Course</label><select id="attendanceCourseInput" required><option value="">Loading courses...</option></select></div>
+                            <div class="login-field"><label for="attendanceSubjectInput">Subject</label><input type="text" id="attendanceSubjectInput" placeholder="Subject name" required></div>
+                            <div class="login-field"><label for="attendanceLectureTitleInput">Lecture Title</label><input type="text" id="attendanceLectureTitleInput" placeholder="Lecture title" required></div>
+                            <div class="login-field"><label for="attendanceDurationInput">Duration (minutes)</label><input type="number" id="attendanceDurationInput" min="1" max="180" value="5" required></div>
+                        </div>
+                        <div class="admin-form-actions"><button type="submit" class="login-btn" id="startAttendanceBtn"><i class="fas fa-play"></i> Start Attendance</button></div>
+                    </form>
+                </section>
+
+                <section class="erp-stats-grid attendance-live-grid">
+                    <article class="erp-stat-card"><span><i class="fas fa-users"></i></span><small>Total Students</small><strong id="attendanceTotalStudents">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-user-check"></i></span><small>Present</small><strong id="attendancePresentCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-user-xmark"></i></span><small>Absent</small><strong id="attendanceAbsentCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-hourglass-half"></i></span><small>Not Responded</small><strong id="attendanceWaitingCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-reply-all"></i></span><small>Live Responses</small><strong id="attendanceResponseCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-chart-simple"></i></span><small>Attendance %</small><strong id="attendancePercentage">0%</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-clock"></i></span><small>Remaining Time</small><strong id="attendanceRemainingTime">00:00</strong></article>
+                </section>
+
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header">
+                        <div>
+                            <h3><i class="fas fa-signal"></i> Live Student Table</h3>
+                            <p class="admin-note" id="attendanceLiveMeta">No active attendance session.</p>
+                        </div>
+                        <button type="button" class="logout-btn admin-secondary-btn" id="closeAttendanceBtn" disabled><i class="fas fa-stop"></i> Close Attendance</button>
+                    </div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Student Name</th><th>Student ID</th><th>Attendance Status</th><th>Response Time</th></tr></thead><tbody id="attendanceLiveTableBody"><tr><td colspan="4" class="admin-empty">Start attendance to see live responses.</td></tr></tbody></table></div>
+                </section>
+
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header">
+                        <div>
+                            <h3><i class="fas fa-clock-rotate-left"></i> Attendance History</h3>
+                            <p class="admin-note">Filter sessions and open a report for export.</p>
+                        </div>
+                        <div class="erp-table-tools">
+                            <div class="login-field admin-search-field"><label for="attendanceHistoryCourseFilter">Course</label><select id="attendanceHistoryCourseFilter"><option value="">All Courses</option></select></div>
+                            <div class="login-field admin-search-field"><label for="attendanceHistoryDateFilter">Date</label><input type="date" id="attendanceHistoryDateFilter"></div>
+                        </div>
+                    </div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Course</th><th>Lecture</th><th>Status</th><th>Actions</th></tr></thead><tbody id="attendanceHistoryTableBody"><tr><td colspan="5" class="admin-empty">No attendance history loaded.</td></tr></tbody></table></div><div class="erp-pagination" id="attendanceHistoryPagination"></div>
+                </section>
+
+                <section class="admin-card admin-table-card" id="attendanceReportCard" hidden>
+                    <div class="admin-table-header">
+                        <div>
+                            <h3><i class="fas fa-file-lines"></i> Attendance Report</h3>
+                            <p class="admin-note" id="attendanceReportMeta">Select a session to view report.</p>
+                        </div>
+                        <div class="erp-table-tools">
+                            <button type="button" class="table-action-btn" id="exportAttendanceExcelBtn"><i class="fas fa-file-excel"></i> Excel</button>
+                            <button type="button" class="table-action-btn" id="exportAttendancePdfBtn"><i class="fas fa-file-pdf"></i> PDF</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Student Name</th><th>Student ID</th><th>Status</th><th>Response Time</th></tr></thead><tbody id="attendanceReportTableBody"></tbody></table></div>
+                </section>
+            </section>
             <section class="admin-section" data-admin-section="notifications">
                 <section class="admin-card">
                     <div class="erp-card-head">
@@ -316,7 +395,7 @@
                             <div class="login-field admin-search-field"><label for="announcementSearchInput">Search</label><input type="search" id="announcementSearchInput" placeholder="Title, content, course"></div>
                         </div>
                     </div>
-                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Title</th><th>Audience</th><th>Pinned</th><th>Expiry</th><th>Actions</th></tr></thead><tbody id="announcementTableBody"><tr><td colspan="5" class="admin-empty">No announcements loaded.</td></tr></tbody></table></div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Title</th><th>Audience</th><th>Pinned</th><th>Expiry</th><th>Actions</th></tr></thead><tbody id="announcementTableBody"><tr><td colspan="5" class="admin-empty">No announcements loaded.</td></tr></tbody></table></div><div class="erp-pagination" id="announcementPagination"></div>
                 </section>
             </section>
             <section class="admin-section" data-admin-section="reports"><article class="admin-card erp-placeholder"><h2>Reports</h2><p>Not part of this phase.</p></article></section>

@@ -1,5 +1,9 @@
 (function () {
     const READ_PREFIX = "vinayak_announcement_reads_";
+    const COURSE_KEYS_TTL_MS = 10 * 60 * 1000;
+    const ANNOUNCEMENTS_TTL_MS = 60 * 1000;
+    let courseKeysCache = { key: "", expiresAt: 0, rows: [] };
+    let announcementCache = { expiresAt: 0, rows: [] };
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -83,12 +87,16 @@
             ? window.VinayakAuth.normalizeSingleCourse(session.course || window.VinayakAuth.getStoredCourse())
             : String(session.course || window.localStorage.getItem("course") || "").trim().toUpperCase();
         const keys = [courseName].filter(Boolean);
+        const cacheKey = courseName || "none";
+        if (courseKeysCache.key === cacheKey && courseKeysCache.expiresAt > Date.now()) {
+            return courseKeysCache.rows;
+        }
         if (!courseName || !window.VinayakAuth) return keys;
         try {
             const { data, error } = await window.VinayakAuth.getClient()
                 .from("courses")
                 .select("id, course_name")
-                .limit(500);
+                .order("course_name", { ascending: true });
             if (error) throw error;
             const course = (data || []).find(function (row) {
                 return String(row.id || "").trim().toUpperCase() === courseName ||
@@ -101,7 +109,9 @@
         } catch (error) {
             console.warn("Announcement course lookup failed", error);
         }
-        return Array.from(new Set(keys.map(String).filter(Boolean)));
+        const rows = Array.from(new Set(keys.map(String).filter(Boolean)));
+        courseKeysCache = { key: cacheKey, expiresAt: Date.now() + COURSE_KEYS_TTL_MS, rows: rows };
+        return rows;
     }
 
     function matchesStudentCourse(item, courseKeys) {
@@ -117,11 +127,16 @@
         if (!window.VinayakAuth) return [];
         try {
             const courseKeys = await resolveStudentCourseKeys();
-            const { data, error } = await window.VinayakAuth.getClient()
-                .from("announcements")
-                .select("*")
-                .order("created_at", { ascending: false });
-            if (error) throw error;
+            let data = announcementCache.rows;
+            if (announcementCache.expiresAt <= Date.now()) {
+                const result = await window.VinayakAuth.getClient()
+                    .from("announcements")
+                    .select("*")
+                    .limit(100);
+                if (result.error) throw result.error;
+                data = result.data || [];
+                announcementCache = { expiresAt: Date.now() + ANNOUNCEMENTS_TTL_MS, rows: data };
+            }
             const rows = (data || []).filter(function (item) {
                 return !isExpired(item) && matchesStudentCourse(item, courseKeys);
             }).sort(function (a, b) {

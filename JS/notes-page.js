@@ -1,5 +1,8 @@
 (function () {
-    const BUCKET = "study-material";
+    const COURSE_CACHE_TTL_MS = 10 * 60 * 1000;
+    const MATERIAL_CACHE_TTL_MS = 2 * 60 * 1000;
+    let courseCache = { expiresAt: 0, rows: [] };
+    const materialCache = {};
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -35,6 +38,19 @@
         return normalizeCourse(auth.getStoredCourse ? auth.getStoredCourse() : sessionStorage.getItem("studentCourse"));
     }
 
+    function getApiBase() {
+        if (window.VINAYAK_API_BASE) {
+            return String(window.VINAYAK_API_BASE).replace(/\/+$/, "");
+        }
+        const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+        const isStaticDev = ["5500", "5501", "5502"].includes(window.location.port);
+        return isLocal && isStaticDev ? "http://localhost:3000" : "";
+    }
+
+    function apiUrl(path) {
+        return getApiBase() + path;
+    }
+
     function formatDate(value) {
         if (!value) return "Recent";
         const date = new Date(value);
@@ -48,96 +64,89 @@
             return course;
         }
         const normalized = normalizeCourse(course);
-        const { data, error } = await getAuth().getClient()
-            .from("courses")
-            .select("*");
-        if (error) throw error;
-        const match = (data || []).find(function (item) {
+        const rows = await fetchCourses();
+        const match = rows.find(function (item) {
             return normalizeCourse(getCourseName(item)) === normalized || normalizeCourse(item.code) === normalized;
         });
         return match && match.id ? String(match.id) : "";
     }
 
-    async function fetchCourseNotes(course) {
-        const courseId = await resolveCourseId(course);
-        if (!courseId) {
-            return [];
-        }
-        const client = getAuth().getClient();
-        try {
-            const linkResult = await client
-                .from("material_courses")
-                .select("note_id")
-                .eq("course_id", courseId);
-            if (linkResult.error) throw linkResult.error;
-            const noteIds = Array.from(new Set((linkResult.data || []).map(function (row) {
-                return row.note_id;
-            }).filter(Boolean)));
-            const mappedResult = noteIds.length
-                ? await client.from("notes").select("id, course_id, subject, title, created_at, file_path").in("id", noteIds)
-                : { data: [], error: null };
-            if (mappedResult.error) throw mappedResult.error;
-            const legacyResult = await client
-                .from("notes")
-                .select("id, course_id, subject, title, created_at, file_path")
-                .eq("course_id", courseId);
-            if (legacyResult.error) throw legacyResult.error;
-            const byId = {};
-            (mappedResult.data || []).concat(legacyResult.data || []).forEach(function (note) {
-                byId[String(note.id)] = note;
-            });
-            return Object.keys(byId).map(function (id) {
-                return byId[id];
-            }).sort(function (a, b) {
-                return String(b.created_at || "").localeCompare(String(a.created_at || ""));
-            });
-        } catch (error) {
-            console.warn("material_courses lookup failed; using legacy notes.course_id", error);
-            const legacy = await client
-                .from("notes")
-                .select("id, course_id, subject, title, created_at, file_path")
-                .eq("course_id", courseId)
-                .order("created_at", { ascending: false });
-            if (legacy.error) throw legacy.error;
-            return legacy.data || [];
-        }
+    async function fetchCourses() {
+        if (courseCache.expiresAt > Date.now()) return courseCache.rows;
+        const { data, error } = await getAuth().getClient()
+            .from("courses")
+            .select("id, course_name")
+            .order("course_name", { ascending: true });
+        if (error) throw error;
+        courseCache = { expiresAt: Date.now() + COURSE_CACHE_TTL_MS, rows: data || [] };
+        return courseCache.rows;
     }
 
-    async function createSignedUrl(note) {
-        if (!note || !note.file_path) {
+    async function fetchCourseNotes(course) {
+        const cacheKey = normalizeCourse(course || getStudentCourse()) || "current";
+        const cached = materialCache[cacheKey];
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.rows;
+        }
+        const response = await fetch(apiUrl("/api/materials"), {
+            method: "GET",
+            headers: getStudentAuthHeaders()
+        });
+        const result = await response.json().catch(function () { return {}; });
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || result.error || "Could not load study material.");
+        }
+        const rows = result.materials || [];
+        materialCache[cacheKey] = { expiresAt: Date.now() + MATERIAL_CACHE_TTL_MS, rows: rows };
+        return rows;
+    }
+
+    function getStudentAuthHeaders() {
+        const auth = getAuth();
+        return {
+            "X-Student-Id": auth.getStoredStudentId ? auth.getStoredStudentId() : window.localStorage.getItem("studentId") || "",
+            "X-Session-Token": auth.getStoredStudentSessionId ? auth.getStoredStudentSessionId() : window.localStorage.getItem("session_token") || ""
+        };
+    }
+
+    async function createR2PdfAccess(note) {
+        if (!note || !note.id) {
             throw new Error("This PDF file is not available.");
         }
-        const studentCourseId = await resolveCourseId(getStudentCourse());
-        if (!studentCourseId) {
-            throw new Error("You do not have access to this course material.");
+        const endpoint = apiUrl("/api/material/" + encodeURIComponent(note.id));
+        console.log("PDF retrieval frontend: requesting material endpoint", {
+            materialId: note.id,
+            endpoint: endpoint
+        });
+        const response = await fetch(endpoint, {
+            method: "GET",
+            headers: getStudentAuthHeaders()
+        });
+        const result = await response.json().catch(function () { return {}; });
+        console.log("PDF retrieval frontend: material endpoint response", {
+            materialId: note.id,
+            status: response.status,
+            success: Boolean(result.success),
+            hasUrl: Boolean(result.url || result.signedUrl),
+            message: result.message || result.error || ""
+        });
+        const signedUrl = result.url || result.signedUrl;
+        if (!response.ok || !result.success || !signedUrl) {
+            const debugDetails = result.details ? " Details: " + JSON.stringify(result.details) : "";
+            throw new Error((result.message || result.error || "Could not create a secure PDF link.") + debugDetails);
         }
-        let hasAccess = String(note.course_id || "") === studentCourseId;
-        if (!hasAccess) {
-            try {
-                const { data, error } = await getAuth().getClient()
-                    .from("material_courses")
-                    .select("id")
-                    .eq("note_id", note.id)
-                    .eq("course_id", studentCourseId)
-                    .limit(1);
-                if (error) throw error;
-                hasAccess = Boolean(data && data.length);
-            } catch (error) {
-                console.warn("material_courses permission check failed; using legacy course_id only", error);
-            }
-        }
-        if (!hasAccess) {
-            throw new Error("You do not have access to this course material.");
-        }
-        const { data, error } = await getAuth().getClient()
-            .storage
-            .from(BUCKET)
-            .createSignedUrl(note.file_path, 300);
-        if (error) throw error;
-        if (!data || !data.signedUrl) {
-            throw new Error("Could not create a secure PDF link.");
-        }
-        return data.signedUrl;
+        return {
+            url: signedUrl,
+            signedUrl: signedUrl,
+            fallbackUrl: result.fallbackUrl ? apiUrl(result.fallbackUrl) : "",
+            expiresIn: result.expiresIn,
+            expiresAt: result.expiresAt
+        };
+    }
+
+    async function createR2SignedUrl(note) {
+        const access = await createR2PdfAccess(note);
+        return access.url;
     }
 
     async function fetchNoteById(id) {
@@ -147,7 +156,7 @@
         }
         const { data, error } = await getAuth().getClient()
             .from("notes")
-            .select("id, course_id, subject, title, created_at, file_path")
+            .select("id, course_id, subject, title, created_at")
             .eq("id", noteId)
             .limit(1);
         if (error) throw error;
@@ -244,7 +253,7 @@
         grid.dataset.materialInitialized = "true";
 
         const state = { subject: "all", query: "", notes: [] };
-        renderMessage(grid, "Loading study material", "Fetching secure notes from Supabase Storage.");
+        renderMessage(grid, "Loading study material", "Fetching secure notes from Cloudflare R2.");
 
         fetchCourseNotes(getStudentCourse()).then(function (notes) {
             state.notes = notes;
@@ -309,7 +318,10 @@
         fetchCourseNotes: fetchCourseNotes,
         resolveCourseId: resolveCourseId,
         fetchNoteById: fetchNoteById,
-        createSignedUrl: createSignedUrl,
+        getStudentAuthHeaders: getStudentAuthHeaders,
+        createR2PdfAccess: createR2PdfAccess,
+        createR2SignedUrl: createR2SignedUrl,
+        fetchCourses: fetchCourses,
         getViewerUrl: getViewerUrl,
         openMaterial: openMaterial
     };

@@ -674,6 +674,14 @@ body.student-sidebar-collapsed .student-shell {
 }
 
 @media (max-width: 768px) {
+    .material-steps {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .material-queue-row {
+        grid-template-columns: 1fr;
+    }
+
     .student-topbar,
     .erp-topbar,
     .student-welcome,
@@ -1453,6 +1461,11 @@ main {
 .status-due {
     background: #fff1f2;
     color: var(--danger-color);
+}
+
+.status-waiting {
+    background: #fffbeb;
+    color: #b45309;
 }
 
 .table-action-btn {
@@ -3966,6 +3979,129 @@ body.admin-sidebar-collapsed .erp-sidebar {
     border-radius: inherit;
     background: linear-gradient(90deg, #f97316, #2563eb);
     transition: width 0.25s ease;
+}
+
+.material-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.material-steps span {
+    border: 1px solid #dbe3ef;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #334155;
+    background: #f8fafc;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.material-dropzone {
+    border: 1.5px dashed #94a3b8;
+    border-radius: 8px;
+    min-height: 170px;
+    padding: 24px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    gap: 8px;
+    background: #f8fafc;
+    color: #334155;
+    transition: border-color .2s ease, background .2s ease;
+}
+
+.material-dropzone i {
+    font-size: 34px;
+    color: #2563eb;
+}
+
+.material-dropzone strong {
+    font-size: 16px;
+}
+
+.material-dropzone span {
+    color: #64748b;
+}
+
+.material-dropzone.is-dragging {
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.material-drop-actions,
+.material-progress-meta,
+.material-queue-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.material-progress-shell {
+    margin: 14px 0;
+}
+
+.material-progress-meta {
+    margin-bottom: 8px;
+    color: #334155;
+}
+
+.material-progress-meta span {
+    color: #64748b;
+    font-size: 13px;
+}
+
+.material-upload-queue {
+    margin: 14px 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.material-queue-head {
+    padding: 12px 14px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.material-queue-list {
+    max-height: 280px;
+    overflow: auto;
+}
+
+.material-queue-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.material-queue-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.material-queue-row small {
+    color: #64748b;
+    font-weight: 700;
+}
+
+.material-queue-row.completed small {
+    color: #15803d;
+}
+
+.material-queue-row.failed small {
+    color: #b91c1c;
+}
+
+.material-queue-row.uploading small {
+    color: #1d4ed8;
 }
 
 .material-course-picker {

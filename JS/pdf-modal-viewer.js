@@ -542,14 +542,46 @@
             setDocumentMeta(note);
             watermarkText = makeWatermarkText();
             const pdfjsLib = await loadPdfJs();
-            const signedUrl = await window.VinayakNotesPage.createSignedUrl(note);
+            const access = window.VinayakNotesPage.createR2PdfAccess
+                ? await window.VinayakNotesPage.createR2PdfAccess(note)
+                : { url: await window.VinayakNotesPage.createR2SignedUrl(note), fallbackUrl: "" };
+            const signedUrl = access.url;
+            console.log("PDF modal viewer: loading signed URL returned by backend", {
+                materialId: note.id,
+                urlHost: (function () {
+                    try { return new URL(signedUrl).host; } catch (error) { return ""; }
+                }())
+            });
             setLoading(true, "Opening secure PDF...");
-            pdfDoc = await pdfjsLib.getDocument({
-                url: signedUrl,
-                disableAutoFetch: true,
-                disableStream: false,
-                isEvalSupported: false
-            }).promise;
+            try {
+                pdfDoc = await pdfjsLib.getDocument({
+                    url: signedUrl,
+                    disableAutoFetch: true,
+                    disableStream: false,
+                    isEvalSupported: false
+                }).promise;
+            } catch (pdfError) {
+                console.error("PDF.js failed while fetching signed URL", {
+                    materialId: note.id,
+                    message: pdfError.message,
+                    name: pdfError.name,
+                    stack: pdfError.stack
+                });
+                if (!access.fallbackUrl) {
+                    throw new Error("PDF.js could not fetch the signed Cloudflare R2 URL. " + (pdfError.message || "Unknown fetch error."));
+                }
+                console.warn("PDF modal viewer: retrying through backend stream fallback", {
+                    materialId: note.id,
+                    fallbackUrl: access.fallbackUrl
+                });
+                pdfDoc = await pdfjsLib.getDocument({
+                    url: access.fallbackUrl,
+                    httpHeaders: window.VinayakNotesPage.getStudentAuthHeaders ? window.VinayakNotesPage.getStudentAuthHeaders() : {},
+                    disableAutoFetch: true,
+                    disableStream: false,
+                    isEvalSupported: false
+                }).promise;
+            }
             await applyFitScale();
             createPageShells();
             updateToolbar();
