@@ -3,7 +3,7 @@ window.VINAYAK_SUPABASE_CONFIG = {
     publishableKey: "sb_publishable_DsBlz0MNKxBzterSVTqC_Q_0OMVWVb7",
     loginRedirect: "index.html",
     adminRedirect: "admin.html",
-    apiBase: "",
+    apiBase: "https://vinayak-academy-and-it-solution-notes.onrender.com",
    
     studentsTable: "students",
     studentIdentifierColumn: "id"
