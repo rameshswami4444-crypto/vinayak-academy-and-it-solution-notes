@@ -37,13 +37,13 @@
     }
 
     var backendUrl = String(
+        fromProductionHost() ||
         window.API_BASE_URL ||
         window.VINAYAK_API_BASE ||
         config.apiBase ||
         ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "") ||
         fromVercelHost() ||
         fromLocalStaticHost() ||
-        fromProductionHost() ||
         fromUnresolvedProductionHost() ||
         ""
     ).trim();
