@@ -71,6 +71,21 @@
         return "Rs. " + toNumber(value).toFixed(2);
     }
 
+    function getApiBase() {
+        if (window.VINAYAK_API_BASE) {
+            return String(window.VINAYAK_API_BASE).replace(/\/+$/, "");
+        }
+        const config = window.VINAYAK_SUPABASE_CONFIG || {};
+        if (config.apiBase) {
+            return String(config.apiBase).replace(/\/+$/, "");
+        }
+        return "";
+    }
+
+    function apiUrl(path) {
+        return getApiBase() + path;
+    }
+
     function getCourseId(course) {
         return String((course && course.id) || "");
     }
@@ -346,7 +361,9 @@
     }
 
     async function loadMaterialManagerRows() {
-        const response = await fetch("/api/admin/materials", {
+        const url = apiUrl("/api/admin/materials");
+        console.log("Study Material Manager list URL", url);
+        const response = await fetch(url, {
             method: "GET",
             headers: { "Accept": "application/json" }
         });
@@ -1507,7 +1524,9 @@
 
         return new Promise(function (resolve, reject) {
             const xhr = new XMLHttpRequest();
-            xhr.open("POST", "/api/upload-material");
+            const url = apiUrl("/api/upload-material");
+            console.log("Study Material upload URL", url);
+            xhr.open("POST", url);
             xhr.upload.onprogress = function (event) {
                 if (event.lengthComputable && typeof settings.onProgress === "function") {
                     settings.onProgress(Math.round((event.loaded / event.total) * 100));
@@ -1547,7 +1566,9 @@
 
     async function deletePdfFromR2(key) {
         if (!key) return;
-        const response = await fetch("/api/r2/delete", {
+        const url = apiUrl("/api/r2/delete");
+        console.log("Study Material R2 delete URL", url);
+        const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ key: key })
@@ -1559,7 +1580,9 @@
     }
 
     async function getR2SignedUrl(key) {
-        const response = await fetch("/api/r2/sign?key=" + encodeURIComponent(key), {
+        const url = apiUrl("/api/r2/sign?key=" + encodeURIComponent(key));
+        console.log("Study Material R2 sign URL", url);
+        const response = await fetch(url, {
             method: "GET"
         });
         const result = await response.json().catch(function () { return {}; });

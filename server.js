@@ -1040,6 +1040,25 @@ app.get("/api/admin/materials", async function (request, response) {
     }
 });
 
+app.get("/api/upload-material/health", async function (request, response) {
+    const diagnostics = getDiagnostics();
+    response.json({
+        success: true,
+        route: "/api/upload-material",
+        method: "POST",
+        r2: {
+            accountIdLoaded: Boolean(diagnostics.accountId),
+            accessKeyLoaded: diagnostics.accessKeyLoaded,
+            secretKeyLoaded: diagnostics.secretKeyLoaded,
+            bucketLoaded: Boolean(diagnostics.bucket),
+            endpointLoaded: Boolean(diagnostics.endpoint),
+            bucket: diagnostics.bucket,
+            endpoint: diagnostics.endpoint,
+            missingVariables: diagnostics.missingVariables
+        }
+    });
+});
+
 app.get("/api/material/:id", async function (request, response) {
     const materialId = String(request.params.id || "").trim();
     const expiresInSeconds = 300;
