@@ -8,6 +8,15 @@
     let popupPollTimer = null;
     let countdownTimer = null;
     let activeEndTime = "";
+    const API_BASE = String(
+        window.API_BASE_URL ||
+        window.VINAYAK_API_BASE ||
+        ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "")
+    ).replace(/\/+$/, "");
+
+    function apiUrl(path) {
+        return API_BASE + path;
+    }
 
     function getSession() {
         try {
@@ -36,7 +45,9 @@
     }
 
     async function api(path, options) {
-        const response = await window.fetch(path, Object.assign({
+        const url = apiUrl(path);
+        console.log("Student attendance API URL", url);
+        const response = await window.fetch(url, Object.assign({
             headers: getHeaders()
         }, options || {}));
         const payload = await response.json().catch(function () { return {}; });

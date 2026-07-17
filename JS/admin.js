@@ -27,6 +27,11 @@
     const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, attendanceHistory: 1 };
     const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, attendanceHistory: 10 };
     const MAX_PDF_SIZE = 200 * 1024 * 1024;
+    const API_BASE = String(
+        window.API_BASE_URL ||
+        window.VINAYAK_API_BASE ||
+        ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "")
+    ).replace(/\/+$/, "");
     const BULK_COLUMNS = [
         "Student ID", "Password", "Student Name", "Father Name", "Mobile", "Alternate Mobile", "Email", "Address", "Course", "Batch", "Admission Date", "Course Duration", "Total Fee", "Advance Fee", "Remaining Fee", "Number of EMI", "First EMI Due Date"
     ];
@@ -72,14 +77,7 @@
     }
 
     function getApiBase() {
-        if (window.VINAYAK_API_BASE) {
-            return String(window.VINAYAK_API_BASE).replace(/\/+$/, "");
-        }
-        const config = window.VINAYAK_SUPABASE_CONFIG || {};
-        if (config.apiBase) {
-            return String(config.apiBase).replace(/\/+$/, "");
-        }
-        return "";
+        return API_BASE;
     }
 
     function apiUrl(path) {
@@ -2413,7 +2411,9 @@
     }
 
     async function attendanceRequest(path, options) {
-        const response = await window.fetch(path, Object.assign({
+        const url = apiUrl(path);
+        console.log("Attendance API URL", url);
+        const response = await window.fetch(url, Object.assign({
             headers: { "Content-Type": "application/json" }
         }, options || {}));
         const payload = await response.json().catch(function () { return {}; });

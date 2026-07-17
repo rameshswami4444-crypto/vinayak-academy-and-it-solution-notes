@@ -2,6 +2,15 @@
     "use strict";
 
     const output = document.getElementById("r2TestOutput");
+    const API_BASE = String(
+        window.API_BASE_URL ||
+        window.VINAYAK_API_BASE ||
+        ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "")
+    ).replace(/\/+$/, "");
+
+    function apiUrl(path) {
+        return API_BASE + path;
+    }
 
     function render(payload) {
         if (!output) return;
@@ -10,7 +19,9 @@
 
     async function requestJson(url, options) {
         const startedAt = performance.now();
-        const response = await fetch(url, options || {});
+        const requestUrl = apiUrl(url);
+        console.log("R2 diagnostic API URL", requestUrl);
+        const response = await fetch(requestUrl, options || {});
         const text = await response.text();
         let body;
         try {

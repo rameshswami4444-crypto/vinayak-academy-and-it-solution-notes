@@ -1,6 +1,11 @@
 (function () {
     const COURSE_CACHE_TTL_MS = 10 * 60 * 1000;
     const MATERIAL_CACHE_TTL_MS = 2 * 60 * 1000;
+    const API_BASE = String(
+        window.API_BASE_URL ||
+        window.VINAYAK_API_BASE ||
+        ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "")
+    ).replace(/\/+$/, "");
     let courseCache = { expiresAt: 0, rows: [] };
     const materialCache = {};
 
@@ -39,9 +44,7 @@
     }
 
     function getApiBase() {
-        if (window.VINAYAK_API_BASE) {
-            return String(window.VINAYAK_API_BASE).replace(/\/+$/, "");
-        }
+        if (API_BASE) return API_BASE;
         const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
         const isStaticDev = ["5500", "5501", "5502"].includes(window.location.port);
         return isLocal && isStaticDev ? "http://localhost:3000" : "";
