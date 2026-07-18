@@ -1,4 +1,7 @@
 (function () {
+    if (window.__vinayakApiConfigLoaded) return;
+    window.__vinayakApiConfigLoaded = true;
+
     var config = window.VINAYAK_API_CONFIG || {};
     var PRODUCTION_BACKEND_URL = "https://vinayak-academy-and-it-solution-notes.onrender.com";
     var DEBUG = Boolean(config.debug || window.VINAYAK_DEBUG);

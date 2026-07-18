@@ -1,4 +1,7 @@
 (function () {
+    if (window.__vinayakStudentLayoutLoaded) return;
+    window.__vinayakStudentLayoutLoaded = true;
+
     const ROOT_PREFIX = window.location.pathname.toLowerCase().includes("/html/") ? "../" : "";
     const INSTITUTE_NAME = "Vinayak Academy And IT Solutions";
     const VERSION = "Version 2.0";

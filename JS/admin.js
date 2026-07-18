@@ -1,4 +1,6 @@
 (function () {
+    if (window.__vinayakAdminLoaded) return;
+    window.__vinayakAdminLoaded = true;
     window.__vinayakAdminLoadedAt = new Date().toISOString();
     const COURSES = ["ECCE", "ADFA", "DCFA", "EXCEL", "RS-CIT", "CCC"];
     let studentsCache = [];

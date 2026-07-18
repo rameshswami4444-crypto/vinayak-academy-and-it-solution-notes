@@ -1,4 +1,7 @@
 (function () {
+    if (window.__vinayakAuthModuleLoaded) return;
+    window.__vinayakAuthModuleLoaded = true;
+
     const LOGIN_PATH = "login.html";
     const BLOCKED_PATH = "blocked.html";
     const STUDENT_HOME_PATH = "index.html";
@@ -23,6 +26,10 @@
     let logoutBound = false;
     let silentSessionValidationTimer = null;
     let silentSessionValidationRunning = false;
+    let loginPageInitPromise = null;
+    let protectedPageInitPromise = null;
+    let blockedPageInitPromise = null;
+    let redirectInProgress = false;
     const SILENT_SESSION_VALIDATION_MS = 20 * 1000;
 
     function getConfig() {
@@ -589,6 +596,18 @@
         return toPageUrl(BLOCKED_PATH) + "?next=" + encodeURIComponent(resolvedNextPath);
     }
 
+    function redirectTo(url, replace) {
+        if (!url || redirectInProgress) {
+            return;
+        }
+        redirectInProgress = true;
+        if (replace && window.location.replace) {
+            window.location.replace(url);
+            return;
+        }
+        window.location.href = url;
+    }
+
     function showBody() {
         if (document.body) {
             document.body.classList.remove("auth-pending");
@@ -725,7 +744,7 @@
 
     async function logoutAndRedirect() {
         clearSession();
-        window.location.replace(toPageUrl(LOGIN_PATH));
+        redirectTo(toPageUrl(LOGIN_PATH), true);
     }
 
     async function forceStudentLogout(message) {
@@ -734,7 +753,7 @@
             showForcedLogoutNotice(message);
         }
         window.setTimeout(function () {
-            window.location.href = toPageUrl(LOGIN_PATH);
+            redirectTo(toPageUrl(LOGIN_PATH));
         }, message ? 900 : 0);
     }
 
@@ -1116,11 +1135,11 @@
             startStudentSession(student, password, sessionId);
 
             if (isStudentBlocked(student)) {
-                window.location.href = getBlockedRedirectUrl(getHomePath());
+                redirectTo(getBlockedRedirectUrl(getHomePath()));
                 return;
             }
 
-            window.location.href = toPageUrl(getHomePath());
+            redirectTo(toPageUrl(getHomePath()));
         } catch (error) {
             console.error("Student login failed", error);
             showMessage("Invalid username or password.", "error", "studentAuthMessage");
@@ -1168,7 +1187,7 @@
             await resetLoginLimit("admins", "username", getAdminIdentifier(admin) || adminId);
             clearSession();
             startAdminSession(getAdminIdentifier(admin) || adminId, password);
-            window.location.replace(toPageUrl(getAdminPath()));
+            redirectTo(toPageUrl(getAdminPath()), true);
         } catch (error) {
             console.error("Admin login failed", error);
             showMessage("Invalid username or password.", "error", "adminAuthMessage");
@@ -1178,6 +1197,14 @@
     }
 
     async function initProtectedPage(options) {
+        if (protectedPageInitPromise) {
+            return protectedPageInitPromise;
+        }
+        protectedPageInitPromise = runProtectedPageInit(options);
+        return protectedPageInitPromise;
+    }
+
+    async function runProtectedPageInit(options) {
         const settings = options || {};
         console.log("CONFIG:", getConfig());
 
@@ -1188,24 +1215,24 @@
 
         if (!settings.adminOnly && window.localStorage.getItem("loggedIn") !== "true") {
             clearSession();
-            window.location.href = getLoginRedirectUrl();
+            redirectTo(getLoginRedirectUrl());
             return null;
         }
 
         const session = await getValidatedSession(settings.adminOnly ? "admin" : "student");
         if (!session) {
             clearSession();
-            window.location.href = getLoginRedirectUrl();
+            redirectTo(getLoginRedirectUrl());
             return null;
         }
 
         if (session.blocked) {
-            window.location.href = getBlockedRedirectUrl();
+            redirectTo(getBlockedRedirectUrl());
             return null;
         }
 
         if (settings.requiredCourse && !hasCourseAccess(settings.requiredCourse, session.courses || session.course)) {
-            window.location.href = toPageUrl(getHomePath());
+            redirectTo(toPageUrl(getHomePath()));
             return null;
         }
 
@@ -1219,6 +1246,14 @@
     }
 
     async function initBlockedPage() {
+        if (blockedPageInitPromise) {
+            return blockedPageInitPromise;
+        }
+        blockedPageInitPromise = runBlockedPageInit();
+        return blockedPageInitPromise;
+    }
+
+    async function runBlockedPageInit() {
         console.log("CONFIG:", getConfig());
 
         if (!isConfigured()) {
@@ -1229,7 +1264,7 @@
         const session = await getValidatedSession("student");
         if (!session) {
             clearSession();
-            window.location.href = getLoginRedirectUrl();
+            redirectTo(getLoginRedirectUrl());
             return null;
         }
 
@@ -1268,12 +1303,12 @@
 
                         if (!refreshedSession) {
                             clearSession();
-                            window.location.href = getLoginRedirectUrl();
+                            redirectTo(getLoginRedirectUrl());
                             return;
                         }
 
                         if (!refreshedSession.blocked) {
-                            window.location.href = toPageUrl(getHomePath());
+                            redirectTo(toPageUrl(getHomePath()));
                             return;
                         }
 
@@ -1311,11 +1346,19 @@
             return blockedSession;
         }
 
-        window.location.href = toPageUrl(getHomePath());
+        redirectTo(toPageUrl(getHomePath()));
         return session;
     }
 
     async function initLoginPage() {
+        if (loginPageInitPromise) {
+            return loginPageInitPromise;
+        }
+        loginPageInitPromise = runLoginPageInit();
+        return loginPageInitPromise;
+    }
+
+    async function runLoginPageInit() {
         console.log("CONFIG:", getConfig());
 
         if (!isConfigured()) {
@@ -1328,16 +1371,16 @@
         const studentSession = await getValidatedSession("student");
         if (studentSession) {
             if (studentSession.blocked) {
-                window.location.href = getBlockedRedirectUrl();
+                redirectTo(getBlockedRedirectUrl());
                 return;
             }
-            window.location.href = toPageUrl(getHomePath());
+            redirectTo(toPageUrl(getHomePath()));
             return;
         }
 
         const adminSession = await getValidatedSession("admin");
         if (adminSession) {
-            window.location.href = toPageUrl(getAdminPath());
+            redirectTo(toPageUrl(getAdminPath()));
             return;
         }
 
@@ -1347,11 +1390,13 @@
         const studentForm = document.getElementById("studentLoginForm");
         const adminForm = document.getElementById("adminLoginForm");
 
-        if (studentForm) {
+        if (studentForm && !studentForm.dataset.authBound) {
+            studentForm.dataset.authBound = "true";
             studentForm.addEventListener("submit", handleStudentLogin);
         }
 
-        if (adminForm) {
+        if (adminForm && !adminForm.dataset.authBound) {
+            adminForm.dataset.authBound = "true";
             adminForm.addEventListener("submit", handleAdminLogin);
         }
 

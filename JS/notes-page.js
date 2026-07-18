@@ -1,4 +1,7 @@
 (function () {
+    if (window.__vinayakNotesPageLoaded) return;
+    window.__vinayakNotesPageLoaded = true;
+
     const COURSE_CACHE_TTL_MS = 10 * 60 * 1000;
     const MATERIAL_CACHE_TTL_MS = 2 * 60 * 1000;
     let courseCache = { expiresAt: 0, rows: [] };

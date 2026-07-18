@@ -38,6 +38,9 @@ const courseData = [
 ];
 
 (function () {
+    if (window.__vinayakStudentDashboardLoaded) return;
+    window.__vinayakStudentDashboardLoaded = true;
+
     function setText(id, value) {
         const element = document.getElementById(id);
         if (element) element.textContent = value == null || value === "" ? "-" : String(value);

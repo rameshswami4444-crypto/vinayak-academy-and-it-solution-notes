@@ -4,10 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redirecting - Vinayak Academy</title>
-    <meta http-equiv="refresh" content="0; url=dashboard.html">
 </head>
 <body>
-    <script>window.location.replace("dashboard.html");</script>
-    <a href="dashboard.html">Open Dashboard</a>
+    <script>
+        (function () {
+            if (window.localStorage.getItem("admin_session")) {
+                window.location.replace("admin.html");
+                return;
+            }
+            var isStudentLoggedIn = window.localStorage.getItem("loggedIn") === "true" ||
+                Boolean(window.localStorage.getItem("student_session"));
+            window.location.replace(isStudentLoggedIn ? "dashboard.html" : "login.html");
+        }());
+    </script>
+    <a href="login.html">Open Login</a>
 </body>
 </html>

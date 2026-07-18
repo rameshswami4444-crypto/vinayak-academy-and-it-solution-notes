@@ -1,4 +1,7 @@
 (function () {
+    if (window.__vinayakStudentAttendanceLoaded) return;
+    window.__vinayakStudentAttendanceLoaded = true;
+
     const POLL_MS = 5000;
     const POPUP_POLL_MS = 5000;
     let activeSessionId = "";

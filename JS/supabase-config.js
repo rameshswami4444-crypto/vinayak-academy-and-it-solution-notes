@@ -1,4 +1,7 @@
 (function () {
+    if (window.__vinayakSupabaseConfigLoaded) return;
+    window.__vinayakSupabaseConfigLoaded = true;
+
     var SUPABASE_URL = "https://aptuynimvcllzbbqfmoj.supabase.co";
     var SUPABASE_ANON_KEY = "sb_publishable_DsBlz0MNKxBzterSVTqC_Q_0OMVWVb7";
     var API_BASE = "https://vinayak-academy-and-it-solution-notes.onrender.com";
