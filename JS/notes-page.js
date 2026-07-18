@@ -1,11 +1,6 @@
 (function () {
     const COURSE_CACHE_TTL_MS = 10 * 60 * 1000;
     const MATERIAL_CACHE_TTL_MS = 2 * 60 * 1000;
-    const API_BASE = String(
-        window.API_BASE_URL ||
-        window.VINAYAK_API_BASE ||
-        ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "")
-    ).replace(/\/+$/, "");
     let courseCache = { expiresAt: 0, rows: [] };
     const materialCache = {};
 
@@ -44,14 +39,16 @@
     }
 
     function getApiBase() {
-        if (API_BASE) return API_BASE;
+        if (window.VinayakApi) return window.VinayakApi.baseUrl;
+        const configured = String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "");
+        if (configured) return configured;
         const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
         const isStaticDev = ["5500", "5501", "5502"].includes(window.location.port);
         return isLocal && isStaticDev ? "http://localhost:3000" : "";
     }
 
     function apiUrl(path) {
-        return getApiBase() + path;
+        return window.VinayakApi ? window.VinayakApi.url(path) : getApiBase() + path;
     }
 
     function formatDate(value) {

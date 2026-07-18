@@ -21,17 +21,14 @@
     let attendanceRealtimeActive = false;
     const loadedAdminTables = {};
     let materialUploadQueue = [];
+    let materialUploadCancelled = false;
+    const activeMaterialUploads = {};
     let bulkRows = [];
     let emiMode = "auto";
     let currentAdmissionStep = 1;
     const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, attendanceHistory: 1 };
     const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, attendanceHistory: 10 };
     const MAX_PDF_SIZE = 200 * 1024 * 1024;
-    const API_BASE = String(
-        window.API_BASE_URL ||
-        window.VINAYAK_API_BASE ||
-        ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "")
-    ).replace(/\/+$/, "");
     const BULK_COLUMNS = [
         "Student ID", "Password", "Student Name", "Father Name", "Mobile", "Alternate Mobile", "Email", "Address", "Course", "Batch", "Admission Date", "Course Duration", "Total Fee", "Advance Fee", "Remaining Fee", "Number of EMI", "First EMI Due Date"
     ];
@@ -77,11 +74,11 @@
     }
 
     function getApiBase() {
-        return API_BASE;
+        return window.VinayakApi ? window.VinayakApi.baseUrl : String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "");
     }
 
     function apiUrl(path) {
-        return getApiBase() + path;
+        return window.VinayakApi ? window.VinayakApi.url(path) : getApiBase() + path;
     }
 
     function getCourseId(course) {
@@ -1525,12 +1522,16 @@
             const url = apiUrl("/api/upload-material");
             console.log("Study Material upload URL", url);
             xhr.open("POST", url);
+            if (settings.uploadId) {
+                activeMaterialUploads[settings.uploadId] = xhr;
+            }
             xhr.upload.onprogress = function (event) {
                 if (event.lengthComputable && typeof settings.onProgress === "function") {
                     settings.onProgress(Math.round((event.loaded / event.total) * 100));
                 }
             };
             xhr.onload = function () {
+                if (settings.uploadId) delete activeMaterialUploads[settings.uploadId];
                 let result = {};
                 try {
                     result = xhr.responseText ? JSON.parse(xhr.responseText) : {};
@@ -1556,7 +1557,12 @@
                 resolve(result);
             };
             xhr.onerror = function () {
+                if (settings.uploadId) delete activeMaterialUploads[settings.uploadId];
                 reject(new Error("Network error while uploading PDF to R2."));
+            };
+            xhr.onabort = function () {
+                if (settings.uploadId) delete activeMaterialUploads[settings.uploadId];
+                reject(new Error("Upload cancelled."));
             };
             xhr.send(formData);
         });
@@ -1657,9 +1663,35 @@
         updateMaterialUploadCounts();
     }
 
+    function cancelMaterialUploads() {
+        materialUploadCancelled = true;
+        Object.keys(activeMaterialUploads).forEach(function (id) {
+            try {
+                activeMaterialUploads[id].abort();
+            } catch (error) {
+                console.warn("Material upload abort failed", error);
+            }
+            delete activeMaterialUploads[id];
+        });
+        materialUploadQueue.forEach(function (item) {
+            if (item.status === "waiting" || item.status === "uploading") {
+                item.status = "failed";
+                item.error = "Upload cancelled.";
+            }
+        });
+        setMaterialUploadStatus("Upload cancelled");
+        renderMaterialUploadQueue();
+    }
+
     function addMaterialFiles(files) {
+        const seen = {};
         const pdfs = Array.from(files || []).filter(function (file) {
             return file && (/\.pdf$/i.test(file.name || "") || file.type === "application/pdf");
+        }).filter(function (file) {
+            const key = [file.name, file.size, file.lastModified].join("|");
+            if (seen[key]) return false;
+            seen[key] = true;
+            return true;
         });
         materialUploadQueue = pdfs.map(function (file, index) {
             return {
@@ -1921,7 +1953,10 @@
             return;
         }
         const button = document.getElementById("materialBulkUploadBtn");
+        const cancelButton = document.getElementById("cancelMaterialUploadBtn");
         if (button) button.disabled = true;
+        if (cancelButton) cancelButton.hidden = false;
+        materialUploadCancelled = false;
         setMaterialUploadStatus("Uploading...");
         setMaterialProgress(0);
         try {
@@ -1930,6 +1965,7 @@
             let cursor = 0;
             async function worker() {
                 while (cursor < uploadable.length) {
+                    if (materialUploadCancelled) return;
                     const item = uploadable[cursor];
                     cursor += 1;
                     item.status = "uploading";
@@ -1937,6 +1973,7 @@
                     renderMaterialUploadQueue();
                     try {
                         await uploadMaterialToBackend(item.file, getMaterialTitleFromFile(item.file), subject, courseIds, "", {
+                            uploadId: item.id,
                             chapter: chapter,
                             uploadedBy: "admin",
                             onProgress: function (progress) {
@@ -1975,6 +2012,7 @@
             setPanelMessage(error.message || "Could not upload study material.", "error");
         } finally {
             if (button) button.disabled = false;
+            if (cancelButton) cancelButton.hidden = true;
         }
     }
 
@@ -2517,6 +2555,7 @@
     function startAttendancePolling() {
         stopAttendancePolling();
         startAttendanceRealtime();
+        if (document.hidden) return;
         attendancePollTimer = window.setInterval(function () {
             if (!attendanceRealtimeActive) refreshLiveAttendance();
         }, 10000);
@@ -2590,6 +2629,7 @@
     }
 
     function startAttendanceCountdown() {
+        if (document.hidden) return;
         if (!attendanceCountdownTimer) {
             attendanceCountdownTimer = window.setInterval(tickAttendanceCountdown, 1000);
         }
@@ -2602,6 +2642,25 @@
             attendanceCountdownTimer = null;
         }
         activeAttendanceEndTime = "";
+    }
+
+    function stopAttendanceRuntime() {
+        stopAttendancePolling();
+        if (attendanceCountdownTimer) {
+            window.clearInterval(attendanceCountdownTimer);
+            attendanceCountdownTimer = null;
+        }
+    }
+
+    function handleAdminVisibilityChange() {
+        if (!activeAttendanceSessionId) return;
+        if (document.hidden) {
+            stopAttendanceRuntime();
+            return;
+        }
+        startAttendancePolling();
+        if (activeAttendanceEndTime) startAttendanceCountdown();
+        refreshLiveAttendance();
     }
 
     async function closeAttendance() {
@@ -2964,11 +3023,13 @@
         const selectMaterialFolderButton = document.getElementById("selectMaterialFolderBtn");
         const materialDropzone = document.getElementById("materialDropzone");
         const retryFailedMaterialButton = document.getElementById("retryFailedMaterialBtn");
+        const cancelMaterialUploadButton = document.getElementById("cancelMaterialUploadBtn");
         if (selectMaterialFilesButton && materialFileInput) selectMaterialFilesButton.addEventListener("click", function () { materialFileInput.click(); });
         if (selectMaterialFolderButton && materialFolderInput) selectMaterialFolderButton.addEventListener("click", function () { materialFolderInput.click(); });
         if (materialFileInput) materialFileInput.addEventListener("change", function () { addMaterialFiles(materialFileInput.files); });
         if (materialFolderInput) materialFolderInput.addEventListener("change", function () { addMaterialFiles(materialFolderInput.files); });
         if (retryFailedMaterialButton && materialForm) retryFailedMaterialButton.addEventListener("click", function () { materialForm.requestSubmit(); });
+        if (cancelMaterialUploadButton) cancelMaterialUploadButton.addEventListener("click", cancelMaterialUploads);
         if (materialDropzone) {
             ["dragenter", "dragover"].forEach(function (type) {
                 materialDropzone.addEventListener(type, function (event) {
@@ -3062,6 +3123,8 @@
                 setAdmissionStep(button.getAttribute("data-admission-prev"));
             });
         });
+        document.addEventListener("visibilitychange", handleAdminVisibilityChange);
+        window.addEventListener("pagehide", stopAttendanceRuntime);
     }
 
     document.addEventListener("DOMContentLoaded", async function () {

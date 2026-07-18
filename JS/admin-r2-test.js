@@ -2,14 +2,9 @@
     "use strict";
 
     const output = document.getElementById("r2TestOutput");
-    const API_BASE = String(
-        window.API_BASE_URL ||
-        window.VINAYAK_API_BASE ||
-        ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "")
-    ).replace(/\/+$/, "");
-
     function apiUrl(path) {
-        return API_BASE + path;
+        if (window.VinayakApi) return window.VinayakApi.url(path);
+        return String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "") + path;
     }
 
     function render(payload) {

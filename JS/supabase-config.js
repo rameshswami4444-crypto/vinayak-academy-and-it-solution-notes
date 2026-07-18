@@ -14,8 +14,12 @@
         studentIdentifierColumn: "id"
     };
 
-    window.API_BASE_URL = window.API_BASE_URL || API_BASE;
-    window.VINAYAK_API_BASE = window.VINAYAK_API_BASE || API_BASE;
+    var host = String(window.location && window.location.hostname || "").toLowerCase();
+    var isLocal = host === "localhost" || host === "127.0.0.1";
+    if (!isLocal) {
+        window.API_BASE_URL = window.API_BASE_URL || API_BASE;
+        window.VINAYAK_API_BASE = window.VINAYAK_API_BASE || API_BASE;
+    }
 
     console.log("VINAYAK_SUPABASE_CONFIG loaded:", window.VINAYAK_SUPABASE_CONFIG);
     console.log("Configured API_BASE_URL:", window.API_BASE_URL);

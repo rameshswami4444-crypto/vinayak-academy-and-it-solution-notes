@@ -8,14 +8,10 @@
     let popupPollTimer = null;
     let countdownTimer = null;
     let activeEndTime = "";
-    const API_BASE = String(
-        window.API_BASE_URL ||
-        window.VINAYAK_API_BASE ||
-        ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "")
-    ).replace(/\/+$/, "");
-
+    let watcherStarted = false;
     function apiUrl(path) {
-        return API_BASE + path;
+        if (window.VinayakApi) return window.VinayakApi.url(path);
+        return String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "") + path;
     }
 
     function getSession() {
@@ -292,6 +288,7 @@
     }
 
     function startPopupPolling() {
+        if (document.hidden) return;
         stopPopupPolling();
         popupPollTimer = window.setInterval(function () {
             checkActiveAttendance(false);
@@ -306,9 +303,33 @@
     }
 
     function initWatcher() {
-        if (pollTimer || document.body.classList.contains("admin-page")) return;
+        if (watcherStarted || document.body.classList.contains("admin-page")) return;
+        watcherStarted = true;
         window.setTimeout(function () { checkActiveAttendance(false); }, 800);
-        pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, POLL_MS);
+        if (!document.hidden) {
+            pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, POLL_MS);
+        }
+    }
+
+    function stopWatcherTimers() {
+        if (pollTimer) {
+            window.clearInterval(pollTimer);
+            pollTimer = null;
+        }
+        stopPopupPolling();
+    }
+
+    function handleVisibilityChange() {
+        if (!watcherStarted) return;
+        if (document.hidden) {
+            stopWatcherTimers();
+            return;
+        }
+        checkActiveAttendance(false);
+        if (!pollTimer) {
+            pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, POLL_MS);
+        }
+        if (popupOpen) startPopupPolling();
     }
 
     window.VinayakStudentAttendance = {
@@ -321,4 +342,6 @@
     } else {
         initWatcher();
     }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", stopWatcherTimers);
 }());

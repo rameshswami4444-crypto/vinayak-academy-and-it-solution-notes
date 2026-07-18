@@ -33,8 +33,11 @@ function readFrontendSupabaseConfig() {
     const configPath = path.join(__dirname, "JS", "supabase-config.js");
     if (!fs.existsSync(configPath)) return {};
     const source = fs.readFileSync(configPath, "utf8");
-    const urlMatch = source.match(/url:\s*["']([^"']+)["']/);
-    const keyMatch = source.match(/publishableKey:\s*["']([^"']+)["']/);
+    const urlMatch = source.match(/url:\s*["']([^"']+)["']/) ||
+        source.match(/SUPABASE_URL\s*=\s*["']([^"']+)["']/);
+    const keyMatch = source.match(/publishableKey:\s*["']([^"']+)["']/) ||
+        source.match(/anonKey:\s*["']([^"']+)["']/) ||
+        source.match(/SUPABASE_ANON_KEY\s*=\s*["']([^"']+)["']/);
     return {
         url: urlMatch ? urlMatch[1] : "",
         key: keyMatch ? keyMatch[1] : ""
@@ -292,6 +295,23 @@ function isR2MaterialRecord(note) {
     return true;
 }
 
+const R2_EXISTENCE_CACHE_TTL_MS = 5 * 60 * 1000;
+const r2ExistenceCache = new Map();
+
+async function cachedFileExists(objectKey) {
+    const key = String(objectKey || "").trim();
+    if (!key) return false;
+    const cached = r2ExistenceCache.get(key);
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) return cached.exists;
+    const exists = await fileExists(key);
+    r2ExistenceCache.set(key, {
+        exists: exists,
+        expiresAt: now + R2_EXISTENCE_CACHE_TTL_MS
+    });
+    return exists;
+}
+
 async function filterExistingR2Materials(notes) {
     const unique = {};
     const candidates = [];
@@ -317,29 +337,38 @@ async function filterExistingR2Materials(notes) {
     const filtered = [];
     const concurrency = 8;
     let cursor = 0;
+    let missingCount = 0;
+    let failedCount = 0;
+    let lastFailure = null;
     async function worker() {
         while (cursor < candidates.length) {
             const item = candidates[cursor];
             cursor += 1;
             try {
-                if (await fileExists(item.r2_key)) {
+                if (await cachedFileExists(item.r2_key)) {
                     filtered.push(item);
                 } else {
-                    console.warn("Ignoring study material row because R2 object is missing", {
-                        noteId: item.id,
-                        r2_key: item.r2_key
-                    });
+                    missingCount += 1;
                 }
             } catch (error) {
-                console.warn("Ignoring study material row because R2 verification failed", {
+                failedCount += 1;
+                lastFailure = {
                     noteId: item.id,
                     r2_key: item.r2_key,
                     error: serializeR2Error(error)
-                });
+                };
             }
         }
     }
     await Promise.all(Array.from({ length: Math.min(concurrency, candidates.length) }, worker));
+    if (failedCount || process.env.DEBUG_R2_MATERIALS === "true") {
+        console.warn("Study material R2 verification skipped rows", {
+            checked: candidates.length,
+            missingCount: missingCount,
+            failedCount: failedCount,
+            lastFailure: lastFailure
+        });
+    }
     return filtered.sort(function (a, b) {
         return String(b.created_at || "").localeCompare(String(a.created_at || ""));
     });
@@ -465,7 +494,7 @@ async function resolveAuthorizedMaterial(request, materialId) {
         bucket: getDiagnostics().bucket,
         objectKey: note.r2_key || note.file_path
     });
-    const exists = await fileExists(note.r2_key || note.file_path);
+    const exists = await cachedFileExists(note.r2_key || note.file_path);
     if (!exists) {
         const error = new Error("This PDF file is missing from Cloudflare R2. Please contact admin.");
         error.statusCode = 404;
@@ -865,7 +894,39 @@ function summarizeStudentAttendance(rows) {
 }
 
 const app = express();
-app.use(cors());
+const DEFAULT_ALLOWED_ORIGINS = [
+    "https://www.vinayakacademy.online",
+    "https://vinayakacademy.online",
+    "http://localhost:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500"
+];
+const configuredAllowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map(function (origin) { return origin.trim(); })
+    .filter(Boolean);
+const allowedOrigins = DEFAULT_ALLOWED_ORIGINS.concat(configuredAllowedOrigins);
+
+app.use(cors({
+    origin: function (origin, callback) {
+        try {
+            if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/i.test(new URL(origin).hostname)) {
+                callback(null, true);
+                return;
+            }
+        } catch (error) {
+            callback(new Error("Invalid CORS origin."));
+            return;
+        }
+        callback(new Error("CORS origin not allowed."));
+    }
+}));
+app.use(function securityHeaders(request, response, next) {
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.setHeader("X-Frame-Options", "SAMEORIGIN");
+    response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+});
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
