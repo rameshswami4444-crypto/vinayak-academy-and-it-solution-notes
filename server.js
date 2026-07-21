@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 require("dotenv").config();
 
@@ -22,8 +22,34 @@ const {
 
 const PORT = Number(process.env.PORT || 3000);
 const MAX_PDF_SIZE = 200 * 1024 * 1024;
-const ATTENDANCE_SESSION_COLUMNS = "id, course_id, subject, lecture_title, duration_minutes, start_time, end_time, status, created_by, created_at";
-const ATTENDANCE_RESPONSE_COLUMNS = "session_id, student_id, response, response_time, created_at";
+const ATTENDANCE_SESSION_COLUMNS = "id, course_id, batch_id, subject, lecture_title, duration_minutes, start_time, end_time, status, created_by, created_at, session_id";
+const ATTENDANCE_RESPONSE_COLUMNS = "id, session_id, student_id, response, response_time, created_at";
+const DB = {
+    batches: {
+        table: "batches",
+        columns: "id, course_id, batch_name, timing, status",
+        id: "id",
+        courseId: "course_id",
+        name: "batch_name",
+        timing: "timing",
+        status: "status"
+    },
+    students: {
+        table: "students",
+        batchId: "batch_id",
+        courseId: "course_id"
+    },
+    attendanceSessions: {
+        table: "attendance_sessions",
+        batchId: "batch_id",
+        courseId: "course_id"
+    },
+    attendanceResponses: {
+        table: "attendance_responses",
+        response: "response",
+        responseTime: "response_time"
+    }
+};
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_PDF_SIZE }
@@ -509,12 +535,18 @@ async function resolveAuthorizedMaterial(request, materialId) {
 }
 
 function normalizeAttendanceStatus(value) {
-    const status = String(value || "WAITING").trim().toUpperCase().replace(/\s+/g, "_");
-    return ["PRESENT", "ABSENT", "WAITING", "AUTO_ABSENT"].includes(status) ? status : "WAITING";
+    const raw = String(value || "").trim().toLowerCase();
+    const map = {
+        present: "Present",
+        absent: "Absent",
+        late: "Late",
+        leave: "Leave"
+    };
+    return map[raw] || "";
 }
 
 function getAttendanceStudentName(student) {
-    return String((student && (student.name || student.student_name || student.full_name)) || "").trim();
+    return String((student && student.name) || "").trim();
 }
 
 function buildAttendanceSummary(rows) {
@@ -522,46 +554,46 @@ function buildAttendanceSummary(rows) {
         total_students: rows.length,
         present: 0,
         absent: 0,
-        auto_absent: 0,
-        waiting: 0
+        late: 0,
+        leave: 0,
+        attendance_percentage: 0
     };
     rows.forEach(function (row) {
-        const status = normalizeAttendanceStatus(row.response);
-        if (status === "PRESENT") summary.present += 1;
-        if (status === "ABSENT") summary.absent += 1;
-        if (status === "AUTO_ABSENT") {
-            summary.auto_absent += 1;
-            summary.absent += 1;
-        }
-        if (status === "WAITING") summary.waiting += 1;
+        const status = normalizeAttendanceStatus(row.status || row.response);
+        if (status === "Present") summary.present += 1;
+        if (status === "Absent") summary.absent += 1;
+        if (status === "Late") summary.late += 1;
+        if (status === "Leave") summary.leave += 1;
     });
-    summary.live_responses = summary.present + summary.absent;
     summary.attendance_percentage = summary.total_students ? Math.round((summary.present / summary.total_students) * 100) : 0;
     return summary;
 }
 
 function getRemainingSeconds(session) {
-    if (!session || !session.end_time || session.status !== "OPEN") return 0;
-    return Math.max(0, Math.ceil((new Date(session.end_time).getTime() - Date.now()) / 1000));
+    if (!session || !session.end_time) return 0;
+    const endTime = new Date(session.end_time).getTime();
+    return Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
 }
 
 async function getAttendanceRows(client, session) {
     const sessionId = String(session && session.id || "");
     const courseId = String(session && session.course_id || "");
+    const batchId = String(session && session.batch_id || "").trim();
     if (!sessionId || !courseId) return [];
 
-    const students = await client
+    let studentQuery = client
         .from("students")
-        .select("id, name, course_id")
-        .eq("course_id", courseId)
-        .order("name", { ascending: true });
+        .select("id, name, course_id, course, batch_id, batch")
+        .eq("course_id", courseId);
+    if (batchId) studentQuery = studentQuery.eq("batch_id", batchId);
+    const students = await studentQuery.order("name", { ascending: true });
     if (students.error) throw students.error;
 
     const result = await client
-        .from("attendance_responses")
-        .select("session_id, student_id, response, response_time, created_at")
+        .from(DB.attendanceResponses.table)
+        .select(ATTENDANCE_RESPONSE_COLUMNS)
         .eq("session_id", sessionId)
-        .order("created_at", { ascending: true });
+        .order("response_time", { ascending: true });
     if (result.error) throw result.error;
 
     const responseByStudentId = {};
@@ -573,39 +605,29 @@ async function getAttendanceRows(client, session) {
         const responseRow = responseByStudentId[String(student.id)] || {};
         return {
             session_id: sessionId,
+            attendance_id: responseRow.id || "",
             student_id: String(student.id || ""),
             student_name: getAttendanceStudentName(student) || String(student.id || ""),
-            response: responseRow.response || null,
-            response_time: responseRow.response_time || null,
-            created_at: responseRow.created_at || null
+            batch_id: student.batch_id || "",
+            batch: student.batch || "",
+            course_id: courseId,
+            status: normalizeAttendanceStatus(responseRow.response),
+            response: normalizeAttendanceStatus(responseRow.response),
+            remarks: "",
+            marked_at: responseRow.response_time || responseRow.created_at || null,
+            updated_at: responseRow.response_time || responseRow.created_at || null
         };
     });
-}
-
-async function verifyAttendanceSessionInserted(client, sessionId) {
-    const verifyResult = await client
-        .from("attendance_sessions")
-        .select("id, course_id, status, start_time, end_time")
-        .eq("id", sessionId)
-        .limit(1);
-    if (verifyResult.error) throw verifyResult.error;
-    console.log("Attendance session insert verification", {
-        table: "attendance_sessions",
-        sessionId: sessionId,
-        recordsFound: verifyResult.data ? verifyResult.data.length : 0,
-        row: verifyResult.data && verifyResult.data[0] ? verifyResult.data[0] : null
-    });
-    return verifyResult.data && verifyResult.data[0] ? verifyResult.data[0] : null;
 }
 
 async function getStudentByIdForAttendance(client, studentId) {
     const studentResult = await client
         .from("students")
-        .select("*")
+        .select("id, name, course_id, course, batch_id, batch")
         .eq("id", studentId)
         .limit(1);
     if (studentResult.error) {
-        console.error("Student attendance student lookup Supabase error", {
+        console.error("Student attendance lookup failed", {
             table: "students",
             studentId: studentId,
             error: studentResult.error
@@ -616,151 +638,16 @@ async function getStudentByIdForAttendance(client, studentId) {
 }
 
 async function ensureStudentCourseIdForAttendance(client, student) {
-    const existingCourseId = String(student && student.course_id || "").trim();
-    if (existingCourseId) {
-        const existingCourseResult = await client
-            .from("courses")
-            .select("id")
-            .eq("id", existingCourseId)
-            .limit(1);
-        if (existingCourseResult.error) {
-            console.error("Attendance student course_id validation failed", {
-                table: "courses",
-                studentId: student && student.id,
-                courseId: existingCourseId,
-                error: existingCourseResult.error
-            });
-            throw existingCourseResult.error;
-        }
-        if (existingCourseResult.data && existingCourseResult.data.length) {
-            return student;
-        }
-        console.warn("Attendance student course_id is stale and will be repaired", {
-            studentId: student && student.id,
-            staleCourseId: existingCourseId,
-            courseName: student && (student.course || student.course_name)
-        });
-    }
-
-    const courseName = String(student && (student.course || student.course_name) || "").trim();
-    console.log("Attendance student course_id missing", {
-        studentId: student && student.id,
-        courseName: courseName
-    });
-    if (!courseName) {
-        return student;
-    }
-
-    const courseResult = await client
-        .from("courses")
-        .select("id, course_name")
-        .eq("course_name", courseName)
-        .limit(1);
-    if (courseResult.error) {
-        console.error("Attendance course_id repair Supabase error", {
-            table: "courses",
-            studentId: student && student.id,
-            courseName: courseName,
-            error: courseResult.error
-        });
-        throw courseResult.error;
-    }
-
-    const course = courseResult.data && courseResult.data[0];
-    if (!course || !course.id) {
-        console.warn("Attendance course_id repair found no matching course", {
-            studentId: student && student.id,
-            courseName: courseName
-        });
-        return student;
-    }
-
-    const updateResult = await client
-        .from("students")
-        .update({ course_id: course.id })
-        .eq("id", student.id)
-        .select("id, course_id, subject, lecture_title, duration_minutes, start_time, end_time, status, created_by, created_at")
-        .single();
-    if (updateResult.error) {
-        console.error("Attendance student course_id repair update failed", {
-            table: "students",
-            studentId: student && student.id,
-            courseId: course.id,
-            error: updateResult.error
-        });
-        throw updateResult.error;
-    }
-
-    console.log("Attendance student course_id repaired", {
-        studentId: student && student.id,
-        courseId: course.id,
-        courseName: courseName
-    });
-    return updateResult.data || Object.assign({}, student, { course_id: course.id });
+    return student;
 }
-
-async function repairCourseStudentsForAttendance(client, courseId, courseName) {
-    const name = String(courseName || "").trim();
-    if (!courseId || !name) return;
-    const lookup = await client
-        .from("students")
-        .select("id, course_id")
-        .eq("course", name)
-        .limit(1000);
-    if (lookup.error) {
-        console.error("Attendance course students repair failed", {
-            table: "students",
-            courseId: courseId,
-            courseName: name,
-            error: lookup.error
-        });
-        throw lookup.error;
-    }
-    const needsRepair = (lookup.data || []).filter(function (student) {
-        return String(student.course_id || "").trim() !== String(courseId);
-    });
-    for (const student of needsRepair) {
-        const update = await client
-            .from("students")
-            .update({ course_id: courseId })
-            .eq("id", student.id);
-        if (update.error) throw update.error;
-    }
-    console.log("Attendance course students repair", {
-        table: "students",
-        courseId: courseId,
-        courseName: name,
-        matchedStudents: lookup.data ? lookup.data.length : 0,
-        repairedStudents: needsRepair.length
-    });
-}
-
 async function getAttendanceSession(client, sessionId) {
     const result = await client
         .from("attendance_sessions")
-        .select("id, course_id, subject, lecture_title, duration_minutes, start_time, end_time, status, created_by, created_at")
+        .select(ATTENDANCE_SESSION_COLUMNS)
         .eq("id", sessionId)
         .limit(1);
     if (result.error) throw result.error;
     return result.data && result.data[0] ? result.data[0] : null;
-}
-
-async function closeAttendanceSession(client, sessionId) {
-    const nowIso = new Date().toISOString();
-    const sessionUpdate = await client
-        .from("attendance_sessions")
-        .update({ status: "CLOSED", end_time: nowIso })
-        .eq("id", sessionId)
-        .select(ATTENDANCE_SESSION_COLUMNS)
-        .single();
-    if (sessionUpdate.error) throw sessionUpdate.error;
-    return sessionUpdate.data;
-}
-
-async function closeAttendanceIfExpired(client, session) {
-    if (!session || session.status !== "OPEN") return session;
-    if (new Date(session.end_time).getTime() > Date.now()) return session;
-    return closeAttendanceSession(client, session.id);
 }
 
 async function buildAttendanceLivePayload(client, session) {
@@ -806,64 +693,12 @@ async function getStudentAttendanceCourseIds(client, student) {
 }
 
 async function getStudentActiveAttendance(client, student) {
-    const courseIds = await getStudentAttendanceCourseIds(client, student);
-    if (!courseIds.length) {
-        return { session: null, debug: { courseId: "", query: null, sessionsFound: 0 } };
-    }
-    const nowIso = new Date().toISOString();
-    const courseId = courseIds[0];
-    const debug = {
-        table: "attendance_sessions",
-        status: "OPEN",
-        course_id: courseId,
-        start_time_lte: nowIso,
-        end_time_gte: nowIso
-    };
-    console.log("Student attendance active query", debug);
-    const sessionResult = await client
-        .from("attendance_sessions")
-        .select(ATTENDANCE_SESSION_COLUMNS)
-        .eq("status", "OPEN")
-        .eq("course_id", courseId)
-        .lte("start_time", nowIso)
-        .gte("end_time", nowIso)
-        .order("start_time", { ascending: false })
-        .limit(1);
-    if (sessionResult.error) {
-        console.error("Student attendance active Supabase error", {
-            query: debug,
-            error: sessionResult.error
-        });
-        throw sessionResult.error;
-    }
-    console.log("Student attendance active sessions found", {
-        studentId: student && student.id,
-        courseId: courseId,
-        sessionsFound: sessionResult.data ? sessionResult.data.length : 0
-    });
-
-    for (const candidate of sessionResult.data || []) {
-        const session = await closeAttendanceIfExpired(client, candidate);
-        if (session && session.status === "OPEN") {
-            return {
-                session: session,
-                debug: Object.assign({}, debug, {
-                    sessionsFound: sessionResult.data ? sessionResult.data.length : 0
-                })
-            };
-        }
-    }
-    return {
-        session: null,
-        debug: Object.assign({}, debug, {
-            sessionsFound: sessionResult.data ? sessionResult.data.length : 0
-        })
-    };
+    return { session: null, debug: { disabled: true, reason: "Admin coaching attendance is teacher-marked." } };
 }
 
-async function getStudentAttendanceResponse(client, sessionId, studentId) {
+async function getStudentAttendance(client, sessionId, studentId) {
     const result = await client
-        .from("attendance_responses")
+        .from(DB.attendanceResponses.table)
         .select(ATTENDANCE_RESPONSE_COLUMNS)
         .eq("session_id", sessionId)
         .eq("student_id", studentId)
@@ -872,22 +707,40 @@ async function getStudentAttendanceResponse(client, sessionId, studentId) {
     return result.data && result.data[0] ? result.data[0] : null;
 }
 
+async function upsertAttendance(client, settings) {
+    const sessionId = String(settings.session_id || "");
+    const studentId = String(settings.student_id || "");
+    const newStatus = normalizeAttendanceStatus(settings.status);
+    const nowIso = new Date().toISOString();
+    const payload = {
+        session_id: sessionId,
+        student_id: studentId,
+        response: newStatus,
+        response_time: settings.marked_at || nowIso
+    };
+    const existing = await getStudentAttendance(client, sessionId, studentId);
+    const result = existing && existing.id
+        ? await client.from(DB.attendanceResponses.table).update(payload).eq("id", existing.id).select(ATTENDANCE_RESPONSE_COLUMNS).single()
+        : await client.from(DB.attendanceResponses.table).insert([payload]).select(ATTENDANCE_RESPONSE_COLUMNS).single();
+    if (result.error) throw result.error;
+    return result.data;
+}
+
 function summarizeStudentAttendance(rows) {
     const summary = {
         total: rows.length,
         present: 0,
         absent: 0,
-        auto_absent: 0,
+        late: 0,
+        leave: 0,
         percentage: 0
     };
     rows.forEach(function (row) {
-        const status = normalizeAttendanceStatus(row.response);
-        if (status === "PRESENT") summary.present += 1;
-        if (status === "ABSENT") summary.absent += 1;
-        if (status === "AUTO_ABSENT") {
-            summary.auto_absent += 1;
-            summary.absent += 1;
-        }
+        const status = normalizeAttendanceStatus(row.status || row.response);
+        if (status === "Present") summary.present += 1;
+        if (status === "Absent") summary.absent += 1;
+        if (status === "Late") summary.late += 1;
+        if (status === "Leave") summary.leave += 1;
     });
     summary.percentage = summary.total ? Math.round((summary.present / summary.total) * 100) : 0;
     return summary;
@@ -1213,60 +1066,64 @@ app.get("/api/material/:id/content", async function (request, response) {
     }
 });
 
+app.get("/api/attendance/batches", async function (request, response) {
+    try {
+        const courseId = String(request.query.course_id || "").trim();
+        const client = getSupabaseClient();
+        let query = client
+            .from(DB.batches.table)
+            .select(DB.batches.columns)
+            .order(DB.batches.name, { ascending: true });
+        if (courseId) query = query.eq(DB.batches.courseId, courseId);
+        const result = await query;
+        if (result.error) throw result.error;
+        const batches = (result.data || []).map(function (batch) {
+            return {
+                id: batch[DB.batches.id],
+                name: batch[DB.batches.name],
+                course_id: batch[DB.batches.courseId],
+                timing: batch[DB.batches.timing],
+                status: batch[DB.batches.status]
+            };
+        });
+        response.json({ success: true, batches: batches });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load batches.", error);
+    }
+});
+
 app.post("/api/attendance/start", async function (request, response) {
     try {
         const courseId = String(request.body.course_id || "").trim();
-        const courseName = String(request.body.course_name || "").trim();
-        const subject = String(request.body.subject || "").trim();
-        const lectureTitle = String(request.body.lecture_title || "").trim();
+        const batchId = String(request.body.batch_id || request.body.batch || "").trim();
         const durationMinutes = Math.max(1, Math.floor(Number(request.body.duration_minutes || 5)));
         const createdBy = String(request.body.created_by || "admin").trim();
-
-        if (!courseId || !subject || !lectureTitle) {
-            response.status(400).json({ success: false, message: "course_id, subject, and lecture_title are required." });
+        if (!courseId || !batchId) {
+            response.status(400).json({ success: false, message: "course_id and batch_id are required." });
             return;
         }
-
         const client = getSupabaseClient();
-        await repairCourseStudentsForAttendance(client, courseId, courseName);
-        const studentResult = await client
-            .from("students")
-            .select("id, name, course_id")
-            .eq("course_id", courseId);
-        if (studentResult.error) throw studentResult.error;
-
         const startTime = new Date();
         const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-        const sessionId = crypto.randomUUID();
         const sessionPayload = {
-            id: sessionId,
+            id: crypto.randomUUID(),
             course_id: courseId,
-            subject: subject,
-            lecture_title: lectureTitle,
+            batch_id: batchId,
+            subject: "Attendance",
+            lecture_title: "Batch Attendance",
+            duration_minutes: durationMinutes,
             start_time: startTime.toISOString(),
             end_time: endTime.toISOString(),
-            duration_minutes: durationMinutes,
             status: "OPEN",
             created_by: createdBy
         };
-
         const sessionInsert = await client
             .from("attendance_sessions")
             .insert([sessionPayload])
-            .select("id, course_id, subject, lecture_title, duration_minutes, start_time, end_time, status, created_by, created_at")
+            .select(ATTENDANCE_SESSION_COLUMNS)
             .single();
         if (sessionInsert.error) throw sessionInsert.error;
-        await verifyAttendanceSessionInserted(client, sessionId);
-
-        const students = studentResult.data || [];
-        console.log("Attendance start course student lookup", {
-            table: "students",
-            courseId: courseId,
-            studentsFound: students.length
-        });
-
-        const payload = await buildAttendanceLivePayload(client, sessionInsert.data);
-        response.json(payload);
+        response.json(await buildAttendanceLivePayload(client, sessionInsert.data));
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not start attendance.", error);
     }
@@ -1280,18 +1137,19 @@ app.get("/api/attendance/live/:sessionId", async function (request, response) {
             response.status(404).json({ success: false, message: "Attendance session not found." });
             return;
         }
-        const currentSession = await closeAttendanceIfExpired(client, session);
-        response.json(await buildAttendanceLivePayload(client, currentSession));
+        response.json(await buildAttendanceLivePayload(client, session));
     } catch (error) {
-        sendApiError(response, 500, error.message || "Could not load live attendance.", error);
+        sendApiError(response, 500, error.message || "Could not load attendance.", error);
     }
 });
 
-app.post("/api/attendance/close", async function (request, response) {
+app.post("/api/attendance/mark", async function (request, response) {
     try {
-        const sessionId = String(request.body.session_id || request.body.sessionId || "").trim();
-        if (!sessionId) {
-            response.status(400).json({ success: false, message: "session_id is required." });
+        const sessionId = String(request.body.session_id || "").trim();
+        const studentId = String(request.body.student_id || "").trim();
+        const status = normalizeAttendanceStatus(request.body.status);
+        if (!sessionId || !studentId || !status) {
+            response.status(400).json({ success: false, message: "session_id, student_id, and status are required." });
             return;
         }
         const client = getSupabaseClient();
@@ -1300,10 +1158,51 @@ app.post("/api/attendance/close", async function (request, response) {
             response.status(404).json({ success: false, message: "Attendance session not found." });
             return;
         }
-        const currentSession = session.status === "OPEN" ? await closeAttendanceSession(client, sessionId) : session;
-        response.json(await buildAttendanceLivePayload(client, currentSession));
+        const row = await upsertAttendance(client, {
+            session_id: sessionId,
+            student_id: studentId,
+            status: status,
+            remarks: request.body.remarks || ""
+        });
+        response.json(Object.assign(await buildAttendanceLivePayload(client, session), { attendance: row }));
     } catch (error) {
-        sendApiError(response, 500, error.message || "Could not close attendance.", error);
+        sendApiError(response, 500, error.message || "Could not mark attendance.", error);
+    }
+});
+
+app.get("/api/attendance/edit", async function (request, response) {
+    try {
+        const courseId = String(request.query.course_id || "").trim();
+        const batchId = String(request.query.batch_id || "").trim();
+        const date = String(request.query.date || "").trim();
+        if (!courseId || !batchId || !date) {
+            response.status(400).json({ success: false, message: "course_id, batch_id, and date are required." });
+            return;
+        }
+        const client = getSupabaseClient();
+        const sessionResult = await client
+            .from("attendance_sessions")
+            .select(ATTENDANCE_SESSION_COLUMNS)
+            .eq("course_id", courseId)
+            .eq("batch_id", batchId)
+            .gte("created_at", date + "T00:00:00")
+            .lt("created_at", date + "T23:59:59.999")
+            .order("created_at", { ascending: false })
+            .limit(1);
+        if (sessionResult.error) throw sessionResult.error;
+        let session = sessionResult.data && sessionResult.data[0] ? sessionResult.data[0] : null;
+        if (!session) {
+            const insert = await client
+                .from("attendance_sessions")
+                .insert([{ id: crypto.randomUUID(), course_id: courseId, batch_id: batchId, subject: "Attendance", lecture_title: "Batch Attendance", duration_minutes: 5, start_time: date + "T00:00:00.000Z", end_time: date + "T00:05:00.000Z", status: "OPEN", created_at: date + "T00:00:00.000Z", created_by: "admin" }])
+                .select(ATTENDANCE_SESSION_COLUMNS)
+                .single();
+            if (insert.error) throw insert.error;
+            session = insert.data;
+        }
+        response.json(await buildAttendanceLivePayload(client, session));
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load attendance edit rows.", error);
     }
 });
 
@@ -1313,17 +1212,103 @@ app.get("/api/attendance/history", async function (request, response) {
         let query = client
             .from("attendance_sessions")
             .select(ATTENDANCE_SESSION_COLUMNS)
-            .order("start_time", { ascending: false });
+            .order("created_at", { ascending: false });
         if (request.query.course_id) query = query.eq("course_id", String(request.query.course_id));
+        if (request.query.batch_id) query = query.eq("batch_id", String(request.query.batch_id));
         if (request.query.date) {
             const date = String(request.query.date);
-            query = query.gte("start_time", date + "T00:00:00").lt("start_time", date + "T23:59:59.999");
+            query = query.gte("created_at", date + "T00:00:00").lt("created_at", date + "T23:59:59.999");
         }
         const result = await query;
         if (result.error) throw result.error;
         response.json({ success: true, sessions: result.data || [] });
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not load attendance history.", error);
+    }
+});
+
+app.get("/api/attendance/report", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const fromDate = String(request.query.from_date || request.query.from || "").trim();
+        const toDate = String(request.query.to_date || request.query.to || "").trim();
+        let sessionQuery = client
+            .from("attendance_sessions")
+            .select(ATTENDANCE_SESSION_COLUMNS)
+            .order("created_at", { ascending: false });
+        if (fromDate) sessionQuery = sessionQuery.gte("created_at", fromDate + "T00:00:00");
+        if (toDate) sessionQuery = sessionQuery.lt("created_at", toDate + "T23:59:59.999");
+        if (request.query.course_id) sessionQuery = sessionQuery.eq("course_id", String(request.query.course_id));
+        if (request.query.batch_id) sessionQuery = sessionQuery.eq("batch_id", String(request.query.batch_id));
+        const sessionResult = await sessionQuery;
+        if (sessionResult.error) throw sessionResult.error;
+        const sessions = sessionResult.data || [];
+        const sessionIds = sessions.map(function (session) { return session.id; });
+        let rows = [];
+        if (sessionIds.length) {
+            let attendanceQuery = client
+                .from(DB.attendanceResponses.table)
+                .select(ATTENDANCE_RESPONSE_COLUMNS)
+                .in("session_id", sessionIds);
+            if (request.query.student_id) attendanceQuery = attendanceQuery.eq("student_id", String(request.query.student_id));
+            if (request.query.status) attendanceQuery = attendanceQuery.eq("response", normalizeAttendanceStatus(request.query.status));
+            const attendanceResult = await attendanceQuery;
+            if (attendanceResult.error) throw attendanceResult.error;
+            rows = attendanceResult.data || [];
+        }
+        const sessionById = {};
+        sessions.forEach(function (session) {
+            sessionById[String(session.id)] = session;
+        });
+        const studentIds = Array.from(new Set(rows.map(function (row) { return row.student_id; }).filter(Boolean)));
+        let students = [];
+        if (studentIds.length) {
+            const studentResult = await client
+                .from("students")
+                .select("id, name, course_id, course, batch_id, batch")
+                .in("id", studentIds);
+            if (studentResult.error) throw studentResult.error;
+            students = studentResult.data || [];
+        }
+        const studentById = {};
+        students.forEach(function (student) {
+            studentById[String(student.id)] = student;
+        });
+        const batchIds = Array.from(new Set(sessions.map(function (session) { return session.batch_id; }).concat(students.map(function (student) { return student.batch_id; })).filter(Boolean)));
+        let batches = [];
+        if (batchIds.length) {
+            const batchResult = await client
+                .from("batches")
+                .select("id, batch_name")
+                .in("id", batchIds);
+            if (batchResult.error) throw batchResult.error;
+            batches = batchResult.data || [];
+        }
+        const batchById = {};
+        batches.forEach(function (batch) {
+            batchById[String(batch.id)] = batch;
+        });
+        const report = rows.map(function (row) {
+            const session = sessionById[String(row.session_id)] || {};
+            const student = studentById[String(row.student_id)] || {};
+            const batch = batchById[String(session.batch_id || student.batch_id)] || {};
+            return {
+                student_name: getAttendanceStudentName(student) || row.student_id,
+                student_id: row.student_id,
+                batch_id: session.batch_id || student.batch_id || "",
+                batch: batch.batch_name || student.batch || "",
+                course_id: session.course_id || "",
+                course: student.course || "",
+                date: String(session.start_time || session.created_at || row.response_time || "").slice(0, 10),
+                status: normalizeAttendanceStatus(row.response),
+                response: normalizeAttendanceStatus(row.response),
+                time: row.response_time,
+                remarks: ""
+            };
+        });
+        response.json({ success: true, rows: report, summary: buildAttendanceSummary(report) });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not generate attendance report.", error);
     }
 });
 
@@ -1335,157 +1320,63 @@ app.get("/api/attendance/report/:sessionId", async function (request, response) 
             response.status(404).json({ success: false, message: "Attendance session not found." });
             return;
         }
-        const currentSession = await closeAttendanceIfExpired(client, session);
-        const rows = await getAttendanceRows(client, currentSession);
-        response.json({
-            success: true,
-            session: currentSession,
-            summary: buildAttendanceSummary(rows),
-            students: rows
-        });
+        response.json(await buildAttendanceLivePayload(client, session));
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not load attendance report.", error);
     }
 });
 
-app.get("/api/student/attendance/active", async function (request, response) {
+app.get("/api/attendance/dashboard", async function (request, response) {
     try {
-        const resolved = await resolveStudentForAttendance(request);
-        console.log("Student attendance active request", {
-            studentId: resolved.auth.studentId,
-            studentCourseId: resolved.student && resolved.student.course_id
-        });
-        const active = await getStudentActiveAttendance(resolved.client, resolved.student);
-        const session = active.session;
-        if (!session) {
-            response.json({
-                success: true,
-                active: false,
-                debug: {
-                    student_id: resolved.auth.studentId,
-                    student_course_id: resolved.student && resolved.student.course_id || "",
-                    attendance_query: active.debug,
-                    sessions_found: active.debug && active.debug.sessionsFound || 0
-                }
-            });
-            return;
+        const client = getSupabaseClient();
+        const today = new Date().toISOString().slice(0, 10);
+        const sessionResult = await client
+            .from("attendance_sessions")
+            .select(ATTENDANCE_SESSION_COLUMNS)
+            .gte("created_at", today + "T00:00:00")
+            .lt("created_at", today + "T23:59:59.999");
+        if (sessionResult.error) throw sessionResult.error;
+        const sessions = sessionResult.data || [];
+        const sessionIds = sessions.map(function (session) { return session.id; });
+        let rows = [];
+        if (sessionIds.length) {
+            const attendanceResult = await client
+                .from(DB.attendanceResponses.table)
+                .select(ATTENDANCE_RESPONSE_COLUMNS)
+                .in("session_id", sessionIds);
+            if (attendanceResult.error) throw attendanceResult.error;
+            rows = attendanceResult.data || [];
         }
-        const row = await getStudentAttendanceResponse(resolved.client, session.id, resolved.auth.studentId);
-        response.json({
-            success: true,
-            active: true,
-            session: session,
-            response: row ? {
-                student_id: row.student_id,
-                session_id: row.session_id,
-                response: row.response,
-                response_time: row.response_time
-            } : null,
-            can_respond: !row,
-            already_submitted: Boolean(row),
-            remaining_seconds: getRemainingSeconds(session),
-            debug: {
-                student_id: resolved.auth.studentId,
-                student_course_id: resolved.student && resolved.student.course_id || "",
-                attendance_query: active.debug,
-                sessions_found: active.debug && active.debug.sessionsFound || 0,
-                response_found: Boolean(row)
-            }
-        });
+        response.json({ success: true, summary: buildAttendanceSummary(rows), sessions: sessions });
     } catch (error) {
-        sendApiError(response, error.statusCode || 500, error.message || "Could not load active attendance.", error);
+        sendApiError(response, 500, error.message || "Could not load attendance dashboard.", error);
     }
 });
 
+app.get("/api/student/attendance/active", async function (request, response) {
+    response.json({ success: true, active: false });
+});
+
 app.post("/api/student/attendance/respond", async function (request, response) {
-    try {
-        const resolved = await resolveStudentForAttendance(request);
-        const sessionId = String(request.body.session_id || request.body.sessionId || "").trim();
-        const requestedResponse = normalizeAttendanceStatus(request.body.response);
-        if (!sessionId) {
-            response.status(400).json({ success: false, message: "session_id is required." });
-            return;
-        }
-        if (!["PRESENT", "ABSENT"].includes(requestedResponse)) {
-            response.status(400).json({ success: false, message: "Response must be PRESENT or ABSENT." });
-            return;
-        }
-
-        const session = await getAttendanceSession(resolved.client, sessionId);
-        if (!session) {
-            response.status(404).json({ success: false, message: "Attendance session not found." });
-            return;
-        }
-        const currentSession = await closeAttendanceIfExpired(resolved.client, session);
-        if (currentSession.status !== "OPEN") {
-            response.status(409).json({ success: false, message: "Attendance is closed." });
-            return;
-        }
-
-        const courseIds = await getStudentAttendanceCourseIds(resolved.client, resolved.student);
-        if (!courseIds.includes(String(currentSession.course_id))) {
-            response.status(403).json({ success: false, message: "You are not allowed to respond to this attendance session." });
-            return;
-        }
-
-        const row = await getStudentAttendanceResponse(resolved.client, sessionId, resolved.auth.studentId);
-        if (row) {
-            response.json({ success: true, message: "Attendance Submitted", already_submitted: true, response: row });
-            return;
-        }
-
-        const responseTime = new Date().toISOString();
-        const insertResult = await resolved.client
-            .from("attendance_responses")
-            .insert([{
-                session_id: sessionId,
-                student_id: resolved.auth.studentId,
-                response: requestedResponse,
-                response_time: responseTime
-            }])
-            .select("session_id, student_id, response, response_time, created_at")
-            .single();
-        if (insertResult.error) {
-            if (insertResult.error.code === "23505") {
-                const existing = await getStudentAttendanceResponse(resolved.client, sessionId, resolved.auth.studentId);
-                response.json({ success: true, message: "Attendance Submitted", already_submitted: true, response: existing });
-                return;
-            }
-            console.error("Student attendance response insert Supabase error", {
-                table: "attendance_responses",
-                studentId: resolved.auth.studentId,
-                sessionId: sessionId,
-                error: insertResult.error
-            });
-            throw insertResult.error;
-        }
-
-        response.json({
-            success: true,
-            message: "Attendance Submitted Successfully",
-            response: insertResult.data
-        });
-    } catch (error) {
-        sendApiError(response, error.statusCode || 500, error.message || "Could not submit attendance.", error);
-    }
+    response.status(410).json({ success: false, message: "Student self-attendance is disabled. Teacher marks attendance in admin panel." });
 });
 
 app.get("/api/student/attendance/history", async function (request, response) {
     try {
         const resolved = await resolveStudentForAttendance(request);
-        const responseResult = await resolved.client
-            .from("attendance_responses")
+        const attendanceResult = await resolved.client
+            .from(DB.attendanceResponses.table)
             .select(ATTENDANCE_RESPONSE_COLUMNS)
             .eq("student_id", resolved.auth.studentId)
-            .order("created_at", { ascending: false });
-        if (responseResult.error) throw responseResult.error;
-        const rows = responseResult.data || [];
+            .order("response_time", { ascending: false });
+        if (attendanceResult.error) throw attendanceResult.error;
+        const rows = attendanceResult.data || [];
         const sessionIds = Array.from(new Set(rows.map(function (row) { return row.session_id; }).filter(Boolean)));
         let sessions = [];
         if (sessionIds.length) {
             const sessionResult = await resolved.client
                 .from("attendance_sessions")
-                .select("id, course_id, subject, lecture_title, duration_minutes, start_time, end_time, status, created_by, created_at")
+                .select(ATTENDANCE_SESSION_COLUMNS)
                 .in("id", sessionIds);
             if (sessionResult.error) throw sessionResult.error;
             sessions = sessionResult.data || [];
@@ -1495,17 +1386,13 @@ app.get("/api/student/attendance/history", async function (request, response) {
             sessionById[String(session.id)] = session;
         });
         const records = rows.map(function (row) {
-            return Object.assign({}, row, { session: sessionById[String(row.session_id)] || null });
-        }).sort(function (a, b) {
-            const aTime = a.session && a.session.start_time || a.created_at || "";
-            const bTime = b.session && b.session.start_time || b.created_at || "";
-            return String(bTime).localeCompare(String(aTime));
+            return Object.assign({}, row, {
+                status: normalizeAttendanceStatus(row.response),
+                marked_at: row.response_time || row.created_at,
+                session: sessionById[String(row.session_id)] || null
+            });
         });
-        response.json({
-            success: true,
-            summary: summarizeStudentAttendance(records),
-            records: records
-        });
+        response.json({ success: true, summary: summarizeStudentAttendance(records), records: records });
     } catch (error) {
         sendApiError(response, error.statusCode || 500, error.message || "Could not load student attendance history.", error);
     }
@@ -1567,3 +1454,4 @@ function sendStartupError(error) {
         metadata: details.metadata
     });
 }
+

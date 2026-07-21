@@ -36,6 +36,73 @@
         return rows[0] || {};
     }
 
+    function apiUrl(path) {
+        if (window.VinayakApi) return window.VinayakApi.url(path);
+        return String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "") + path;
+    }
+
+    async function fetchStudentAttendanceHistory() {
+        const studentId = window.VinayakAuth.getStoredStudentId();
+        const token = window.VinayakAuth.getStoredStudentSessionId();
+        const response = await fetch(apiUrl("/api/student/attendance/history"), {
+            headers: {
+                "Accept": "application/json",
+                "x-student-id": studentId,
+                "x-session-token": token
+            }
+        });
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.message || "Could not load attendance history.");
+        }
+        return payload;
+    }
+
+    function attendanceClass(status) {
+        const normalized = String(status || "").toLowerCase();
+        if (normalized === "present") return "present";
+        if (normalized === "absent") return "absent";
+        if (normalized === "late") return "late";
+        if (normalized === "leave") return "leave";
+        return "waiting";
+    }
+
+    function attendanceLabel(status) {
+        const normalized = String(status || "").trim().toLowerCase();
+        if (!normalized) return "Not Marked";
+        return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    }
+
+    function renderAttendanceProfile(payload) {
+        const summary = payload.summary || {};
+        const records = payload.records || [];
+        const summaryBox = document.getElementById("profileAttendanceSummary");
+        if (summaryBox) {
+            summaryBox.innerHTML = [
+                ["Attendance %", (summary.percentage || 0) + "%"],
+                ["Present", summary.present || 0],
+                ["Absent", summary.absent || 0],
+                ["Late", summary.late || 0],
+                ["Leave", summary.leave || 0],
+                ["Total Records", summary.total || 0]
+            ].map(function (row) {
+                return '<div><small>' + escapeHtml(row[0]) + '</small><strong>' + escapeHtml(row[1]) + '</strong></div>';
+            }).join("");
+        }
+        const calendar = document.getElementById("profileAttendanceCalendar");
+        if (calendar) {
+            calendar.innerHTML = records.length ? records.slice(0, 42).map(function (record) {
+                const session = record.session || {};
+                const date = String(session.created_at || record.marked_at || "").slice(0, 10) || "-";
+                return '<span class="attendance-day ' + attendanceClass(record.status) + '" title="' + escapeHtml(date + " - " + attendanceLabel(record.status)) + '">' + escapeHtml(date.slice(8, 10) || "-") + '</span>';
+            }).join("") : '<div class="student-empty">No attendance calendar records yet.</div>';
+        }
+        renderList("profileAttendanceTimeline", records, "No attendance history found.", function (record) {
+            const session = record.session || {};
+            return '<div class="student-list-item"><i class="fas fa-calendar-check"></i><span><strong>Attendance</strong><small>' + escapeHtml([session.batch_id, attendanceLabel(record.status), record.marked_at ? new Date(record.marked_at).toLocaleString() : ""].filter(Boolean).join(" | ")) + '</small></span></div>';
+        });
+    }
+
     function renderList(targetId, items, emptyMessage, renderItem) {
         const target = document.getElementById(targetId);
         if (!target) return;
@@ -84,6 +151,12 @@
             target.innerHTML = rows.map(function (row) {
                 return '<div><small>' + escapeHtml(row[0]) + '</small><strong>' + escapeHtml(row[1]) + '</strong></div>';
             }).join("");
+        }
+        try {
+            renderAttendanceProfile(await fetchStudentAttendanceHistory());
+        } catch (error) {
+            console.warn("Profile attendance history failed", error);
+            renderList("profileAttendanceTimeline", [], "Could not load attendance history right now.", function () { return ""; });
         }
     }
 

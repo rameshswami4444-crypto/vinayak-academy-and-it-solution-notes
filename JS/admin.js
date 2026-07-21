@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
     if (window.__vinayakAdminLoaded) return;
     window.__vinayakAdminLoaded = true;
     window.__vinayakAdminLoadedAt = new Date().toISOString();
@@ -12,14 +12,11 @@
     let notesCache = [];
     let materialCoursesCache = [];
     let announcementsCache = [];
-    let attendanceHistoryCache = [];
     let attendanceReportCache = null;
+    let activeBatchDetailsId = "";
     let activeAttendanceSessionId = "";
     let attendancePollTimer = null;
-    let attendanceCountdownTimer = null;
     let attendanceRealtimeChannel = null;
-    let activeAttendanceEndTime = "";
-    let attendanceClosing = false;
     let attendanceRealtimeActive = false;
     const loadedAdminTables = {};
     let materialUploadQueue = [];
@@ -28,9 +25,25 @@
     let bulkRows = [];
     let emiMode = "auto";
     let currentAdmissionStep = 1;
-    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, attendanceHistory: 1 };
-    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, attendanceHistory: 10 };
+    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1 };
+    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10 };
     const MAX_PDF_SIZE = 200 * 1024 * 1024;
+    const DB = {
+        batches: {
+            table: "batches",
+            id: "id",
+            courseId: "course_id",
+            name: "batch_name",
+            timing: "timing",
+            status: "status"
+        },
+        students: {
+            batchId: "batch_id",
+            batchText: "batch",
+            courseId: "course_id",
+            courseText: "course"
+        }
+    };
     const BULK_COLUMNS = [
         "Student ID", "Password", "Student Name", "Father Name", "Mobile", "Alternate Mobile", "Email", "Address", "Course", "Batch", "Admission Date", "Course Duration", "Total Fee", "Advance Fee", "Remaining Fee", "Number of EMI", "First EMI Due Date"
     ];
@@ -149,6 +162,89 @@
             .sort(function (a, b) { return a.name.localeCompare(b.name); });
     }
 
+    function getCourseIdByName(courseName) {
+        const normalized = normalizeKey(courseName);
+        const match = coursesCache.find(function (course) {
+            return normalizeKey(getCourseName(course)) === normalized;
+        });
+        return match ? getCourseId(match) : "";
+    }
+
+    function getBatchId(batch) {
+        return String((batch && batch.id) || "");
+    }
+
+    function getBatchName(batch) {
+        return String((batch && (batch[DB.batches.name] || batch.name || batch.batch)) || "");
+    }
+
+    function getBatchStatus(batch) {
+        return String((batch && batch[DB.batches.status]) || "Active").trim() === "Inactive" ? "Inactive" : "Active";
+    }
+
+    function getBatchTiming(batch) {
+        return String((batch && batch[DB.batches.timing]) || "");
+    }
+
+    function splitBatchTiming(batch) {
+        const parts = getBatchTiming(batch).split(" - ");
+        return { start: parts[0] || "", end: parts[1] || "" };
+    }
+
+    function getBatchById(batchId) {
+        return batchesCache.find(function (batch) {
+            return getBatchId(batch) === String(batchId || "");
+        });
+    }
+
+    function getBatchLabelById(batchId) {
+        const batch = getBatchById(batchId);
+        return batch ? getBatchName(batch) : String(batchId || "");
+    }
+
+    function getStudentBatchId(student) {
+        return String((student && student[DB.students.batchId]) || "");
+    }
+
+    function getStudentBatchName(student) {
+        return getBatchLabelById(getStudentBatchId(student)) || String((student && student[DB.students.batchText]) || "");
+    }
+
+    function getStudentCourseId(student) {
+        return String((student && student[DB.students.courseId]) || "") || getCourseIdByName(student && student[DB.students.courseText]);
+    }
+
+    function getBatchOptionsForCourse(courseId, activeOnly) {
+        return batchesCache
+            .filter(function (batch) {
+                return (!courseId || String(batch[DB.batches.courseId] || "") === String(courseId))
+                    && (!activeOnly || getBatchStatus(batch) === "Active");
+            })
+            .map(function (batch) {
+                return { value: getBatchId(batch), label: getBatchName(batch) };
+            })
+            .filter(function (batch) { return batch.value && batch.label; })
+            .sort(function (a, b) { return a.label.localeCompare(b.label); });
+    }
+
+    function setBatchSelectOptions(selectId, courseId, placeholder, includeAll, selectedValue, activeOnly) {
+        const options = getBatchOptionsForCourse(courseId, activeOnly !== false);
+        if (includeAll) {
+            setFilterOptions(selectId, options, placeholder || "All Batches");
+        } else {
+            setSelectOptions(selectId, options, placeholder || "Select batch", courseId ? "No batches found" : "Select course first");
+        }
+        if (selectedValue != null) {
+            const select = document.getElementById(selectId);
+            if (select) select.value = String(selectedValue || "");
+        }
+    }
+
+    function getSelectedCourseIdFromStudentSelect(selectId) {
+        const value = getValue(selectId);
+        return getCourseIdByName(value) || value;
+    }
+
     function getSelectedMaterialCourseIds() {
         return Array.from(document.querySelectorAll('[name="materialCourseIds"]:checked'))
             .map(function (input) { return input.value; })
@@ -231,9 +327,16 @@
         if (sectionName === "courses") ensureMaterialLoaded();
         if (sectionName === "material") ensureMaterialLoaded();
         if (sectionName === "notifications") ensureAnnouncementsLoaded();
+        if (sectionName === "batches") {
+            ensureBatchesLoaded(true);
+        }
+        if (sectionName === "reports") {
+            updateReportControls();
+            renderReports();
+        }
         if (sectionName === "attendance") {
             updateAttendanceControls();
-            loadAttendanceHistory();
+            loadAttendanceDashboard();
         }
     }
 
@@ -302,7 +405,8 @@
         return (data || []).map(function (student) {
             return Object.assign({}, student, {
                 course: window.VinayakAuth.normalizeSingleCourse(student.course),
-                batch: student.batch || "",
+                batch_id: student[DB.students.batchId] || "",
+                batch: student[DB.students.batchText] || getBatchLabelById(student[DB.students.batchId]) || "",
                 account_status: normalizeStatus(student.account_status || (student.fees_status === "due" ? "blocked" : "active")),
                 fees_status: window.VinayakAuth.normalizeFeesStatus(student.fees_status),
                 due_date: window.VinayakAuth.normalizeDateValue(student.due_date),
@@ -387,6 +491,25 @@
         paymentsCache = await fetchOptionalTable("payments");
         loadedAdminTables.payments = true;
         return paymentsCache;
+    }
+
+    async function ensureBatchesLoaded(force) {
+        if (!force && loadedAdminTables.batches) {
+            updateBatchControls();
+            renderBatches();
+            return batchesCache;
+        }
+        try {
+            batchesCache = await fetchOptionalTable(DB.batches.table, { columns: "id, course_id, batch_name, timing, status", orderBy: DB.batches.name, ascending: true });
+            loadedAdminTables.batches = true;
+        } catch (error) {
+            console.error("Batch loading failed", error);
+            batchesCache = [];
+            setPanelMessage(error.message || "Could not load batches.", "error");
+        }
+        updateBatchControls();
+        renderBatches();
+        return batchesCache;
     }
 
     async function loadCourses(force) {
@@ -578,10 +701,14 @@
             const totalFee = toNumber(getValue("newTotalFee"));
             const admissionFee = toNumber(getValue("newAdmissionFee"));
             const remainingFee = toNumber(getValue("newRemainingFee"));
+            const selectedBatch = getBatchById(getValue("newBatch"));
+            const selectedCourseId = getSelectedCourseIdFromStudentSelect("newStudentCourse");
             console.log("Admission values", {
                 studentId: studentId,
                 course: getValue("newStudentCourse"),
-                batch: getValue("newBatch"),
+                course_id: selectedCourseId,
+                batch_id: getValue("newBatch"),
+                batch: selectedBatch ? getBatchName(selectedBatch) : "",
                 totalFee: totalFee,
                 admissionFee: admissionFee,
                 remainingFee: remainingFee,
@@ -619,7 +746,9 @@
                 email: getValue("newEmail") || null,
                 address: getValue("newAddress"),
                 course: window.VinayakAuth.normalizeSingleCourse(getValue("newStudentCourse")),
-                batch: getValue("newBatch"),
+                course_id: selectedCourseId || null,
+                batch_id: getValue("newBatch"),
+                batch: selectedBatch ? getBatchName(selectedBatch) : "",
                 admission_date: getValue("newAdmissionDate"),
                 course_duration: getValue("newCourseDuration"),
                 account_status: normalizeStatus(getValue("newAccountStatus")),
@@ -693,10 +822,11 @@
         const pageData = paginateRows(students, "students");
         pageData.rows.forEach(function (student) {
             const id = getIdentifier(student);
+            const batchName = getStudentBatchName(student);
             const row = document.createElement("tr");
             row.innerHTML = [
                 "<td>", escapeHtml(id), "</td><td>", escapeHtml(student.name || "-"), "</td><td>", escapeHtml(student.mobile || "-"),
-                "</td><td>", escapeHtml(student.course || "-"), "</td><td>", escapeHtml(student.batch || "-"), "</td>",
+                "</td><td>", escapeHtml(student.course || "-"), "</td><td>", escapeHtml(batchName || "-"), "</td>",
                 '<td><span class="status-badge ', student.account_status === "active" ? "status-paid" : "status-due", '">', escapeHtml(student.account_status), "</span></td>",
                 '<td><div class="erp-row-actions">',
                 '<button type="button" class="table-action-btn" data-view-student="', escapeHtml(id), '">View</button>',
@@ -715,15 +845,13 @@
             return;
         }
         const current = filter.value;
-        const batches = studentsCache.map(function (student) {
-            return student.batch;
-        }).filter(Boolean).filter(function (batch, index, all) {
-            return all.indexOf(batch) === index;
-        }).sort();
+        const courseName = getValue("studentCourseFilter");
+        const courseId = courseName ? getCourseIdByName(courseName) : "";
+        const batches = getBatchOptionsForCourse(courseId, false);
         filter.innerHTML = '<option value="">All</option>' + batches.map(function (batch) {
-            return '<option value="' + escapeHtml(batch) + '">' + escapeHtml(batch) + "</option>";
+            return '<option value="' + escapeHtml(batch.value) + '">' + escapeHtml(batch.label) + "</option>";
         }).join("");
-        filter.value = current;
+        filter.value = batches.some(function (batch) { return batch.value === current; }) ? current : "";
     }
 
     function applyStudentFilter(resetPage) {
@@ -735,10 +863,11 @@
             paginationState.students = 1;
         }
         renderStudents(studentsCache.filter(function (student) {
-            const matchesQuery = !query || [getIdentifier(student), student.name, student.father_name, student.mobile, student.course, student.batch].some(function (value) {
+            const studentBatch = getStudentBatchName(student);
+            const matchesQuery = !query || [getIdentifier(student), student.name, student.father_name, student.mobile, student.course, studentBatch].some(function (value) {
                 return String(value || "").toLowerCase().includes(query);
             });
-            return matchesQuery && (!course || student.course === course) && (!batch || student.batch === batch) && (!status || student.account_status === status);
+            return matchesQuery && (!course || student.course === course) && (!batch || getStudentBatchId(student) === batch) && (!status || student.account_status === status);
         }));
     }
 
@@ -805,7 +934,7 @@
         setValue("editEmail", student.email || "");
         setValue("editStudentPassword", student.password || "");
         setValue("editStudentCourse", student.course || "");
-        setValue("editBatch", student.batch || "");
+        setBatchSelectOptions("editBatch", getSelectedCourseIdFromStudentSelect("editStudentCourse"), "Select batch", false, getStudentBatchId(student), false);
         setValue("editAdmissionDate", student.admission_date || "");
         setValue("editCourseDuration", student.course_duration || "");
         setValue("editAccountStatus", student.account_status || "active");
@@ -825,6 +954,7 @@
             form.reset();
             delete form.dataset.originalStudentId;
         }
+        setBatchSelectOptions("editBatch", "", "Select course first", false);
         setValue("editAccountStatus", "active");
         setValue("editFeesStatus", "pending");
         renderEditEmis("");
@@ -948,14 +1078,16 @@
         const form = document.getElementById("editStudentForm");
         const originalStudentId = (form && form.dataset.originalStudentId) || getValue("editStudentId");
         const studentId = getValue("editStudentId");
-        if (!studentId || !getValue("editStudentName") || !validateMobile(getValue("editMobile"), true) || !validateMobile(getValue("editAlternateMobile"), false)) {
-            setPanelMessage("Student ID, name, and valid mobile are required.", "error");
+        if (!studentId || !getValue("editStudentName") || !getValue("editBatch") || !validateMobile(getValue("editMobile"), true) || !validateMobile(getValue("editAlternateMobile"), false)) {
+            setPanelMessage("Student ID, name, batch, and valid mobile are required.", "error");
             return;
         }
         try {
             const client = window.VinayakAuth.getClient();
             const status = normalizeStatus(getValue("editAccountStatus"));
             const feesStatus = getValue("editFeesStatus") || (status === "active" ? "paid" : "due");
+            const selectedBatch = getBatchById(getValue("editBatch"));
+            const selectedCourseId = getSelectedCourseIdFromStudentSelect("editStudentCourse");
             const payload = {
                 id: studentId,
                 name: getValue("editStudentName"),
@@ -965,7 +1097,9 @@
                 email: getValue("editEmail") || null,
                 password: getValue("editStudentPassword"),
                 course: window.VinayakAuth.normalizeSingleCourse(getValue("editStudentCourse")),
-                batch: getValue("editBatch"),
+                course_id: selectedCourseId || null,
+                batch_id: getValue("editBatch") || null,
+                batch: selectedBatch ? getBatchName(selectedBatch) : "",
                 admission_date: getValue("editAdmissionDate") || null,
                 course_duration: getValue("editCourseDuration") || null,
                 account_status: status,
@@ -1072,7 +1206,7 @@
         const body = document.getElementById("studentProfileBody");
         body.innerHTML = [
             profileBlock("Personal Details", [["Student ID", studentId], ["Name", student.name], ["Father Name", student.father_name], ["Mobile", student.mobile], ["Alternate Mobile", student.alternate_mobile], ["Email", student.email], ["Address", student.address]]),
-            profileBlock("Course", [["Course", student.course], ["Batch", student.batch], ["Admission Date", student.admission_date], ["Duration", student.course_duration]]),
+            profileBlock("Course", [["Course", student.course], ["Batch", getStudentBatchName(student)], ["Admission Date", student.admission_date], ["Duration", student.course_duration]]),
             profileBlock("Fee Summary", [["Total Fee", money(fees.total_fee)], ["Admission Fee", money(fees.admission_fee)], ["Remaining Fee", money(fees.remaining_fee)], ["Payment Status", fees.status || student.fees_status]]),
             profileBlock("EMI Summary", [["Total EMIs", emis.length], ["Upcoming EMI", upcoming ? "EMI " + upcoming.emi_number + " - " + money(upcoming.amount) + " due " + upcoming.due_date : "-"], ["Overdue EMI", overdue.length], ["Account Status", student.account_status]]),
             profileBlock("Payment History", payments.length ? payments.slice(0, 6).map(function (payment) {
@@ -1154,7 +1288,7 @@
 
     function getBatchNames() {
         const fromTable = batchesCache.map(function (batch) {
-            return batch.name || batch.batch || batch.batch_name || batch.code || batch.id;
+            return batch.name || batch.batch || batch[DB.batches.name] || batch.id;
         }).filter(Boolean);
         if (fromTable.length) {
             return fromTable;
@@ -1162,6 +1296,14 @@
         return studentsCache.map(function (student) {
             return student.batch;
         }).filter(Boolean);
+    }
+
+    function findBatchByCourseAndName(courseName, batchName) {
+        const courseId = getCourseIdByName(courseName);
+        const normalizedBatch = normalizeKey(batchName);
+        return batchesCache.find(function (batch) {
+            return String(batch[DB.batches.courseId] || "") === String(courseId || "") && normalizeKey(getBatchName(batch)) === normalizedBatch;
+        });
     }
 
     function parseCsv(text) {
@@ -1295,7 +1437,6 @@
         const seenIds = [];
         const seenMobiles = [];
         const courseNames = getCourseNames().map(normalizeKey);
-        const batchNames = getBatchNames().map(normalizeKey);
 
         bulkRows = rawRows.map(function (row) {
             const id = getBulkValue(row, "Student ID");
@@ -1312,7 +1453,7 @@
             if (existingIds.includes(normalizeKey(id)) || seenIds.includes(normalizeKey(id))) errors.push("Duplicate Student ID");
             if (existingMobiles.includes(normalizeKey(mobile)) || seenMobiles.includes(normalizeKey(mobile))) errors.push("Duplicate Mobile");
             if (!courseNames.includes(normalizeKey(course))) errors.push("Course does not exist");
-            if (batchNames.length && !batchNames.includes(normalizeKey(batch))) errors.push("Batch does not exist");
+            if (!findBatchByCourseAndName(course, batch)) errors.push("Batch does not exist for selected course");
             if (totalFee <= 0 || advanceFee < 0 || remainingFee < 0 || Math.abs(totalFee - advanceFee - remainingFee) > 0.01) errors.push("Invalid fee values");
             try { buildBulkEmis(row); } catch (error) { errors.push(error.message); }
 
@@ -1366,6 +1507,7 @@
         const row = item.row;
         const id = getBulkValue(row, "Student ID");
         const course = getBulkValue(row, "Course").toUpperCase();
+        const batch = findBatchByCourseAndName(course, getBulkValue(row, "Batch"));
         const remainingFee = toNumber(getBulkValue(row, "Remaining Fee"));
         const emis = buildBulkEmis(row);
         return {
@@ -1379,7 +1521,9 @@
                 email: getBulkValue(row, "Email") || null,
                 address: getBulkValue(row, "Address"),
                 course: course,
-                batch: getBulkValue(row, "Batch"),
+                course_id: getCourseIdByName(course) || null,
+                batch_id: batch ? getBatchId(batch) : null,
+                batch: batch ? getBatchName(batch) : getBulkValue(row, "Batch"),
                 admission_date: normalizeImportDate(getBulkValue(row, "Admission Date")),
                 course_duration: getBulkValue(row, "Course Duration"),
                 account_status: "active",
@@ -1740,6 +1884,12 @@
         setSelectOptions("editStudentCourse", nameOptions, "Select course", emptyText);
         setFilterOptions("studentCourseFilter", nameOptions, "All");
         setFilterOptions("dashboardCourseFilter", nameOptions, "All Courses");
+        setSelectOptions("batchCourseInput", uuidOptions, "Select course", emptyText);
+        setFilterOptions("batchCourseFilter", uuidOptions, "All Courses");
+        setFilterOptions("reportCourseFilter", uuidOptions, "All Courses");
+        setBatchSelectOptions("newBatch", getSelectedCourseIdFromStudentSelect("newStudentCourse"), "Select batch", false);
+        setBatchSelectOptions("editBatch", getSelectedCourseIdFromStudentSelect("editStudentCourse"), "Select batch", false, null, false);
+        setBatchSelectOptions("reportBatchFilter", getValue("reportCourseFilter"), "All Batches", true, null, false);
 
         renderMaterialCourseChecklist();
         renderAnnouncementCourseChecklist();
@@ -2398,6 +2548,271 @@
         }
     }
 
+    function updateBatchControls() {
+        const courseOptions = getCourseOptions().map(function (course) {
+            return { value: course.id, label: course.name };
+        });
+        setSelectOptions("batchCourseInput", courseOptions, "Select course", "No courses available");
+        setFilterOptions("batchCourseFilter", courseOptions, "All Courses");
+        setFilterOptions("reportCourseFilter", courseOptions, "All Courses");
+        setBatchSelectOptions("newBatch", getSelectedCourseIdFromStudentSelect("newStudentCourse"), "Select batch", false);
+        setBatchSelectOptions("editBatch", getSelectedCourseIdFromStudentSelect("editStudentCourse"), "Select batch", false, getValue("editBatch"), false);
+        setBatchSelectOptions("reportBatchFilter", getValue("reportCourseFilter"), "All Batches", true, null, false);
+        updateBatchFilter();
+        updateAttendanceControls();
+    }
+
+    function getBatchStudents(batchId) {
+        return studentsCache.filter(function (student) {
+            return getStudentBatchId(student) === String(batchId || "");
+        });
+    }
+
+    function renderBatches() {
+        const tbody = document.getElementById("batchesTableBody");
+        if (!tbody) return;
+        const query = getValue("batchSearchInput").toLowerCase();
+        const courseId = getValue("batchCourseFilter");
+        const status = getValue("batchStatusFilter");
+        const rows = batchesCache.filter(function (batch) {
+            const courseLabel = getCourseLabelById(batch[DB.batches.courseId]);
+            const matchesQuery = !query || [getBatchName(batch), courseLabel].some(function (value) {
+                return String(value || "").toLowerCase().includes(query);
+            });
+            return matchesQuery && (!courseId || String(batch[DB.batches.courseId] || "") === courseId) && (!status || getBatchStatus(batch) === status);
+        });
+        setText("batchStatTotal", batchesCache.length);
+        setText("batchStatActive", batchesCache.filter(function (batch) { return getBatchStatus(batch) === "Active"; }).length);
+        setText("batchStatStudents", studentsCache.filter(function (student) { return getStudentBatchId(student); }).length);
+        tbody.innerHTML = rows.length ? rows.map(function (batch) {
+            const id = getBatchId(batch);
+            const totalStudents = getBatchStudents(id).length;
+            const statusClass = getBatchStatus(batch) === "Active" ? "status-paid" : "status-due";
+            return [
+                "<tr><td>", escapeHtml(getBatchName(batch)), "</td><td>", escapeHtml(getCourseLabelById(batch[DB.batches.courseId])), "</td><td>",
+                escapeHtml(splitBatchTiming(batch).start || "-"), "</td><td>", escapeHtml(splitBatchTiming(batch).end || "-"), "</td><td>", totalStudents,
+                '</td><td><span class="status-badge ', statusClass, '">', escapeHtml(getBatchStatus(batch)), "</span></td><td><div class=\"erp-row-actions\">",
+                '<button type="button" class="table-action-btn" data-view-batch="', escapeHtml(id), '">View</button>',
+                '<button type="button" class="table-action-btn" data-edit-batch="', escapeHtml(id), '">Edit</button>',
+                '<button type="button" class="table-action-btn" data-toggle-batch="', escapeHtml(id), '">', getBatchStatus(batch) === "Active" ? "Deactivate" : "Activate", "</button>",
+                '<button type="button" class="table-action-btn danger-btn" data-delete-batch="', escapeHtml(id), '">Delete</button>',
+                "</div></td></tr>"
+            ].join("");
+        }).join("") : '<tr><td colspan="7" class="admin-empty">No batches found.</td></tr>';
+    }
+
+    function clearBatchForm() {
+        const form = document.getElementById("batchForm");
+        if (form) form.reset();
+        setValue("batchRecordId", "");
+        setValue("batchStatusInput", "Active");
+    }
+
+    function fillBatchForm(batchId) {
+        const batch = getBatchById(batchId);
+        if (!batch) {
+            setPanelMessage("Batch record not found.", "error");
+            return;
+        }
+        setValue("batchRecordId", getBatchId(batch));
+        const timing = splitBatchTiming(batch);
+        setValue("batchCourseInput", batch[DB.batches.courseId] || "");
+        setValue("batchNameInput", getBatchName(batch));
+        setValue("batchStartTimeInput", timing.start || "");
+        setValue("batchEndTimeInput", timing.end || "");
+        setValue("batchStatusInput", getBatchStatus(batch));
+        const form = document.getElementById("batchForm");
+        if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function saveBatch(event) {
+        event.preventDefault();
+        clearPanelMessage();
+        const id = getValue("batchRecordId");
+        const payload = {
+            course_id: getValue("batchCourseInput"),
+            batch_name: getValue("batchNameInput"),
+            timing: [getValue("batchStartTimeInput"), getValue("batchEndTimeInput")].filter(Boolean).join(" - "),
+            status: getValue("batchStatusInput") || "Active"
+        };
+        if (!payload.course_id || !payload.batch_name || !getValue("batchStartTimeInput") || !getValue("batchEndTimeInput")) {
+            setPanelMessage("Fill course, batch name, start time, and end time.", "error");
+            return;
+        }
+        try {
+            const client = window.VinayakAuth.getClient();
+            const result = id
+                ? await client.from(DB.batches.table).update(payload).eq(DB.batches.id, id)
+                : await client.from(DB.batches.table).insert([payload]);
+            if (result.error) throw result.error;
+            clearBatchForm();
+            await ensureBatchesLoaded(true);
+            setPanelMessage(id ? "Batch updated." : "Batch created.", "success");
+        } catch (error) {
+            console.error("Batch save failed", error);
+            setPanelMessage(error.message || "Could not save batch.", "error");
+        }
+    }
+
+    async function toggleBatchStatus(batchId) {
+        const batch = getBatchById(batchId);
+        if (!batch) return;
+        const status = getBatchStatus(batch) === "Active" ? "Inactive" : "Active";
+        const result = await window.VinayakAuth.getClient().from(DB.batches.table).update({ status: status }).eq(DB.batches.id, batchId);
+        if (result.error) {
+            setPanelMessage(result.error.message || "Could not update batch status.", "error");
+            return;
+        }
+        await ensureBatchesLoaded(true);
+        setPanelMessage("Batch " + status.toLowerCase() + ".", "success");
+    }
+
+    async function deleteBatch(batchId) {
+        const batch = getBatchById(batchId);
+        if (!batch) return;
+        if (getBatchStudents(batchId).length) {
+            setPanelMessage("This batch contains students. Transfer students before deleting.", "error");
+            return;
+        }
+        if (!window.confirm("Delete batch '" + getBatchName(batch) + "'?")) return;
+        const result = await window.VinayakAuth.getClient().from(DB.batches.table).delete().eq(DB.batches.id, batchId);
+        if (result.error) {
+            setPanelMessage(result.error.message || "Could not delete batch.", "error");
+            return;
+        }
+        await ensureBatchesLoaded(true);
+        setPanelMessage("Batch deleted.", "success");
+    }
+
+    function getStudentAttendancePercentage(studentId) {
+        const rows = attendanceReportCache && attendanceReportCache.rows ? attendanceReportCache.rows.filter(function (row) {
+            return String(row.student_id || "") === String(studentId || "");
+        }) : [];
+        if (!rows.length) return "-";
+        const present = rows.filter(function (row) { return normalizeAttendanceValue(row.status) === "Present"; }).length;
+        return Math.round((present / rows.length) * 100) + "%";
+    }
+
+    function renderBatchDetails() {
+        const card = document.getElementById("batchDetailsCard");
+        const tbody = document.getElementById("batchStudentsTableBody");
+        if (!card || !tbody || !activeBatchDetailsId) return;
+        const batch = getBatchById(activeBatchDetailsId);
+        const query = getValue("batchStudentSearchInput").toLowerCase();
+        const students = getBatchStudents(activeBatchDetailsId).filter(function (student) {
+            return !query || [getIdentifier(student), student.name, student.mobile].some(function (value) {
+                return String(value || "").toLowerCase().includes(query);
+            });
+        });
+        setText("batchDetailsMeta", batch ? [getBatchName(batch), getCourseLabelById(batch[DB.batches.courseId]), getBatchTiming(batch)].join(" | ") : "Batch details");
+        setBatchSelectOptions("batchTransferTargetInput", batch && batch[DB.batches.courseId], "Transfer to batch", false);
+        const transferSelect = document.getElementById("batchTransferTargetInput");
+        if (transferSelect) {
+            Array.from(transferSelect.options).forEach(function (option) {
+                if (option.value === activeBatchDetailsId) option.disabled = true;
+            });
+        }
+        tbody.innerHTML = students.length ? students.map(function (student) {
+            const id = getIdentifier(student);
+            const fees = getStudentFees(id);
+            const photo = student.photo_url || student.photo || "";
+            return [
+                '<tr><td><input type="checkbox" name="batchStudentSelect" value="', escapeHtml(id), '"></td><td>',
+                photo ? '<img src="' + escapeHtml(photo) + '" alt="" class="student-avatar">' : '<span class="student-avatar student-avatar-fallback">' + escapeHtml(String(student.name || id).slice(0, 1).toUpperCase()) + '</span>',
+                "</td><td>", escapeHtml(id), "</td><td>", escapeHtml(student.name || "-"), "</td><td>", escapeHtml(student.mobile || "-"), "</td><td>",
+                escapeHtml(student.admission_date || "-"), "</td><td>", escapeHtml(getStudentAttendancePercentage(id)), "</td><td>",
+                escapeHtml(fees.status || student.fees_status || "-"), "</td></tr>"
+            ].join("");
+        }).join("") : '<tr><td colspan="8" class="admin-empty">No students found in this batch.</td></tr>';
+        card.hidden = false;
+    }
+
+    async function openBatchDetails(batchId) {
+        activeBatchDetailsId = batchId;
+        const batch = getBatchById(batchId);
+        if (batch) {
+            try {
+                const params = new URLSearchParams();
+                params.set("course_id", batch[DB.batches.courseId]);
+                params.set("batch_id", batchId);
+                const result = await attendanceRequest("/api/attendance/report?" + params.toString());
+                attendanceReportCache = { rows: result.rows || [] };
+            } catch (error) {
+                console.warn("Batch attendance percentage load failed", error);
+            }
+        }
+        renderBatchDetails();
+        const card = document.getElementById("batchDetailsCard");
+        if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function getSelectedBatchStudentIds() {
+        return Array.from(document.querySelectorAll('[name="batchStudentSelect"]:checked')).map(function (input) {
+            return input.value;
+        }).filter(Boolean);
+    }
+
+    async function transferSelectedStudents() {
+        const studentIds = getSelectedBatchStudentIds();
+        const destinationBatchId = getValue("batchTransferTargetInput");
+        const destinationBatch = getBatchById(destinationBatchId);
+        if (!studentIds.length || !destinationBatch) {
+            setPanelMessage("Select students and a destination batch.", "error");
+            return;
+        }
+        if (!window.confirm("Transfer " + studentIds.length + " student(s) to " + getBatchName(destinationBatch) + "?")) return;
+        const payload = {
+            batch_id: destinationBatchId,
+            batch: getBatchName(destinationBatch),
+            course_id: destinationBatch[DB.batches.courseId],
+            course: getCourseLabelById(destinationBatch[DB.batches.courseId])
+        };
+        const result = await window.VinayakAuth.getClient()
+            .from(window.VinayakAuth.getStudentsTableName())
+            .update(payload)
+            .in(window.VinayakAuth.getStudentIdentifierColumn(), studentIds);
+        if (result.error) {
+            setPanelMessage(result.error.message || "Could not transfer students.", "error");
+            return;
+        }
+        setPanelMessage("Students transferred.", "success");
+        await refreshAll();
+        openBatchDetails(activeBatchDetailsId);
+    }
+
+    function updateReportControls() {
+        const courseOptions = getCourseOptions().map(function (course) {
+            return { value: course.id, label: course.name };
+        });
+        setFilterOptions("reportCourseFilter", courseOptions, "All Courses");
+        setBatchSelectOptions("reportBatchFilter", getValue("reportCourseFilter"), "All Batches", true, null, false);
+    }
+
+    function renderReports() {
+        const tbody = document.getElementById("reportsTableBody");
+        if (!tbody) return;
+        const courseId = getValue("reportCourseFilter");
+        const batchId = getValue("reportBatchFilter");
+        const rows = studentsCache.filter(function (student) {
+            return (!courseId || getStudentCourseId(student) === courseId) && (!batchId || getStudentBatchId(student) === batchId);
+        });
+        const reportRows = rows.map(function (student) {
+            const id = getIdentifier(student);
+            const fees = getStudentFees(id);
+            return { student: student, id: id, fees: fees };
+        });
+        const totalFee = reportRows.reduce(function (sum, row) { return sum + toNumber(row.fees.total_fee); }, 0);
+        const paid = reportRows.reduce(function (sum, row) { return sum + toNumber(row.fees.paid_amount || row.fees.admission_fee); }, 0);
+        const pending = reportRows.reduce(function (sum, row) { return sum + toNumber(row.fees.remaining_fee); }, 0);
+        setText("reportStudentCount", reportRows.length);
+        setText("reportFeeTotal", money(totalFee));
+        setText("reportFeePaid", money(paid));
+        setText("reportFeePending", money(pending));
+        tbody.innerHTML = reportRows.length ? reportRows.map(function (row) {
+            return "<tr><td>" + escapeHtml(row.id) + "</td><td>" + escapeHtml(row.student.name || "-") + "</td><td>" + escapeHtml(row.student.course || "-") + "</td><td>" + escapeHtml(getStudentBatchName(row.student) || "-") + "</td><td>" + escapeHtml(row.student.mobile || "-") + "</td><td>" + escapeHtml(row.fees.status || row.student.fees_status || "-") + "</td><td>" + money(row.fees.remaining_fee) + "</td></tr>";
+        }).join("") : '<tr><td colspan="7" class="admin-empty">No report rows found.</td></tr>';
+    }
+
     function getStoredAdminId() {
         try {
             const session = JSON.parse(window.localStorage.getItem("admin_session") || "{}");
@@ -2408,12 +2823,15 @@
     }
 
     function updateAttendanceControls() {
-        const courseOptions = getCourseOptions();
-        const uuidOptions = courseOptions.map(function (course) {
+        const courseOptions = getCourseOptions().map(function (course) {
             return { value: course.id, label: course.name };
         });
-        setSelectOptions("attendanceCourseInput", uuidOptions, "Select course", "No courses available");
-        setFilterOptions("attendanceHistoryCourseFilter", uuidOptions, "All Courses");
+        setSelectOptions("attendanceCourseInput", courseOptions, "Select course", "No courses available");
+        setFilterOptions("attendanceEditCourseFilter", courseOptions, "Select Course");
+        setFilterOptions("attendanceReportCourseFilter", courseOptions, "All Courses");
+        loadAttendanceBatchesFor("attendanceCourseInput", "attendanceBatchInput", true);
+        loadAttendanceBatchesFor("attendanceEditCourseFilter", "attendanceEditBatchFilter", true);
+        loadAttendanceBatchesFor("attendanceReportCourseFilter", "attendanceReportBatchFilter", false);
     }
 
     function getAttendanceCourseLabel(courseId) {
@@ -2423,13 +2841,6 @@
         return match ? match.name : String(courseId || "-");
     }
 
-    function formatClock(totalSeconds) {
-        const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
-        const minutes = Math.floor(safeSeconds / 60);
-        const seconds = safeSeconds % 60;
-        return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
-    }
-
     function formatDateTime(value) {
         if (!value) return "-";
         const date = new Date(value);
@@ -2437,17 +2848,48 @@
         return date.toLocaleString();
     }
 
+    function formatDateOnly(value) {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value).slice(0, 10) || "-";
+        return date.toLocaleDateString();
+    }
+
+    function formatTimeOnly(value) {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value);
+        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function normalizeAttendanceValue(status) {
+        const normalized = String(status || "").trim().toLowerCase();
+        if (normalized === "present") return "Present";
+        if (normalized === "absent") return "Absent";
+        if (normalized === "late") return "Late";
+        if (normalized === "leave") return "Leave";
+        return "";
+    }
+
     function attendanceStatusClass(status) {
-        const normalized = String(status || "").toUpperCase();
-        if (normalized === "PRESENT") return "status-paid";
-        if (normalized === "ABSENT" || normalized === "AUTO_ABSENT") return "status-due";
+        const normalized = normalizeAttendanceValue(status);
+        if (normalized === "Present") return "status-paid";
+        if (normalized === "Absent") return "status-due";
+        if (normalized === "Late") return "status-waiting";
+        if (normalized === "Leave") return "status-active";
         return "status-waiting";
     }
 
     function attendanceStatusLabel(status) {
-        const normalized = String(status || "WAITING").toUpperCase();
-        if (normalized === "AUTO_ABSENT") return "Auto Absent";
-        return normalized.charAt(0) + normalized.slice(1).toLowerCase();
+        return normalizeAttendanceValue(status) || "Not Marked";
+    }
+
+    function attendanceStatusOptions(value) {
+        const selected = normalizeAttendanceValue(value);
+        return ["", "Present", "Absent", "Late", "Leave"].map(function (status) {
+            const label = status || "Select";
+            return '<option value="' + escapeHtml(status) + '"' + (status === selected ? " selected" : "") + '>' + escapeHtml(label) + '</option>';
+        }).join("");
     }
 
     async function attendanceRequest(path, options) {
@@ -2463,23 +2905,58 @@
         return payload;
     }
 
-    function getSelectedCourseName(selectId) {
-        const select = document.getElementById(selectId);
-        return select && select.selectedOptions && select.selectedOptions[0] ? select.selectedOptions[0].textContent : "";
+    async function loadAttendanceBatchesFor(courseSelectId, batchSelectId, requireCourse) {
+        const courseId = getValue(courseSelectId);
+        const batchSelect = document.getElementById(batchSelectId);
+        if (!batchSelect) return [];
+        if (!courseId && requireCourse) {
+            setSelectOptions(batchSelectId, [], "Select course first", "No batches found");
+            return [];
+        }
+        const params = new URLSearchParams();
+        if (courseId) params.set("course_id", courseId);
+        try {
+            const result = await attendanceRequest("/api/attendance/batches" + (params.toString() ? "?" + params.toString() : ""));
+            const options = (result.batches || []).map(function (batch) {
+                return { value: batch.id || batch.name, label: batch.name || batch.id };
+            });
+            setSelectOptions(batchSelectId, options, requireCourse ? "Select batch" : "All Batches", "No batches found");
+            return options;
+        } catch (error) {
+            console.error("Attendance batch list failed", error);
+            setSelectOptions(batchSelectId, [], requireCourse ? "Select batch" : "All Batches", "No batches found");
+            return [];
+        }
+    }
+
+    async function loadAttendanceDashboard() {
+        try {
+            const result = await attendanceRequest("/api/attendance/dashboard");
+            renderAttendanceSummary(result.summary || {});
+        } catch (error) {
+            console.warn("Attendance dashboard cards failed", error);
+        }
+    }
+
+    function renderAttendanceSummary(summary) {
+        setText("attendanceTotalStudents", summary.total_students || 0);
+        setText("attendancePresentCount", summary.present || 0);
+        setText("attendanceAbsentCount", summary.absent || 0);
+        setText("attendanceLateCount", summary.late || 0);
+        setText("attendanceLeaveCount", summary.leave || 0);
+        setText("attendancePercentage", (summary.attendance_percentage || 0) + "%");
     }
 
     async function startAttendance(event) {
         event.preventDefault();
         const payload = {
             course_id: getValue("attendanceCourseInput"),
-            course_name: getSelectedCourseName("attendanceCourseInput"),
-            subject: getValue("attendanceSubjectInput"),
-            lecture_title: getValue("attendanceLectureTitleInput"),
+            batch_id: getValue("attendanceBatchInput"),
             duration_minutes: Math.max(1, Math.floor(toNumber(getValue("attendanceDurationInput")) || 5)),
             created_by: getStoredAdminId()
         };
-        if (!payload.course_id || !payload.subject || !payload.lecture_title) {
-            setPanelMessage("Fill all attendance fields.", "error");
+        if (!payload.course_id || !payload.batch_id) {
+            setPanelMessage("Select course and batch before starting attendance.", "error");
             return;
         }
         try {
@@ -2489,11 +2966,10 @@
                 method: "POST",
                 body: JSON.stringify(payload)
             });
-            activeAttendanceSessionId = result.session.id;
-            setPanelMessage("Attendance started.", "success");
-            renderLiveAttendance(result);
+            activeAttendanceSessionId = result.session && result.session.id ? result.session.id : "";
+            renderLiveAttendance(result, "attendanceLiveTableBody");
             startAttendancePolling();
-            loadAttendanceHistory();
+            setPanelMessage("Attendance started. Changes auto-save.", "success");
         } catch (error) {
             console.error("Attendance start failed", error);
             setPanelMessage(error.message || "Could not start attendance.", "error");
@@ -2503,54 +2979,31 @@
         }
     }
 
-    function renderLiveAttendance(payload) {
+    function renderAttendanceRows(rows, targetId, session) {
+        const tbody = document.getElementById(targetId);
+        if (!tbody) return;
+        tbody.innerHTML = rows.length ? rows.map(function (row) {
+            const sessionId = row.session_id || (session && session.id) || "";
+            return '<tr><td>' + escapeHtml(row.student_name || "-") + '</td><td>' + escapeHtml(row.student_id || "-") + '</td><td>' + escapeHtml(row.batch || (session && session.batch_id) || "-") + '</td><td><select data-attendance-session="' + escapeHtml(sessionId) + '" data-attendance-student="' + escapeHtml(row.student_id || "") + '" data-attendance-target="' + escapeHtml(targetId) + '">' + attendanceStatusOptions(row.status) + '</select></td><td><input type="text" value="' + escapeHtml(row.remarks || "") + '" data-attendance-remarks="' + escapeHtml(row.student_id || "") + '" data-attendance-session="' + escapeHtml(sessionId) + '" data-attendance-target="' + escapeHtml(targetId) + '" placeholder="Remarks"></td><td>' + escapeHtml(formatDateTime(row.marked_at)) + '</td></tr>';
+        }).join("") : '<tr><td colspan="6" class="admin-empty">No students found for selected batch.</td></tr>';
+    }
+
+    function renderLiveAttendance(payload, targetId) {
         const session = payload.session || {};
-        const summary = payload.summary || {};
         const rows = payload.students || [];
-        const remaining = Number(payload.remaining_seconds || 0);
-        setText("attendanceTotalStudents", summary.total_students || rows.length || 0);
-        setText("attendancePresentCount", summary.present || 0);
-        setText("attendanceAbsentCount", summary.absent || 0);
-        setText("attendanceWaitingCount", summary.waiting || 0);
-        setText("attendanceResponseCount", summary.live_responses || 0);
-        setText("attendancePercentage", (summary.attendance_percentage || 0) + "%");
-        setText("attendanceRemainingTime", session.status === "OPEN" ? formatClock(remaining) : "Closed");
-        activeAttendanceEndTime = session.status === "OPEN" ? String(session.end_time || "") : "";
-        if (activeAttendanceEndTime) {
-            startAttendanceCountdown();
-        } else {
-            stopAttendanceCountdown();
-        }
-        setText("attendanceLiveMeta", session.id ? [
-            session.lecture_title || "Lecture",
-            getAttendanceCourseLabel(session.course_id),
-            String(session.status || "").toUpperCase()
-        ].join(" | ") : "No active attendance session.");
-        const closeButton = document.getElementById("closeAttendanceBtn");
-        if (closeButton) closeButton.disabled = !session.id || session.status !== "OPEN";
-        const tbody = document.getElementById("attendanceLiveTableBody");
-        if (tbody) {
-            tbody.innerHTML = rows.length ? rows.map(function (row) {
-                return "<tr><td>" + escapeHtml(row.student_name || "-") + "</td><td>" + escapeHtml(row.student_id || "-") + '</td><td><span class="status-badge ' + attendanceStatusClass(row.response) + '">' + escapeHtml(attendanceStatusLabel(row.response)) + "</span></td><td>" + escapeHtml(formatDateTime(row.response_time)) + "</td></tr>";
-            }).join("") : '<tr><td colspan="4" class="admin-empty">No students found for this course.</td></tr>';
-        }
-        if (session.status !== "OPEN") {
-            stopAttendancePolling();
-            stopAttendanceCountdown();
-            activeAttendanceSessionId = "";
-            loadAttendanceHistory();
-        }
+        renderAttendanceSummary(payload.summary || {});
+        setText("attendanceLiveMeta", session.id ? [getAttendanceCourseLabel(session.course_id), session.batch_id || "Batch", formatDateTime(session.created_at)].join(" | ") : "Start attendance to load students.");
+        renderAttendanceRows(rows, targetId || "attendanceLiveTableBody", session);
     }
 
     async function refreshLiveAttendance() {
         if (!activeAttendanceSessionId) return;
         try {
             const result = await attendanceRequest("/api/attendance/live/" + encodeURIComponent(activeAttendanceSessionId));
-            renderLiveAttendance(result);
+            renderLiveAttendance(result, "attendanceLiveTableBody");
         } catch (error) {
             console.error("Live attendance refresh failed", error);
             stopAttendancePolling();
-            setPanelMessage(error.message || "Could not refresh live attendance.", "error");
         }
     }
 
@@ -2560,7 +3013,7 @@
         if (document.hidden) return;
         attendancePollTimer = window.setInterval(function () {
             if (!attendanceRealtimeActive) refreshLiveAttendance();
-        }, 10000);
+        }, 15000);
     }
 
     function stopAttendancePolling() {
@@ -2573,9 +3026,7 @@
 
     function startAttendanceRealtime() {
         stopAttendanceRealtime();
-        if (!activeAttendanceSessionId || !window.VinayakAuth || typeof window.VinayakAuth.getClient !== "function") {
-            return;
-        }
+        if (!activeAttendanceSessionId || !window.VinayakAuth || typeof window.VinayakAuth.getClient !== "function") return;
         try {
             const client = window.VinayakAuth.getClient();
             if (!client || typeof client.channel !== "function") return;
@@ -2585,14 +3036,13 @@
                 .on("postgres_changes", {
                     event: "*",
                     schema: "public",
-                    table: "attendance_responses",
+                    table: "attendance",
                     filter: "session_id=eq." + activeAttendanceSessionId
                 }, function (payload) {
                     console.log("Admin attendance realtime event received", payload);
                     refreshLiveAttendance();
                 })
                 .subscribe(function (status) {
-                    console.log("Admin attendance realtime status", status);
                     attendanceRealtimeActive = status === "SUBSCRIBED";
                     if (attendanceRealtimeActive && attendancePollTimer) {
                         window.clearInterval(attendancePollTimer);
@@ -2607,13 +3057,12 @@
     function stopAttendanceRealtime() {
         if (!attendanceRealtimeChannel || !window.VinayakAuth || typeof window.VinayakAuth.getClient !== "function") {
             attendanceRealtimeChannel = null;
+            attendanceRealtimeActive = false;
             return;
         }
         try {
             const client = window.VinayakAuth.getClient();
-            if (client && typeof client.removeChannel === "function") {
-                client.removeChannel(attendanceRealtimeChannel);
-            }
+            if (client && typeof client.removeChannel === "function") client.removeChannel(attendanceRealtimeChannel);
         } catch (error) {
             console.warn("Admin attendance realtime cleanup failed", error);
         }
@@ -2621,37 +3070,8 @@
         attendanceRealtimeActive = false;
     }
 
-    function tickAttendanceCountdown() {
-        if (!activeAttendanceEndTime) return;
-        const seconds = Math.max(0, Math.ceil((new Date(activeAttendanceEndTime).getTime() - Date.now()) / 1000));
-        setText("attendanceRemainingTime", formatClock(seconds));
-        if (seconds === 0 && activeAttendanceSessionId) {
-            refreshLiveAttendance();
-        }
-    }
-
-    function startAttendanceCountdown() {
-        if (document.hidden) return;
-        if (!attendanceCountdownTimer) {
-            attendanceCountdownTimer = window.setInterval(tickAttendanceCountdown, 1000);
-        }
-        tickAttendanceCountdown();
-    }
-
-    function stopAttendanceCountdown() {
-        if (attendanceCountdownTimer) {
-            window.clearInterval(attendanceCountdownTimer);
-            attendanceCountdownTimer = null;
-        }
-        activeAttendanceEndTime = "";
-    }
-
     function stopAttendanceRuntime() {
         stopAttendancePolling();
-        if (attendanceCountdownTimer) {
-            window.clearInterval(attendanceCountdownTimer);
-            attendanceCountdownTimer = null;
-        }
     }
 
     function handleAdminVisibilityChange() {
@@ -2661,141 +3081,185 @@
             return;
         }
         startAttendancePolling();
-        if (activeAttendanceEndTime) startAttendanceCountdown();
         refreshLiveAttendance();
     }
 
-    async function closeAttendance() {
-        if (!activeAttendanceSessionId || attendanceClosing) return;
-        attendanceClosing = true;
+    function getAttendanceRowRemark(studentId, sessionId, targetId) {
+        const input = Array.from(document.querySelectorAll("[data-attendance-remarks]")).find(function (field) {
+            return String(field.getAttribute("data-attendance-remarks") || "") === String(studentId || "")
+                && String(field.getAttribute("data-attendance-session") || "") === String(sessionId || "")
+                && String(field.getAttribute("data-attendance-target") || "") === String(targetId || "");
+        });
+        return input ? input.value : "";
+    }
+
+    async function markAttendance(sessionId, studentId, status, remarks, targetId) {
+        const normalized = normalizeAttendanceValue(status);
+        if (!sessionId || !studentId || !normalized) return;
         try {
-            const result = await attendanceRequest("/api/attendance/close", {
+            const result = await attendanceRequest("/api/attendance/mark", {
                 method: "POST",
-                body: JSON.stringify({ session_id: activeAttendanceSessionId })
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    student_id: studentId,
+                    status: normalized,
+                    remarks: remarks || ""
+                })
             });
-            renderLiveAttendance(result);
-            setPanelMessage("Attendance closed. Pending students remain Not Responded.", "success");
-        } catch (error) {
-            console.error("Attendance close failed", error);
-            setPanelMessage(error.message || "Could not close attendance.", "error");
-        } finally {
-            attendanceClosing = false;
-        }
-    }
-
-    async function loadAttendanceHistory() {
-        const params = new URLSearchParams();
-        if (getValue("attendanceHistoryCourseFilter")) params.set("course_id", getValue("attendanceHistoryCourseFilter"));
-        if (getValue("attendanceHistoryDateFilter")) params.set("date", getValue("attendanceHistoryDateFilter"));
-        try {
-            const result = await attendanceRequest("/api/attendance/history" + (params.toString() ? "?" + params.toString() : ""));
-            attendanceHistoryCache = result.sessions || [];
-            renderAttendanceHistory();
-        } catch (error) {
-            console.error("Attendance history failed", error);
-            const tbody = document.getElementById("attendanceHistoryTableBody");
-            if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="admin-empty">' + escapeHtml(error.message || "Could not load attendance history.") + "</td></tr>";
-        }
-    }
-
-    function renderAttendanceHistory() {
-        const tbody = document.getElementById("attendanceHistoryTableBody");
-        if (!tbody) return;
-        const pageData = paginateRows(attendanceHistoryCache, "attendanceHistory");
-        tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (session) {
-            return "<tr><td>" + escapeHtml(formatDateTime(session.start_time)) + "</td><td>" + escapeHtml(getAttendanceCourseLabel(session.course_id)) + "</td><td>" + escapeHtml(session.lecture_title || "-") + '</td><td><span class="status-badge ' + (session.status === "OPEN" ? "status-waiting" : "status-paid") + '">' + escapeHtml(session.status || "-") + '</span></td><td><button type="button" class="table-action-btn" data-view-attendance-report="' + escapeHtml(session.id) + '"><i class="fas fa-eye"></i> View</button></td></tr>';
-        }).join("") : '<tr><td colspan="5" class="admin-empty">No attendance sessions found.</td></tr>';
-        renderPagination("attendanceHistoryPagination", "attendanceHistory", pageData.page, pageData.totalPages, pageData.totalItems);
-    }
-
-    async function viewAttendanceReport(sessionId) {
-        try {
-            const result = await attendanceRequest("/api/attendance/report/" + encodeURIComponent(sessionId));
-            attendanceReportCache = result;
-            renderAttendanceReport();
-            const card = document.getElementById("attendanceReportCard");
-            if (card) {
-                card.hidden = false;
-                card.scrollIntoView({ behavior: "smooth", block: "start" });
+            if (targetId === "attendanceEditTableBody") {
+                renderAttendanceRows(result.students || [], targetId, result.session || {});
+            } else {
+                renderLiveAttendance(result, targetId || "attendanceLiveTableBody");
             }
+            setPanelMessage("Attendance auto-saved.", "success");
+        } catch (error) {
+            console.error("Attendance mark failed", error);
+            setPanelMessage(error.message || "Could not update attendance.", "error");
+        }
+    }
+
+    async function loadAttendanceEdit() {
+        const params = new URLSearchParams();
+        const courseId = getValue("attendanceEditCourseFilter");
+        const batchId = getValue("attendanceEditBatchFilter");
+        const date = getValue("attendanceEditDateFilter") || getTodayDateString();
+        if (!courseId || !batchId) {
+            setPanelMessage("Select course and batch to edit attendance.", "error");
+            return;
+        }
+        params.set("course_id", courseId);
+        params.set("batch_id", batchId);
+        params.set("date", date);
+        try {
+            const result = await attendanceRequest("/api/attendance/edit?" + params.toString());
+            renderAttendanceRows(result.students || [], "attendanceEditTableBody", result.session || {});
+            renderAttendanceSummary(result.summary || {});
+        } catch (error) {
+            console.error("Attendance edit load failed", error);
+            setPanelMessage(error.message || "Could not load attendance edit.", "error");
+        }
+    }
+
+    function getReportFilters() {
+        const params = new URLSearchParams();
+        if (getValue("attendanceReportFromDate")) params.set("from_date", getValue("attendanceReportFromDate"));
+        if (getValue("attendanceReportToDate")) params.set("to_date", getValue("attendanceReportToDate"));
+        if (getValue("attendanceReportCourseFilter")) params.set("course_id", getValue("attendanceReportCourseFilter"));
+        if (getValue("attendanceReportBatchFilter")) params.set("batch_id", getValue("attendanceReportBatchFilter"));
+        if (getValue("attendanceReportStudentFilter")) params.set("student_id", getValue("attendanceReportStudentFilter"));
+        if (getValue("attendanceReportStatusFilter")) params.set("status", getValue("attendanceReportStatusFilter"));
+        return params;
+    }
+
+    async function loadAttendanceReport() {
+        try {
+            const params = getReportFilters();
+            const result = await attendanceRequest("/api/attendance/report" + (params.toString() ? "?" + params.toString() : ""));
+            attendanceReportCache = { rows: result.rows || [] };
+            renderAttendanceReport();
+            setText("attendanceReportMeta", (result.rows || []).length + " report rows found.");
         } catch (error) {
             console.error("Attendance report failed", error);
-            setPanelMessage(error.message || "Could not load attendance report.", "error");
+            setPanelMessage(error.message || "Could not generate attendance report.", "error");
         }
+    }
+
+    function getSortedAttendanceReportRows() {
+        const cache = attendanceReportCache || { rows: [] };
+        const rows = (cache.rows || []).slice();
+        const sort = window.__attendanceReportSort || { key: "date", direction: "desc" };
+        rows.sort(function (a, b) {
+            const left = String(a[sort.key] || "").toLowerCase();
+            const right = String(b[sort.key] || "").toLowerCase();
+            if (left < right) return sort.direction === "asc" ? -1 : 1;
+            if (left > right) return sort.direction === "asc" ? 1 : -1;
+            return 0;
+        });
+        return rows;
     }
 
     function renderAttendanceReport() {
-        const session = attendanceReportCache && attendanceReportCache.session ? attendanceReportCache.session : {};
-        const rows = attendanceReportCache && attendanceReportCache.students ? attendanceReportCache.students : [];
-        setText("attendanceReportMeta", session.id ? [
-            session.lecture_title || "Lecture",
-            getAttendanceCourseLabel(session.course_id),
-            formatDateTime(session.start_time)
-        ].join(" | ") : "Select a session to view report.");
         const tbody = document.getElementById("attendanceReportTableBody");
         if (!tbody) return;
+        const rows = getSortedAttendanceReportRows();
         tbody.innerHTML = rows.length ? rows.map(function (row) {
-            return "<tr><td>" + escapeHtml(row.student_name || "-") + "</td><td>" + escapeHtml(row.student_id || "-") + '</td><td><span class="status-badge ' + attendanceStatusClass(row.response) + '">' + escapeHtml(attendanceStatusLabel(row.response)) + "</span></td><td>" + escapeHtml(formatDateTime(row.response_time)) + "</td></tr>";
-        }).join("") : '<tr><td colspan="4" class="admin-empty">No report rows found.</td></tr>';
+            return "<tr><td>" + escapeHtml(row.student_name || "-") + "</td><td>" + escapeHtml(row.batch || "-") + "</td><td>" + escapeHtml(row.course || getAttendanceCourseLabel(row.course_id)) + "</td><td>" + escapeHtml(row.date || "-") + '</td><td><span class="status-badge ' + attendanceStatusClass(row.status) + '">' + escapeHtml(attendanceStatusLabel(row.status)) + "</span></td><td>" + escapeHtml(row.time || "-") + "</td></tr>";
+        }).join("") : '<tr><td colspan="6" class="admin-empty">Generate a report to view rows.</td></tr>';
+    }
+
+    function getAttendanceExportRows() {
+        return getSortedAttendanceReportRows().map(function (row) {
+            return {
+                "Student Name": row.student_name || "",
+                "Batch": row.batch || "",
+                "Course": row.course || getAttendanceCourseLabel(row.course_id),
+                "Date": row.date || "",
+                "Attendance Status": attendanceStatusLabel(row.status),
+                "Time": row.time || ""
+            };
+        });
     }
 
     function exportAttendanceExcel() {
-        if (!attendanceReportCache || !attendanceReportCache.students) {
-            setPanelMessage("Open an attendance report before export.", "error");
+        const rows = getAttendanceExportRows();
+        if (!rows.length) {
+            setPanelMessage("Generate an attendance report before export.", "error");
             return;
         }
-        const rows = attendanceReportCache.students.map(function (row) {
-            return {
-                "Student Name": row.student_name || "",
-                "Student ID": row.student_id || "",
-                "Status": attendanceStatusLabel(row.response),
-                "Response Time": formatDateTime(row.response_time)
-            };
-        });
         if (window.XLSX) {
             const worksheet = window.XLSX.utils.json_to_sheet(rows);
             const workbook = window.XLSX.utils.book_new();
             window.XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
-            window.XLSX.writeFile(workbook, "attendance-" + attendanceReportCache.session.id + ".xlsx");
+            window.XLSX.writeFile(workbook, "attendance-report.xlsx");
             return;
         }
-        const csv = ["Student Name,Student ID,Status,Response Time"].concat(rows.map(function (row) {
-            return [row["Student Name"], row["Student ID"], row.Status, row["Response Time"]].map(function (cell) {
-                return '"' + String(cell).replace(/"/g, '""') + '"';
+        downloadAttendanceCsv(rows);
+    }
+
+    function downloadAttendanceCsv(rows) {
+        const headers = ["Student Name", "Batch", "Course", "Date", "Attendance Status", "Time"];
+        const csv = [headers.join(",")].concat(rows.map(function (row) {
+            return headers.map(function (header) {
+                return '"' + String(row[header] || "").replace(/"/g, '""') + '"';
             }).join(",");
         })).join("\n");
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "attendance-" + attendanceReportCache.session.id + ".csv";
+        link.download = "attendance-report.csv";
         link.click();
         URL.revokeObjectURL(link.href);
     }
 
     function exportAttendancePdf() {
-        if (!attendanceReportCache || !attendanceReportCache.students) {
-            setPanelMessage("Open an attendance report before export.", "error");
+        printAttendanceReport();
+    }
+
+    function printAttendanceReport() {
+        const rows = getAttendanceExportRows();
+        if (!rows.length) {
+            setPanelMessage("Generate an attendance report before printing.", "error");
             return;
         }
-        const session = attendanceReportCache.session || {};
-        const rows = attendanceReportCache.students.map(function (row) {
-            return "<tr><td>" + escapeHtml(row.student_name || "-") + "</td><td>" + escapeHtml(row.student_id || "-") + "</td><td>" + escapeHtml(attendanceStatusLabel(row.response)) + "</td><td>" + escapeHtml(formatDateTime(row.response_time)) + "</td></tr>";
+        const body = rows.map(function (row) {
+            return "<tr><td>" + escapeHtml(row["Student Name"]) + "</td><td>" + escapeHtml(row.Batch) + "</td><td>" + escapeHtml(row.Course) + "</td><td>" + escapeHtml(row.Date) + "</td><td>" + escapeHtml(row["Attendance Status"]) + "</td><td>" + escapeHtml(row.Time) + "</td></tr>";
         }).join("");
         const printWindow = window.open("", "_blank");
         if (!printWindow) {
-            setPanelMessage("Allow popups to export PDF.", "error");
+            setPanelMessage("Allow popups to export PDF or print.", "error");
             return;
         }
-        printWindow.document.write("<!doctype html><html><head><title>Attendance Report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111827}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:left}th{background:#f3f4f6}h1{margin:0 0 8px}</style></head><body><h1>Attendance Report</h1><p>" + escapeHtml(session.lecture_title || "Lecture") + " | " + escapeHtml(getAttendanceCourseLabel(session.course_id)) + " | " + escapeHtml(formatDateTime(session.start_time)) + "</p><table><thead><tr><th>Student Name</th><th>Student ID</th><th>Status</th><th>Response Time</th></tr></thead><tbody>" + rows + "</tbody></table><script>window.onload=function(){window.print();};<\/script></body></html>");
+        printWindow.document.write("<!doctype html><html><head><title>Attendance Report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111827}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:left}th{background:#f3f4f6}h1{margin:0 0 8px}</style></head><body><h1>Attendance Report</h1><table><thead><tr><th>Student Name</th><th>Batch</th><th>Course</th><th>Date</th><th>Attendance Status</th><th>Time</th></tr></thead><tbody>" + body + "</tbody></table><script>window.onload=function(){window.print();};<\/script></body></html>");
         printWindow.document.close();
     }
-
     async function refreshAll() {
+        await loadCourses();
+        batchesCache = await fetchOptionalTable(DB.batches.table, { columns: "id, course_id, batch_name, timing, status", orderBy: DB.batches.name, ascending: true });
+        loadedAdminTables.batches = true;
         studentsCache = await fetchStudents();
         feesCache = await fetchTable("student_fees");
         emisCache = await fetchTable("emis", { orderBy: "due_date", ascending: true });
         paymentsCache = await fetchOptionalTable("payments");
-        batchesCache = await fetchOptionalTable("batches");
         try {
             await loadMaterialManagerRows();
         } catch (error) {
@@ -2807,11 +3271,13 @@
         loadedAdminTables.payments = true;
         loadedAdminTables.material = true;
         loadedAdminTables.announcements = true;
-        await loadCourses();
+        updateBatchControls();
         updateBatchFilter();
         applyStudentFilter();
         renderEmis();
         renderDashboard();
+        renderBatches();
+        renderReports();
         renderMaterials();
         renderAnnouncementsAdmin();
         updateAttendanceControls();
@@ -2820,6 +3286,7 @@
     function setupAdmissionDefaults() {
         currentAdmissionStep = 1;
         setValue("newStudentId", generateStudentId());
+        setBatchSelectOptions("newBatch", "", "Select course first", false);
         setValue("newAdmissionDate", getTodayDateString());
         setValue("newAccountStatus", "active");
         setValue("newTotalFee", "");
@@ -2898,6 +3365,14 @@
             const field = document.getElementById(id);
             if (field) field.addEventListener("input", updateRemainingFee);
         });
+        const newStudentCourse = document.getElementById("newStudentCourse");
+        if (newStudentCourse) newStudentCourse.addEventListener("change", function () {
+            setBatchSelectOptions("newBatch", getSelectedCourseIdFromStudentSelect("newStudentCourse"), "Select batch", false);
+        });
+        const editStudentCourse = document.getElementById("editStudentCourse");
+        if (editStudentCourse) editStudentCourse.addEventListener("change", function () {
+            setBatchSelectOptions("editBatch", getSelectedCourseIdFromStudentSelect("editStudentCourse"), "Select batch", false, null, false);
+        });
         document.getElementById("previewAutoEmiBtn").addEventListener("click", function () {
             try {
                 renderAdmissionEmis(buildAutoEmis(), false);
@@ -2942,7 +3417,6 @@
                 if (pageButton.getAttribute("data-pagination-key") === "bulk") renderBulkRows();
                 if (pageButton.getAttribute("data-pagination-key") === "material") renderMaterials();
                 if (pageButton.getAttribute("data-pagination-key") === "announcements") renderAnnouncementsAdmin();
-                if (pageButton.getAttribute("data-pagination-key") === "attendanceHistory") renderAttendanceHistory();
             }
             const previewMaterialButton = event.target.closest("[data-preview-material]");
             if (previewMaterialButton) previewMaterial(previewMaterialButton.getAttribute("data-preview-material"));
@@ -2970,8 +3444,24 @@
             if (toggleAnnouncementButton) toggleAnnouncementPin(toggleAnnouncementButton.getAttribute("data-toggle-announcement-pin"));
             const deleteAnnouncementButton = event.target.closest("[data-delete-announcement]");
             if (deleteAnnouncementButton) deleteAnnouncement(deleteAnnouncementButton.getAttribute("data-delete-announcement"));
-            const attendanceReportButton = event.target.closest("[data-view-attendance-report]");
-            if (attendanceReportButton) viewAttendanceReport(attendanceReportButton.getAttribute("data-view-attendance-report"));
+            const viewBatchButton = event.target.closest("[data-view-batch]");
+            if (viewBatchButton) openBatchDetails(viewBatchButton.getAttribute("data-view-batch"));
+            const editBatchButton = event.target.closest("[data-edit-batch]");
+            if (editBatchButton) fillBatchForm(editBatchButton.getAttribute("data-edit-batch"));
+            const toggleBatchButton = event.target.closest("[data-toggle-batch]");
+            if (toggleBatchButton) toggleBatchStatus(toggleBatchButton.getAttribute("data-toggle-batch"));
+            const deleteBatchButton = event.target.closest("[data-delete-batch]");
+            if (deleteBatchButton) deleteBatch(deleteBatchButton.getAttribute("data-delete-batch"));
+            const attendanceSortHeader = event.target.closest("[data-attendance-sort]");
+            if (attendanceSortHeader) {
+                const key = attendanceSortHeader.getAttribute("data-attendance-sort");
+                const current = window.__attendanceReportSort || { key: "date", direction: "desc" };
+                window.__attendanceReportSort = {
+                    key: key,
+                    direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
+                };
+                renderAttendanceReport();
+            }
         });
         document.getElementById("adminMenuBtn").addEventListener("click", function () {
             if (window.innerWidth <= 1024) {
@@ -2996,6 +3486,11 @@
         ["studentSearchInput", "studentCourseFilter", "studentBatchFilter", "studentStatusFilter"].forEach(function (id) {
             document.getElementById(id).addEventListener("input", applyStudentFilter);
             document.getElementById(id).addEventListener("change", applyStudentFilter);
+        });
+        const studentCourseFilter = document.getElementById("studentCourseFilter");
+        if (studentCourseFilter) studentCourseFilter.addEventListener("change", function () {
+            updateBatchFilter();
+            applyStudentFilter();
         });
         document.getElementById("dashboardCourseFilter").addEventListener("change", renderDashboard);
         document.getElementById("emiSearchInput").addEventListener("input", function () {
@@ -3055,6 +3550,41 @@
         if (clearCourseButton) clearCourseButton.addEventListener("click", clearCourseForm);
         const courseSearchInput = document.getElementById("courseSearchInput");
         if (courseSearchInput) courseSearchInput.addEventListener("input", renderCourses);
+        const batchForm = document.getElementById("batchForm");
+        if (batchForm) batchForm.addEventListener("submit", saveBatch);
+        const clearBatchFormButton = document.getElementById("clearBatchFormBtn");
+        if (clearBatchFormButton) clearBatchFormButton.addEventListener("click", clearBatchForm);
+        ["batchSearchInput", "batchCourseFilter", "batchStatusFilter"].forEach(function (id) {
+            const field = document.getElementById(id);
+            if (!field) return;
+            field.addEventListener("input", renderBatches);
+            field.addEventListener("change", renderBatches);
+        });
+        const batchStudentSearchInput = document.getElementById("batchStudentSearchInput");
+        if (batchStudentSearchInput) batchStudentSearchInput.addEventListener("input", renderBatchDetails);
+        const closeBatchDetailsButton = document.getElementById("closeBatchDetailsBtn");
+        if (closeBatchDetailsButton) closeBatchDetailsButton.addEventListener("click", function () {
+            activeBatchDetailsId = "";
+            const card = document.getElementById("batchDetailsCard");
+            if (card) card.hidden = true;
+        });
+        const batchSelectAllStudents = document.getElementById("batchSelectAllStudents");
+        if (batchSelectAllStudents) batchSelectAllStudents.addEventListener("change", function () {
+            document.querySelectorAll('[name="batchStudentSelect"]').forEach(function (input) {
+                input.checked = batchSelectAllStudents.checked;
+            });
+        });
+        const transferBatchButton = document.getElementById("transferBatchBtn");
+        if (transferBatchButton) transferBatchButton.addEventListener("click", transferSelectedStudents);
+        const reportCourseFilter = document.getElementById("reportCourseFilter");
+        if (reportCourseFilter) reportCourseFilter.addEventListener("change", function () {
+            setBatchSelectOptions("reportBatchFilter", getValue("reportCourseFilter"), "All Batches", true, null, false);
+            renderReports();
+        });
+        const reportBatchFilter = document.getElementById("reportBatchFilter");
+        if (reportBatchFilter) reportBatchFilter.addEventListener("change", renderReports);
+        const generateReportsButton = document.getElementById("generateReportsBtn");
+        if (generateReportsButton) generateReportsButton.addEventListener("click", renderReports);
         const announcementForm = document.getElementById("announcementForm");
         if (announcementForm) announcementForm.addEventListener("submit", saveAnnouncement);
         const clearAnnouncementButton = document.getElementById("clearAnnouncementFormBtn");
@@ -3068,24 +3598,44 @@
         if (announcementAllCoursesInput) announcementAllCoursesInput.addEventListener("change", setAnnouncementAllCoursesState);
         const attendanceStartForm = document.getElementById("attendanceStartForm");
         if (attendanceStartForm) attendanceStartForm.addEventListener("submit", startAttendance);
-        const closeAttendanceButton = document.getElementById("closeAttendanceBtn");
-        if (closeAttendanceButton) closeAttendanceButton.addEventListener("click", closeAttendance);
-        ["attendanceHistoryCourseFilter", "attendanceHistoryDateFilter"].forEach(function (id) {
-            const field = document.getElementById(id);
-            if (!field) return;
-            field.addEventListener("input", function () {
-                paginationState.attendanceHistory = 1;
-                loadAttendanceHistory();
-            });
-            field.addEventListener("change", function () {
-                paginationState.attendanceHistory = 1;
-                loadAttendanceHistory();
-            });
+        const attendanceCourseInput = document.getElementById("attendanceCourseInput");
+        if (attendanceCourseInput) attendanceCourseInput.addEventListener("change", function () {
+            loadAttendanceBatchesFor("attendanceCourseInput", "attendanceBatchInput", true);
+        });
+        const attendanceEditCourseFilter = document.getElementById("attendanceEditCourseFilter");
+        if (attendanceEditCourseFilter) attendanceEditCourseFilter.addEventListener("change", function () {
+            loadAttendanceBatchesFor("attendanceEditCourseFilter", "attendanceEditBatchFilter", true);
+        });
+        const attendanceReportCourseFilter = document.getElementById("attendanceReportCourseFilter");
+        if (attendanceReportCourseFilter) attendanceReportCourseFilter.addEventListener("change", function () {
+            loadAttendanceBatchesFor("attendanceReportCourseFilter", "attendanceReportBatchFilter", false);
+        });
+        const attendanceEditLoadButton = document.getElementById("attendanceEditLoadBtn");
+        if (attendanceEditLoadButton) attendanceEditLoadButton.addEventListener("click", loadAttendanceEdit);
+        const attendanceReportGenerateButton = document.getElementById("attendanceReportGenerateBtn");
+        if (attendanceReportGenerateButton) attendanceReportGenerateButton.addEventListener("click", loadAttendanceReport);
+        const attendanceLiveTable = document.getElementById("attendanceLiveTableBody");
+        if (attendanceLiveTable) attendanceLiveTable.addEventListener("change", function (event) {
+            const select = event.target.closest("[data-attendance-student]");
+            if (select && select.value) {
+                const targetId = select.getAttribute("data-attendance-target") || "attendanceLiveTableBody";
+                markAttendance(select.getAttribute("data-attendance-session"), select.getAttribute("data-attendance-student"), select.value, getAttendanceRowRemark(select.getAttribute("data-attendance-student"), select.getAttribute("data-attendance-session"), targetId), targetId);
+            }
+        });
+        const attendanceEditTable = document.getElementById("attendanceEditTableBody");
+        if (attendanceEditTable) attendanceEditTable.addEventListener("change", function (event) {
+            const select = event.target.closest("[data-attendance-student]");
+            if (select && select.value) {
+                const targetId = select.getAttribute("data-attendance-target") || "attendanceEditTableBody";
+                markAttendance(select.getAttribute("data-attendance-session"), select.getAttribute("data-attendance-student"), select.value, getAttendanceRowRemark(select.getAttribute("data-attendance-student"), select.getAttribute("data-attendance-session"), targetId), targetId);
+            }
         });
         const exportAttendanceExcelButton = document.getElementById("exportAttendanceExcelBtn");
         if (exportAttendanceExcelButton) exportAttendanceExcelButton.addEventListener("click", exportAttendanceExcel);
         const exportAttendancePdfButton = document.getElementById("exportAttendancePdfBtn");
         if (exportAttendancePdfButton) exportAttendancePdfButton.addEventListener("click", exportAttendancePdf);
+        const printAttendanceReportButton = document.getElementById("printAttendanceReportBtn");
+        if (printAttendanceReportButton) printAttendanceReportButton.addEventListener("click", printAttendanceReport);
         document.querySelectorAll("[data-announcement-command]").forEach(function (button) {
             button.addEventListener("click", function () {
                 document.execCommand(button.getAttribute("data-announcement-command"), false, null);
@@ -3144,3 +3694,4 @@
         }
     });
 }());
+

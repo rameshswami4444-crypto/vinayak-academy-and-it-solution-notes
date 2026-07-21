@@ -96,7 +96,7 @@
 
                     <article class="admin-card" data-admission-step-panel="2" hidden><h3><i class="fas fa-book-open"></i> Course Details</h3><div class="erp-form-grid">
                         <div class="login-field"><label for="newStudentCourse">Course</label><select id="newStudentCourse" required><option value="">Loading courses...</option></select></div>
-                        <div class="login-field"><label for="newBatch">Batch</label><input type="text" id="newBatch" required></div>
+                        <div class="login-field"><label for="newBatch">Batch</label><select id="newBatch" required><option value="">Select course first</option></select></div>
                         <div class="login-field"><label for="newAdmissionDate">Admission Date</label><input type="date" id="newAdmissionDate" required></div>
                         <div class="login-field"><label for="newCourseDuration">Course Duration</label><input type="text" id="newCourseDuration" placeholder="e.g. 6 Months" required></div>
                     </div></article>
@@ -189,7 +189,7 @@
                                 <div class="login-field"><label for="editEmail">Email</label><input type="email" id="editEmail"></div>
                                 <div class="login-field"><label for="editStudentPassword">Password</label><input type="text" id="editStudentPassword" required></div>
                                 <div class="login-field"><label for="editStudentCourse">Course</label><select id="editStudentCourse" required><option value="">Loading courses...</option></select></div>
-                                <div class="login-field"><label for="editBatch">Batch</label><input type="text" id="editBatch"></div>
+                                <div class="login-field"><label for="editBatch">Batch</label><select id="editBatch" required><option value="">Select course first</option></select></div>
                                 <div class="login-field"><label for="editAdmissionDate">Admission Date</label><input type="date" id="editAdmissionDate"></div>
                                 <div class="login-field"><label for="editCourseDuration">Course Duration</label><input type="text" id="editCourseDuration"></div>
                                 <div class="login-field"><label for="editAccountStatus">Account Status</label><select id="editAccountStatus"><option value="active">Active</option><option value="blocked">Blocked</option><option value="disabled">Disabled</option></select></div>
@@ -242,7 +242,48 @@
                     <div class="table-wrap"><table class="admin-table"><thead><tr><th>Course</th><th>Duration</th><th>Total Fee</th><th>Students</th><th>Materials</th><th>Actions</th></tr></thead><tbody id="coursesTableBody"><tr><td colspan="6" class="admin-empty">Loading courses...</td></tr></tbody></table></div>
                 </section>
             </section>
-            <section class="admin-section" data-admin-section="batches"><article class="admin-card erp-placeholder"><h2>Batches</h2><p>Batch setup will connect in a future phase.</p></article></section>
+            <section class="admin-section" data-admin-section="batches">
+                <div class="admin-hero"><div><h2>Batch Management</h2><p class="admin-hero-copy">Manage coaching batches by course, time, and active status.</p></div></div>
+                <section class="erp-stats-grid">
+                    <article class="erp-stat-card"><span><i class="fas fa-layer-group"></i></span><small>Total Batches</small><strong id="batchStatTotal">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-circle-check"></i></span><small>Active</small><strong id="batchStatActive">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-users"></i></span><small>Linked Students</small><strong id="batchStatStudents">0</strong></article>
+                </section>
+                <section class="admin-card">
+                    <h3><i class="fas fa-layer-group"></i> Add / Edit Batch</h3>
+                    <form id="batchForm" class="admin-form">
+                        <input type="hidden" id="batchRecordId">
+                        <div class="erp-form-grid">
+                            <div class="login-field"><label for="batchCourseInput">Course</label><select id="batchCourseInput" required><option value="">Loading courses...</option></select></div>
+                            <div class="login-field"><label for="batchNameInput">Batch Name</label><input type="text" id="batchNameInput" required></div>
+                            <div class="login-field"><label for="batchStartTimeInput">Start Time</label><input type="time" id="batchStartTimeInput" required></div>
+                            <div class="login-field"><label for="batchEndTimeInput">End Time</label><input type="time" id="batchEndTimeInput" required></div>
+                            <div class="login-field"><label for="batchStatusInput">Status</label><select id="batchStatusInput"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+                        </div>
+                        <div class="admin-form-actions"><button type="submit" class="login-btn"><i class="fas fa-floppy-disk"></i> Save Batch</button><button type="button" class="logout-btn admin-secondary-btn" id="clearBatchFormBtn"><i class="fas fa-eraser"></i> Clear</button></div>
+                    </form>
+                </section>
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header"><h3><i class="fas fa-list"></i> Batches</h3><div class="erp-table-tools">
+                        <div class="login-field admin-search-field"><label for="batchSearchInput">Search Batch</label><input type="search" id="batchSearchInput" placeholder="Batch name, course"></div>
+                        <div class="login-field erp-filter-field"><label for="batchCourseFilter">Course</label><select id="batchCourseFilter"><option value="">All Courses</option></select></div>
+                        <div class="login-field erp-filter-field"><label for="batchStatusFilter">Status</label><select id="batchStatusFilter"><option value="">All</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+                    </div></div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Batch Name</th><th>Course</th><th>Start Time</th><th>End Time</th><th>Total Students</th><th>Status</th><th>Actions</th></tr></thead><tbody id="batchesTableBody"><tr><td colspan="7" class="admin-empty">Loading batches...</td></tr></tbody></table></div>
+                </section>
+                <section class="admin-card admin-table-card" id="batchDetailsCard" hidden>
+                    <div class="admin-table-header">
+                        <div><h3><i class="fas fa-address-book"></i> Batch Details</h3><p class="admin-note" id="batchDetailsMeta">Select a batch to view students.</p></div>
+                        <div class="erp-table-tools">
+                            <div class="login-field admin-search-field"><label for="batchStudentSearchInput">Search Students</label><input type="search" id="batchStudentSearchInput" placeholder="ID, name, mobile"></div>
+                            <select id="batchTransferTargetInput"><option value="">Transfer to batch</option></select>
+                            <button type="button" class="table-action-btn" id="transferBatchBtn"><i class="fas fa-right-left"></i> Transfer Batch</button>
+                            <button type="button" class="table-action-btn" id="closeBatchDetailsBtn">Close</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th><input type="checkbox" id="batchSelectAllStudents"></th><th>Photo</th><th>Student ID</th><th>Student Name</th><th>Mobile</th><th>Admission Date</th><th>Attendance %</th><th>Fee Status</th></tr></thead><tbody id="batchStudentsTableBody"><tr><td colspan="8" class="admin-empty">No batch selected.</td></tr></tbody></table></div>
+                </section>
+            </section>
             <section class="admin-section" data-admin-section="material">
                 <section class="admin-card">
                     <div class="erp-card-head">
@@ -287,74 +328,81 @@
             <section class="admin-section" data-admin-section="assignments"><article class="admin-card erp-placeholder"><h2>Assignments</h2><p>Not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="attendance">
                 <div class="admin-hero">
-                    <div><h2>Attendance Dashboard</h2><p class="admin-hero-copy">Start live lecture attendance, monitor responses, and export completed reports.</p></div>
+                    <div><h2>Attendance Dashboard</h2><p class="admin-hero-copy">Fast coaching attendance by course and batch.</p></div>
                 </div>
-
-                <section class="admin-card">
-                    <div class="erp-card-head">
-                        <div>
-                            <h3><i class="fas fa-circle-play"></i> Start Attendance</h3>
-                            <p class="admin-note">Create an open attendance window for a course.</p>
-                        </div>
-                    </div>
-                    <form id="attendanceStartForm" class="admin-form">
-                        <div class="erp-form-grid">
-                            <div class="login-field"><label for="attendanceCourseInput">Course</label><select id="attendanceCourseInput" required><option value="">Loading courses...</option></select></div>
-                            <div class="login-field"><label for="attendanceSubjectInput">Subject</label><input type="text" id="attendanceSubjectInput" placeholder="Subject name" required></div>
-                            <div class="login-field"><label for="attendanceLectureTitleInput">Lecture Title</label><input type="text" id="attendanceLectureTitleInput" placeholder="Lecture title" required></div>
-                            <div class="login-field"><label for="attendanceDurationInput">Duration (minutes)</label><input type="number" id="attendanceDurationInput" min="1" max="180" value="5" required></div>
-                        </div>
-                        <div class="admin-form-actions"><button type="submit" class="login-btn" id="startAttendanceBtn"><i class="fas fa-play"></i> Start Attendance</button></div>
-                    </form>
-                </section>
 
                 <section class="erp-stats-grid attendance-live-grid">
                     <article class="erp-stat-card"><span><i class="fas fa-users"></i></span><small>Total Students</small><strong id="attendanceTotalStudents">0</strong></article>
                     <article class="erp-stat-card"><span><i class="fas fa-user-check"></i></span><small>Present</small><strong id="attendancePresentCount">0</strong></article>
                     <article class="erp-stat-card"><span><i class="fas fa-user-xmark"></i></span><small>Absent</small><strong id="attendanceAbsentCount">0</strong></article>
-                    <article class="erp-stat-card"><span><i class="fas fa-hourglass-half"></i></span><small>Not Responded</small><strong id="attendanceWaitingCount">0</strong></article>
-                    <article class="erp-stat-card"><span><i class="fas fa-reply-all"></i></span><small>Live Responses</small><strong id="attendanceResponseCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-person-running"></i></span><small>Late</small><strong id="attendanceLateCount">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-plane-departure"></i></span><small>Leave</small><strong id="attendanceLeaveCount">0</strong></article>
                     <article class="erp-stat-card"><span><i class="fas fa-chart-simple"></i></span><small>Attendance %</small><strong id="attendancePercentage">0%</strong></article>
-                    <article class="erp-stat-card"><span><i class="fas fa-clock"></i></span><small>Remaining Time</small><strong id="attendanceRemainingTime">00:00</strong></article>
                 </section>
 
-                <section class="admin-card admin-table-card">
-                    <div class="admin-table-header">
+                <section class="admin-card">
+                    <div class="erp-card-head">
                         <div>
-                            <h3><i class="fas fa-signal"></i> Live Student Table</h3>
-                            <p class="admin-note" id="attendanceLiveMeta">No active attendance session.</p>
+                            <h3><i class="fas fa-circle-play"></i> Take Attendance</h3>
+                            <p class="admin-note">Select a batch and mark students with one click.</p>
                         </div>
-                        <button type="button" class="logout-btn admin-secondary-btn" id="closeAttendanceBtn" disabled><i class="fas fa-stop"></i> Close Attendance</button>
                     </div>
-                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Student Name</th><th>Student ID</th><th>Attendance Status</th><th>Response Time</th></tr></thead><tbody id="attendanceLiveTableBody"><tr><td colspan="4" class="admin-empty">Start attendance to see live responses.</td></tr></tbody></table></div>
+                    <form id="attendanceStartForm" class="admin-form">
+                        <div class="erp-form-grid">
+                            <div class="login-field"><label for="attendanceCourseInput">Course</label><select id="attendanceCourseInput" required><option value="">Loading courses...</option></select></div>
+                            <div class="login-field"><label for="attendanceBatchInput">Batch</label><select id="attendanceBatchInput" required><option value="">Select course first</option></select></div>
+                            <div class="login-field"><label for="attendanceDurationInput">Duration Minutes</label><input type="number" id="attendanceDurationInput" min="1" max="180" value="5" required></div>
+                        </div>
+                        <div class="admin-form-actions"><button type="submit" class="login-btn" id="startAttendanceBtn"><i class="fas fa-play"></i> Start Attendance</button></div>
+                    </form>
                 </section>
 
                 <section class="admin-card admin-table-card">
                     <div class="admin-table-header">
                         <div>
-                            <h3><i class="fas fa-clock-rotate-left"></i> Attendance History</h3>
-                            <p class="admin-note">Filter sessions and open a report for export.</p>
+                            <h3><i class="fas fa-clipboard-check"></i> Student Attendance</h3>
+                            <p class="admin-note" id="attendanceLiveMeta">Start attendance to load students.</p>
+                        </div>
+                    </div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Student Name</th><th>Student ID</th><th>Batch</th><th>Status</th><th>Remarks</th><th>Marked Time</th></tr></thead><tbody id="attendanceLiveTableBody"><tr><td colspan="6" class="admin-empty">Start attendance to show students.</td></tr></tbody></table></div>
+                </section>
+
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header">
+                        <div>
+                            <h3><i class="fas fa-pen-to-square"></i> Attendance Edit</h3>
+                            <p class="admin-note">Edit any date; changes auto-save.</p>
                         </div>
                         <div class="erp-table-tools">
-                            <div class="login-field admin-search-field"><label for="attendanceHistoryCourseFilter">Course</label><select id="attendanceHistoryCourseFilter"><option value="">All Courses</option></select></div>
-                            <div class="login-field admin-search-field"><label for="attendanceHistoryDateFilter">Date</label><input type="date" id="attendanceHistoryDateFilter"></div>
+                            <div class="login-field admin-search-field"><label for="attendanceEditCourseFilter">Course</label><select id="attendanceEditCourseFilter"><option value="">Select Course</option></select></div>
+                            <div class="login-field admin-search-field"><label for="attendanceEditBatchFilter">Batch</label><select id="attendanceEditBatchFilter"><option value="">Select Batch</option></select></div>
+                            <div class="login-field admin-search-field"><label for="attendanceEditDateFilter">Date</label><input type="date" id="attendanceEditDateFilter"></div>
+                            <button type="button" class="table-action-btn" id="attendanceEditLoadBtn"><i class="fas fa-rotate"></i> Load</button>
                         </div>
                     </div>
-                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Course</th><th>Lecture</th><th>Status</th><th>Actions</th></tr></thead><tbody id="attendanceHistoryTableBody"><tr><td colspan="5" class="admin-empty">No attendance history loaded.</td></tr></tbody></table></div><div class="erp-pagination" id="attendanceHistoryPagination"></div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Student Name</th><th>Student ID</th><th>Batch</th><th>Status</th><th>Remarks</th><th>Marked Time</th></tr></thead><tbody id="attendanceEditTableBody"><tr><td colspan="6" class="admin-empty">Choose filters to edit attendance.</td></tr></tbody></table></div>
                 </section>
 
-                <section class="admin-card admin-table-card" id="attendanceReportCard" hidden>
+                <section class="admin-card admin-table-card">
                     <div class="admin-table-header">
                         <div>
                             <h3><i class="fas fa-file-lines"></i> Attendance Report</h3>
-                            <p class="admin-note" id="attendanceReportMeta">Select a session to view report.</p>
+                            <p class="admin-note" id="attendanceReportMeta">Generate date-wise coaching attendance reports.</p>
                         </div>
                         <div class="erp-table-tools">
+                            <div class="login-field admin-search-field"><label for="attendanceReportFromDate">From Date</label><input type="date" id="attendanceReportFromDate"></div>
+                            <div class="login-field admin-search-field"><label for="attendanceReportToDate">To Date</label><input type="date" id="attendanceReportToDate"></div>
+                            <div class="login-field admin-search-field"><label for="attendanceReportCourseFilter">Course</label><select id="attendanceReportCourseFilter"><option value="">All Courses</option></select></div>
+                            <div class="login-field admin-search-field"><label for="attendanceReportBatchFilter">Batch</label><select id="attendanceReportBatchFilter"><option value="">All Batches</option></select></div>
+                            <div class="login-field admin-search-field"><label for="attendanceReportStudentFilter">Student</label><input type="search" id="attendanceReportStudentFilter" placeholder="Student ID"></div>
+                            <div class="login-field admin-search-field"><label for="attendanceReportStatusFilter">Status</label><select id="attendanceReportStatusFilter"><option value="">All Status</option><option value="Present">Present</option><option value="Absent">Absent</option><option value="Late">Late</option><option value="Leave">Leave</option></select></div>
+                            <button type="button" class="table-action-btn" id="attendanceReportGenerateBtn"><i class="fas fa-magnifying-glass-chart"></i> Generate</button>
                             <button type="button" class="table-action-btn" id="exportAttendanceExcelBtn"><i class="fas fa-file-excel"></i> Excel</button>
                             <button type="button" class="table-action-btn" id="exportAttendancePdfBtn"><i class="fas fa-file-pdf"></i> PDF</button>
+                            <button type="button" class="table-action-btn" id="printAttendanceReportBtn"><i class="fas fa-print"></i> Print</button>
                         </div>
                     </div>
-                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Student Name</th><th>Student ID</th><th>Status</th><th>Response Time</th></tr></thead><tbody id="attendanceReportTableBody"></tbody></table></div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th data-attendance-sort="student_name">Student Name</th><th data-attendance-sort="batch">Batch</th><th data-attendance-sort="course">Course</th><th data-attendance-sort="date">Date</th><th data-attendance-sort="status">Attendance Status</th><th data-attendance-sort="time">Time</th></tr></thead><tbody id="attendanceReportTableBody"><tr><td colspan="6" class="admin-empty">Generate a report to view rows.</td></tr></tbody></table></div>
                 </section>
             </section>
             <section class="admin-section" data-admin-section="notifications">
@@ -398,7 +446,23 @@
                     <div class="table-wrap"><table class="admin-table"><thead><tr><th>Title</th><th>Audience</th><th>Pinned</th><th>Expiry</th><th>Actions</th></tr></thead><tbody id="announcementTableBody"><tr><td colspan="5" class="admin-empty">No announcements loaded.</td></tr></tbody></table></div><div class="erp-pagination" id="announcementPagination"></div>
                 </section>
             </section>
-            <section class="admin-section" data-admin-section="reports"><article class="admin-card erp-placeholder"><h2>Reports</h2><p>Not part of this phase.</p></article></section>
+            <section class="admin-section" data-admin-section="reports">
+                <div class="admin-hero"><div><h2>Reports</h2><p class="admin-hero-copy">Course and batch-wise student and fee reports.</p></div></div>
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header"><h3><i class="fas fa-filter"></i> Report Filters</h3><div class="erp-table-tools">
+                        <div class="login-field erp-filter-field"><label for="reportCourseFilter">Course</label><select id="reportCourseFilter"><option value="">All Courses</option></select></div>
+                        <div class="login-field erp-filter-field"><label for="reportBatchFilter">Batch</label><select id="reportBatchFilter"><option value="">All Batches</option></select></div>
+                        <button type="button" class="table-action-btn" id="generateReportsBtn"><i class="fas fa-chart-simple"></i> Generate</button>
+                    </div></div>
+                    <section class="erp-stats-grid">
+                        <article class="erp-stat-card"><span><i class="fas fa-users"></i></span><small>Students</small><strong id="reportStudentCount">0</strong></article>
+                        <article class="erp-stat-card"><span><i class="fas fa-wallet"></i></span><small>Total Fees</small><strong id="reportFeeTotal">Rs. 0.00</strong></article>
+                        <article class="erp-stat-card"><span><i class="fas fa-circle-check"></i></span><small>Paid</small><strong id="reportFeePaid">Rs. 0.00</strong></article>
+                        <article class="erp-stat-card"><span><i class="fas fa-clock"></i></span><small>Pending</small><strong id="reportFeePending">Rs. 0.00</strong></article>
+                    </section>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Student ID</th><th>Name</th><th>Course</th><th>Batch</th><th>Mobile</th><th>Fee Status</th><th>Remaining Fee</th></tr></thead><tbody id="reportsTableBody"><tr><td colspan="7" class="admin-empty">Generate a report to view rows.</td></tr></tbody></table></div>
+                </section>
+            </section>
             <section class="admin-section" data-admin-section="settings"><article class="admin-card erp-placeholder"><h2>Settings</h2><p>Not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="admins"><article class="admin-card erp-placeholder"><h2>Admins</h2><p>Admin roles are not part of this phase.</p></article></section>
         </main>

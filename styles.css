@@ -4678,3 +4678,18 @@ body.admin-sidebar-collapsed .erp-sidebar {
 .student-material-card {
     min-height: 180px;
 }
+
+.student-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-grid;
+    place-items: center;
+}
+
+.student-avatar-fallback {
+    background: #eef2ff;
+    color: #3730a3;
+    font-weight: 800;
+}

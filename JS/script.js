@@ -147,7 +147,7 @@ const courseData = [
     }
 
     function renderHomeSummary(studentId, student, courseData) {
-        const name = student.name || student.student_name || "Student";
+        const name = student.name || "Student";
         const course = courseData ? courseData.name : (student.course || "-");
         const memberSince = student.admission_date ? new Date(student.admission_date).toLocaleDateString("en-IN", { month: "long", year: "numeric" }) : "-";
         document.querySelectorAll("[data-home-student-name]").forEach(function (node) { node.textContent = name; });

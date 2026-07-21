@@ -256,7 +256,7 @@
         grid.dataset.materialInitialized = "true";
 
         const state = { subject: "all", query: "", notes: [] };
-        renderMessage(grid, "Loading study material", "Fetching secure notes from Cloudflare R2.");
+        renderMessage(grid, "Loading study material", "Fetching  notes .");
 
         fetchCourseNotes(getStudentCourse()).then(function (notes) {
             state.notes = notes;
