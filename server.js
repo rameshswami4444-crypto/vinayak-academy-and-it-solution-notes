@@ -583,9 +583,12 @@ async function getAttendanceRows(client, session) {
 
     let studentQuery = client
         .from("students")
-        .select("id, name, course_id, course, batch_id, batch")
-        .eq("course_id", courseId);
-    if (batchId) studentQuery = studentQuery.eq("batch_id", batchId);
+        .select("id, name, course_id, course, batch_id, batch");
+    if (batchId) {
+        studentQuery = studentQuery.eq("batch_id", batchId);
+    } else {
+        studentQuery = studentQuery.eq("course_id", courseId);
+    }
     const students = await studentQuery.order("name", { ascending: true });
     if (students.error) throw students.error;
 
@@ -635,6 +638,31 @@ async function getStudentByIdForAttendance(client, studentId) {
         throw studentResult.error;
     }
     return studentResult.data && studentResult.data[0] ? studentResult.data[0] : null;
+}
+
+async function getBatchForAttendance(client, batchId) {
+    const batchResult = await client
+        .from("batches")
+        .select("id, course_id, batch_name")
+        .eq("id", batchId)
+        .limit(1);
+    if (batchResult.error) throw batchResult.error;
+    return batchResult.data && batchResult.data[0] ? batchResult.data[0] : null;
+}
+
+async function assertAttendanceBatchMatchesCourse(client, courseId, batchId) {
+    const batch = await getBatchForAttendance(client, batchId);
+    if (!batch) {
+        const error = new Error("Selected batch was not found.");
+        error.statusCode = 404;
+        throw error;
+    }
+    if (String(batch.course_id || "") !== String(courseId || "")) {
+        const error = new Error("Selected batch does not belong to the selected course.");
+        error.statusCode = 400;
+        throw error;
+    }
+    return batch;
 }
 
 async function ensureStudentCourseIdForAttendance(client, student) {
@@ -1103,6 +1131,7 @@ app.post("/api/attendance/start", async function (request, response) {
             return;
         }
         const client = getSupabaseClient();
+        await assertAttendanceBatchMatchesCourse(client, courseId, batchId);
         const startTime = new Date();
         const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
         const sessionPayload = {
@@ -1180,6 +1209,7 @@ app.get("/api/attendance/edit", async function (request, response) {
             return;
         }
         const client = getSupabaseClient();
+        await assertAttendanceBatchMatchesCourse(client, courseId, batchId);
         const sessionResult = await client
             .from("attendance_sessions")
             .select(ATTENDANCE_SESSION_COLUMNS)

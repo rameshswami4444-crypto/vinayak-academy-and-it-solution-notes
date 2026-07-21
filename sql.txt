@@ -25,6 +25,7 @@ CREATE TABLE public.students (
   failed_attempts integer DEFAULT 0,
   locked_until timestamp with time zone,
   last_failed_login timestamp with time zone,
+  student_name text,
   CONSTRAINT students_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.courses (
@@ -44,10 +45,9 @@ CREATE TABLE public.batches (
   course_id uuid DEFAULT gen_random_uuid(),
   start_date date,
   end_date date,
+  status text,
   timing text,
-  institute_id uuid,
-  CONSTRAINT batches_pkey PRIMARY KEY (id),
-  CONSTRAINT batches_institute_id_fkey FOREIGN KEY (institute_id) REFERENCES public.institutes(id)
+  CONSTRAINT batches_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.student_fees (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -117,6 +117,11 @@ CREATE TABLE public.announcements (
   target_course uuid DEFAULT gen_random_uuid(),
   created_at timestamp without time zone,
   institute_id uuid,
+  all_courses text,
+  content text,
+  expires_at text,
+  is_pinned smallint,
+  target_courses text,
   CONSTRAINT announcements_pkey PRIMARY KEY (id),
   CONSTRAINT announcements_institute_id_fkey FOREIGN KEY (institute_id) REFERENCES public.institutes(id)
 );
@@ -202,6 +207,7 @@ CREATE TABLE public.attendance_sessions (
   created_by text,
   created_at timestamp with time zone DEFAULT now(),
   session_id text,
+  batch_id text,
   CONSTRAINT attendance_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT attendance_sessions_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id)
 );

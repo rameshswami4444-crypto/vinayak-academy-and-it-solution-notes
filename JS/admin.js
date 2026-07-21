@@ -324,6 +324,7 @@
         document.body.classList.remove("admin-sidebar-open");
         const courseBackedSections = ["admissions", "courses", "material", "batches", "notifications"];
         if (courseBackedSections.includes(sectionName) || sectionName === "attendance") loadCourses();
+        if (["admissions", "students", "reports", "attendance"].includes(sectionName)) ensureBatchesLoaded();
         if (sectionName === "courses") ensureMaterialLoaded();
         if (sectionName === "material") ensureMaterialLoaded();
         if (sectionName === "notifications") ensureAnnouncementsLoaded();
@@ -2378,7 +2379,7 @@
     }
 
     function getAnnouncementCourseIds(item) {
-        const raw = item && (item.target_courses || item.course_ids || item.courses || item.course_id);
+        const raw = item && (item.target_courses || item.course_ids || item.courses || item.target_course || item.course_id);
         if (!raw) return [];
         if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
         if (typeof raw === "string") {
@@ -2393,7 +2394,14 @@
 
     function isAnnouncementAllCourses(item) {
         if (!item) return false;
-        return item.all_courses === true || item.all_courses === "true" || item.target === "all" || item.audience === "all";
+        const value = String(item.all_courses == null ? "" : item.all_courses).trim().toLowerCase();
+        return item.all_courses === true || value === "true" || value === "1" || item.target === "all" || item.audience === "all";
+    }
+
+    function isAnnouncementPinned(item) {
+        if (!item) return false;
+        if (item.is_pinned === true || item.pinned === true) return true;
+        return Number(item.is_pinned || item.pinned || 0) === 1;
     }
 
     function getAnnouncementAudienceLabel(item) {
@@ -2436,7 +2444,7 @@
         const editor = document.getElementById("announcementContentInput");
         if (editor) editor.innerHTML = getAnnouncementContent(item);
         const pinned = document.getElementById("announcementPinnedInput");
-        if (pinned) pinned.checked = Boolean(item.is_pinned || item.pinned);
+        if (pinned) pinned.checked = isAnnouncementPinned(item);
         const allInput = document.getElementById("announcementAllCoursesInput");
         if (allInput) allInput.checked = isAnnouncementAllCourses(item);
         renderAnnouncementCourseChecklist(getAnnouncementCourseIds(item));
@@ -2452,13 +2460,13 @@
         const rows = announcementsCache.filter(function (item) {
             return !query || [getAnnouncementTitle(item), getAnnouncementContent(item), getAnnouncementAudienceLabel(item)].join(" ").toLowerCase().includes(query);
         }).sort(function (a, b) {
-            const pinnedDiff = Number(Boolean(b.is_pinned || b.pinned)) - Number(Boolean(a.is_pinned || a.pinned));
+            const pinnedDiff = Number(isAnnouncementPinned(b)) - Number(isAnnouncementPinned(a));
             if (pinnedDiff) return pinnedDiff;
             return String(b.created_at || "").localeCompare(String(a.created_at || ""));
         });
         const pageData = paginateRows(rows, "announcements");
         tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (item) {
-            const pinned = Boolean(item.is_pinned || item.pinned);
+            const pinned = isAnnouncementPinned(item);
             return [
                 "<tr>",
                 "<td><strong>", escapeHtml(getAnnouncementTitle(item)), "</strong><small>", escapeHtml(getAnnouncementContent(item).replace(/<[^>]+>/g, "").slice(0, 90)), "</small></td>",
@@ -2496,9 +2504,10 @@
             title: title,
             content: content,
             message: content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
-            is_pinned: Boolean(document.getElementById("announcementPinnedInput") && document.getElementById("announcementPinnedInput").checked),
-            all_courses: allCourses,
-            target_courses: selectedCourses,
+            is_pinned: document.getElementById("announcementPinnedInput") && document.getElementById("announcementPinnedInput").checked ? 1 : 0,
+            all_courses: allCourses ? "true" : "false",
+            target_course: allCourses ? null : (selectedCourses[0] || null),
+            target_courses: allCourses ? "[]" : JSON.stringify(selectedCourses),
             expires_at: getValue("announcementExpiryInput") || null
         };
         if (!id) {
@@ -2523,8 +2532,8 @@
         const item = announcementsCache.find(function (row) { return String(row.id) === String(id); });
         if (!item) return;
         try {
-            const pinned = !Boolean(item.is_pinned || item.pinned);
-            const result = await window.VinayakAuth.getClient().from("announcements").update({ is_pinned: pinned }).eq("id", id);
+            const pinned = !isAnnouncementPinned(item);
+            const result = await window.VinayakAuth.getClient().from("announcements").update({ is_pinned: pinned ? 1 : 0 }).eq("id", id);
             if (result.error) throw result.error;
             await ensureAnnouncementsLoaded(true);
             setPanelMessage(pinned ? "Announcement pinned." : "Announcement unpinned.", "success");
@@ -3036,7 +3045,7 @@
                 .on("postgres_changes", {
                     event: "*",
                     schema: "public",
-                    table: "attendance",
+                    table: "attendance_responses",
                     filter: "session_id=eq." + activeAttendanceSessionId
                 }, function (payload) {
                     console.log("Admin attendance realtime event received", payload);

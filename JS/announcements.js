@@ -58,7 +58,7 @@
     }
 
     function getCourseTargets(item) {
-        const raw = item && (item.target_courses || item.course_ids || item.courses || item.course_id);
+        const raw = item && (item.target_courses || item.course_ids || item.courses || item.target_course || item.course_id);
         if (!raw) return [];
         if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
         if (typeof raw === "string") {
@@ -72,7 +72,15 @@
     }
 
     function isAllCourses(item) {
-        return Boolean(item && (item.all_courses === true || item.all_courses === "true" || item.target === "all" || item.audience === "all"));
+        if (!item) return false;
+        const value = String(item.all_courses == null ? "" : item.all_courses).trim().toLowerCase();
+        return item.all_courses === true || value === "true" || value === "1" || item.target === "all" || item.audience === "all";
+    }
+
+    function isPinned(item) {
+        if (!item) return false;
+        if (item.is_pinned === true || item.pinned === true) return true;
+        return Number(item.is_pinned || item.pinned || 0) === 1;
     }
 
     function isExpired(item) {
@@ -140,7 +148,7 @@
             const rows = (data || []).filter(function (item) {
                 return !isExpired(item) && matchesStudentCourse(item, courseKeys);
             }).sort(function (a, b) {
-                const pinnedDiff = Number(Boolean(b.is_pinned || b.pinned)) - Number(Boolean(a.is_pinned || a.pinned));
+                const pinnedDiff = Number(isPinned(b)) - Number(isPinned(a));
                 if (pinnedDiff) return pinnedDiff;
                 return String(b.created_at || "").localeCompare(String(a.created_at || ""));
             });
@@ -201,7 +209,7 @@
         if (!target) return;
         const rows = (items || []).slice(0, limit || 5);
         target.innerHTML = rows.length ? rows.map(function (item) {
-            return '<button type="button" class="student-list-item student-list-button announcement-card' + ((item.is_pinned || item.pinned) ? " is-pinned" : "") + '" data-announcement-id="' + escapeHtml(item.id) + '"><i class="fas fa-bullhorn"></i><span><strong>' + escapeHtml(getTitle(item)) + '</strong><small>' + escapeHtml(stripHtml(getContent(item)).slice(0, 120) || "New announcement") + '</small></span></button>';
+            return '<button type="button" class="student-list-item student-list-button announcement-card' + (isPinned(item) ? " is-pinned" : "") + '" data-announcement-id="' + escapeHtml(item.id) + '"><i class="fas fa-bullhorn"></i><span><strong>' + escapeHtml(getTitle(item)) + '</strong><small>' + escapeHtml(stripHtml(getContent(item)).slice(0, 120) || "New announcement") + '</small></span></button>';
         }).join("") : '<div class="student-empty">No announcements yet.</div>';
         bindAnnouncementCards(target, rows);
     }
