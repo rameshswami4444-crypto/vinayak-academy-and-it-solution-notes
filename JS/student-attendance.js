@@ -12,6 +12,8 @@
     let countdownTimer = null;
     let activeEndTime = "";
     let watcherStarted = false;
+    let autoTimeoutSubmitting = false;
+    let attendanceRealtimeChannel = null;
     function apiUrl(path) {
         if (window.VinayakApi) return window.VinayakApi.url(path);
         return String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "") + path;
@@ -63,10 +65,12 @@
         console.group(label);
         console.log("Logged-in student ID:", getStudentId());
         console.log("Student course_id:", debug.student_course_id || "(not returned)");
+        console.log("Student batch_id:", debug.student_batch_id || "(not returned)");
         console.log("Attendance query:", debug.attendance_query || {
             table: "attendance_sessions",
             status: "OPEN",
             course_id: debug.student_course_id || "",
+            batch_id: debug.student_batch_id || "",
             start_time: "<= now",
             end_time: ">= now"
         });
@@ -101,6 +105,7 @@
             '<p><span>Subject</span><strong data-attendance-subject>-</strong></p>',
             '<p><span>Lecture Title</span><strong data-attendance-title>-</strong></p>',
             '<p><span>Teacher</span><strong data-attendance-teacher>-</strong></p>',
+            '<p><span>Duration</span><strong data-attendance-duration>-</strong></p>',
             '</div>',
             '<form data-attendance-form>',
             '<p class="student-attendance-question">Mark your attendance.</p>',
@@ -152,7 +157,11 @@
         activeEndTime = endTime || "";
         if (countdownTimer) window.clearInterval(countdownTimer);
         function tick() {
-            setModalText("[data-attendance-countdown]", formatClock(getRemainingSeconds(activeEndTime)));
+            const remaining = getRemainingSeconds(activeEndTime);
+            setModalText("[data-attendance-countdown]", formatClock(remaining));
+            if (popupOpen && activeSessionId && remaining <= 0) {
+                autoSubmitAbsentOnTimeout();
+            }
         }
         tick();
         countdownTimer = window.setInterval(tick, 1000);
@@ -178,6 +187,7 @@
         setModalText("[data-attendance-subject]", session.subject || "-");
         setModalText("[data-attendance-title]", session.lecture_title || "-");
         setModalText("[data-attendance-teacher]", session.created_by || "Teacher");
+        setModalText("[data-attendance-duration]", session.duration_minutes ? session.duration_minutes + " minutes" : "-");
         showMessage("", "success");
         const message = modal.querySelector("[data-attendance-message]");
         if (message) message.hidden = true;
@@ -200,6 +210,7 @@
         document.body.classList.remove("student-attendance-locked");
         popupOpen = false;
         activeSessionId = "";
+        autoTimeoutSubmitting = false;
         stopCountdown();
         stopPopupPolling();
     }
@@ -247,6 +258,7 @@
                     attendance_query: {
                         table: "attendance_sessions",
                         status: "OPEN",
+                        batch_id: "",
                         start_time: "<= now",
                         end_time: ">= now"
                     },
@@ -290,6 +302,26 @@
         }
     }
 
+    async function autoSubmitAbsentOnTimeout() {
+        if (autoTimeoutSubmitting || !activeSessionId) return;
+        autoTimeoutSubmitting = true;
+        try {
+            console.log("Attendance timer expired; auto-submitting Absent", {
+                studentId: getStudentId(),
+                sessionId: activeSessionId
+            });
+            const result = await api("/api/student/attendance/respond", {
+                method: "POST",
+                body: JSON.stringify({ session_id: activeSessionId, response: "ABSENT", auto_timeout: true })
+            });
+            console.log("Attendance timeout insert result", result);
+            hidePopup();
+        } catch (error) {
+            console.warn("Attendance timeout auto-absent failed", error);
+            hidePopup();
+        }
+    }
+
     function startPopupPolling() {
         if (document.hidden) return;
         stopPopupPolling();
@@ -309,6 +341,7 @@
         if (watcherStarted || document.body.classList.contains("admin-page")) return;
         watcherStarted = true;
         window.setTimeout(function () { checkActiveAttendance(false); }, 800);
+        startAttendanceRealtime();
         if (!document.hidden) {
             pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, POLL_MS);
         }
@@ -320,6 +353,45 @@
             pollTimer = null;
         }
         stopPopupPolling();
+        stopAttendanceRealtime();
+    }
+
+    function startAttendanceRealtime() {
+        if (attendanceRealtimeChannel || !window.VinayakAuth || typeof window.VinayakAuth.getClient !== "function") return;
+        try {
+            const client = window.VinayakAuth.getClient();
+            if (!client || typeof client.channel !== "function") return;
+            attendanceRealtimeChannel = client
+                .channel("student-attendance-sessions-" + getStudentId())
+                .on("postgres_changes", {
+                    event: "*",
+                    schema: "public",
+                    table: "attendance_sessions"
+                }, function (payload) {
+                    console.log("Realtime event received for attendance session", payload);
+                    checkActiveAttendance(false);
+                })
+                .subscribe(function (status) {
+                    console.log("Student attendance realtime status", status);
+                });
+        } catch (error) {
+            console.warn("Student attendance realtime setup failed; polling remains active.", error);
+            attendanceRealtimeChannel = null;
+        }
+    }
+
+    function stopAttendanceRealtime() {
+        if (!attendanceRealtimeChannel || !window.VinayakAuth || typeof window.VinayakAuth.getClient !== "function") {
+            attendanceRealtimeChannel = null;
+            return;
+        }
+        try {
+            const client = window.VinayakAuth.getClient();
+            if (client && typeof client.removeChannel === "function") client.removeChannel(attendanceRealtimeChannel);
+        } catch (error) {
+            console.warn("Student attendance realtime cleanup failed", error);
+        }
+        attendanceRealtimeChannel = null;
     }
 
     function handleVisibilityChange() {
@@ -329,6 +401,7 @@
             return;
         }
         checkActiveAttendance(false);
+        startAttendanceRealtime();
         if (!pollTimer) {
             pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, POLL_MS);
         }

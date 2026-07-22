@@ -721,7 +721,98 @@ async function getStudentAttendanceCourseIds(client, student) {
 }
 
 async function getStudentActiveAttendance(client, student) {
-    return { session: null, debug: { disabled: true, reason: "Admin coaching attendance is teacher-marked." } };
+    const now = new Date().toISOString();
+    const courseId = String(student && student.course_id || "").trim();
+    const batchId = String(student && student.batch_id || "").trim();
+    const debug = {
+        student_id: String(student && student.id || ""),
+        student_course_id: courseId,
+        student_batch_id: batchId,
+        attendance_query: {
+            table: "attendance_sessions",
+            status: "OPEN",
+            course_id: courseId,
+            batch_id: batchId,
+            start_time: "<= " + now,
+            end_time: ">= " + now
+        },
+        sessions_found: 0,
+        supabase_error: null
+    };
+    console.log("Student active attendance lookup", debug);
+    if (!courseId || !batchId) {
+        debug.reason = !courseId ? "Student course_id is missing." : "Student batch_id is missing.";
+        return { active: false, session: null, response: null, debug: debug };
+    }
+
+    const expiredResult = await client
+        .from("attendance_sessions")
+        .select(ATTENDANCE_SESSION_COLUMNS)
+        .eq("status", "OPEN")
+        .eq("course_id", courseId)
+        .eq("batch_id", batchId)
+        .lt("end_time", now)
+        .order("end_time", { ascending: false })
+        .limit(3);
+    if (expiredResult.error) {
+        debug.supabase_error = expiredResult.error;
+        throw expiredResult.error;
+    }
+    for (const expiredSession of (expiredResult.data || [])) {
+        const existingExpired = await getStudentAttendance(client, expiredSession.id, student.id);
+        if (!existingExpired) {
+            console.log("Auto-marking expired student attendance as Absent", {
+                student_id: student.id,
+                session_id: expiredSession.id,
+                batch_id: batchId
+            });
+            await upsertAttendance(client, {
+                session_id: expiredSession.id,
+                student_id: student.id,
+                status: "Absent",
+                marked_at: expiredSession.end_time || now
+            });
+        }
+    }
+
+    const sessionResult = await client
+        .from("attendance_sessions")
+        .select(ATTENDANCE_SESSION_COLUMNS)
+        .eq("status", "OPEN")
+        .eq("course_id", courseId)
+        .eq("batch_id", batchId)
+        .lte("start_time", now)
+        .gte("end_time", now)
+        .order("created_at", { ascending: false })
+        .limit(1);
+    if (sessionResult.error) {
+        debug.supabase_error = sessionResult.error;
+        throw sessionResult.error;
+    }
+    const sessions = sessionResult.data || [];
+    debug.sessions_found = sessions.length;
+    const session = sessions[0] || null;
+    if (!session) {
+        console.log("No active attendance session for student", debug);
+        return { active: false, session: null, response: null, debug: debug };
+    }
+
+    const existing = await getStudentAttendance(client, session.id, student.id);
+    console.log("Active attendance session found for student", {
+        student_id: student.id,
+        course_id: courseId,
+        batch_id: batchId,
+        session_id: session.id,
+        already_responded: Boolean(existing)
+    });
+    return {
+        active: true,
+        session: session,
+        response: existing,
+        can_respond: !existing,
+        remaining_seconds: getRemainingSeconds(session),
+        debug: debug
+    };
 }
 
 async function getStudentAttendance(client, sessionId, studentId) {
@@ -1384,11 +1475,94 @@ app.get("/api/attendance/dashboard", async function (request, response) {
 });
 
 app.get("/api/student/attendance/active", async function (request, response) {
-    response.json({ success: true, active: false });
+    try {
+        const resolved = await resolveStudentForAttendance(request);
+        const payload = await getStudentActiveAttendance(resolved.client, resolved.student);
+        response.json(Object.assign({ success: true }, payload));
+    } catch (error) {
+        sendApiError(response, error.statusCode || 500, error.message || "Could not check active attendance.", error);
+    }
 });
 
 app.post("/api/student/attendance/respond", async function (request, response) {
-    response.status(410).json({ success: false, message: "Student self-attendance is disabled. Teacher marks attendance in admin panel." });
+    try {
+        const resolved = await resolveStudentForAttendance(request);
+        const sessionId = String(request.body.session_id || "").trim();
+        const requestedStatus = normalizeAttendanceStatus(request.body.response || request.body.status);
+        const autoTimeout = Boolean(request.body.auto_timeout);
+        if (!sessionId || !requestedStatus || !["Present", "Absent"].includes(requestedStatus)) {
+            response.status(400).json({ success: false, message: "session_id and Present/Absent response are required." });
+            return;
+        }
+
+        const session = await getAttendanceSession(resolved.client, sessionId);
+        if (!session) {
+            response.status(404).json({ success: false, message: "Attendance session not found." });
+            return;
+        }
+
+        const studentCourseId = String(resolved.student.course_id || "").trim();
+        const studentBatchId = String(resolved.student.batch_id || "").trim();
+        const sessionCourseId = String(session.course_id || "").trim();
+        const sessionBatchId = String(session.batch_id || "").trim();
+        console.log("Student attendance response attempt", {
+            student_id: resolved.student.id,
+            student_course_id: studentCourseId,
+            student_batch_id: studentBatchId,
+            session_id: sessionId,
+            session_course_id: sessionCourseId,
+            session_batch_id: sessionBatchId,
+            response: requestedStatus,
+            auto_timeout: autoTimeout
+        });
+
+        if (!studentCourseId || !studentBatchId || studentCourseId !== sessionCourseId || studentBatchId !== sessionBatchId) {
+            response.status(403).json({ success: false, message: "You are not allowed to respond to this attendance session." });
+            return;
+        }
+
+        const nowMs = Date.now();
+        const startMs = new Date(session.start_time).getTime();
+        const endMs = new Date(session.end_time).getTime();
+        const isOpen = String(session.status || "").toUpperCase() === "OPEN";
+        const withinTime = Number.isFinite(startMs) && Number.isFinite(endMs) && startMs <= nowMs && nowMs <= endMs;
+        const timeoutAbsent = autoTimeout && requestedStatus === "Absent" && Number.isFinite(endMs) && nowMs >= endMs;
+        if (!isOpen || (!withinTime && !timeoutAbsent)) {
+            response.status(409).json({ success: false, message: "Attendance session is closed." });
+            return;
+        }
+
+        const existing = await getStudentAttendance(resolved.client, sessionId, resolved.student.id);
+        if (existing) {
+            response.json({
+                success: true,
+                message: "Attendance Submitted",
+                already_submitted: true,
+                attendance: existing
+            });
+            return;
+        }
+
+        const row = await upsertAttendance(resolved.client, {
+            session_id: sessionId,
+            student_id: resolved.student.id,
+            status: requestedStatus,
+            marked_at: timeoutAbsent ? session.end_time : new Date().toISOString()
+        });
+        console.log("Student attendance response saved", {
+            student_id: resolved.student.id,
+            session_id: sessionId,
+            response: requestedStatus,
+            response_id: row && row.id
+        });
+        response.json({
+            success: true,
+            message: "Attendance Submitted Successfully",
+            attendance: row
+        });
+    } catch (error) {
+        sendApiError(response, error.statusCode || 500, error.message || "Could not submit attendance.", error);
+    }
 });
 
 app.get("/api/student/attendance/history", async function (request, response) {
