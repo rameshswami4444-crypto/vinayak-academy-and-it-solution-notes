@@ -2976,6 +2976,16 @@
                 body: JSON.stringify(payload)
             });
             activeAttendanceSessionId = result.session && result.session.id ? result.session.id : "";
+            if (result.session) {
+                console.log("attendance_sessions row after Start Attendance:", {
+                    id: result.session.id,
+                    course_id: result.session.course_id,
+                    batch_id: result.session.batch_id,
+                    status: result.session.status,
+                    start_time: result.session.start_time,
+                    end_time: result.session.end_time
+                });
+            }
             renderLiveAttendance(result, "attendanceLiveTableBody");
             startAttendancePolling();
             setPanelMessage("Attendance started. Changes auto-save.", "success");

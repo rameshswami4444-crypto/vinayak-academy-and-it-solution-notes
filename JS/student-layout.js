@@ -360,7 +360,7 @@
             return;
         }
         const script = document.createElement("script");
-        script.src = ROOT_PREFIX + "JS/student-attendance.js?v=student-attendance-batch-popup-20260722";
+        script.src = ROOT_PREFIX + "JS/student-attendance.js?v=student-attendance-runtime-debug-20260722";
         script.async = true;
         script.dataset.studentAttendanceLoader = "true";
         script.onload = function () {

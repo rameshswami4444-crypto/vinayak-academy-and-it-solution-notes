@@ -626,7 +626,7 @@ async function getAttendanceRows(client, session) {
 async function getStudentByIdForAttendance(client, studentId) {
     const studentResult = await client
         .from("students")
-        .select("id, name, course_id, course, batch_id, batch")
+        .select("id, name, course_id, course, batch_id, batch, session_id, account_status, fees_status")
         .eq("id", studentId)
         .limit(1);
     if (studentResult.error) {
@@ -737,6 +737,8 @@ async function getStudentActiveAttendance(client, student) {
             end_time: ">= " + now
         },
         sessions_found: 0,
+        query_result: [],
+        existing_response: null,
         supabase_error: null
     };
     console.log("Student active attendance lookup", debug);
@@ -791,6 +793,16 @@ async function getStudentActiveAttendance(client, student) {
     }
     const sessions = sessionResult.data || [];
     debug.sessions_found = sessions.length;
+    debug.query_result = sessions.map(function (row) {
+        return {
+            id: row.id,
+            course_id: row.course_id,
+            batch_id: row.batch_id,
+            status: row.status,
+            start_time: row.start_time,
+            end_time: row.end_time
+        };
+    });
     const session = sessions[0] || null;
     if (!session) {
         console.log("No active attendance session for student", debug);
@@ -798,6 +810,13 @@ async function getStudentActiveAttendance(client, student) {
     }
 
     const existing = await getStudentAttendance(client, session.id, student.id);
+    debug.existing_response = existing ? {
+        id: existing.id,
+        session_id: existing.session_id,
+        student_id: existing.student_id,
+        response: existing.response,
+        response_time: existing.response_time
+    } : null;
     console.log("Active attendance session found for student", {
         student_id: student.id,
         course_id: courseId,
@@ -1243,6 +1262,14 @@ app.post("/api/attendance/start", async function (request, response) {
             .select(ATTENDANCE_SESSION_COLUMNS)
             .single();
         if (sessionInsert.error) throw sessionInsert.error;
+        console.log("Attendance session inserted row", {
+            id: sessionInsert.data.id,
+            course_id: sessionInsert.data.course_id,
+            batch_id: sessionInsert.data.batch_id,
+            status: sessionInsert.data.status,
+            start_time: sessionInsert.data.start_time,
+            end_time: sessionInsert.data.end_time
+        });
         response.json(await buildAttendanceLivePayload(client, sessionInsert.data));
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not start attendance.", error);

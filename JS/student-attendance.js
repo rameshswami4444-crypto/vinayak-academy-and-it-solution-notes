@@ -52,6 +52,11 @@
             headers: getHeaders()
         }, options || {}));
         const payload = await response.json().catch(function () { return {}; });
+        console.log("Student attendance API response", {
+            url: url,
+            status: response.status,
+            payload: payload
+        });
         if (!response.ok || payload.success === false) {
             const error = new Error(payload.message || payload.error || "Attendance request failed.");
             error.payload = payload;
@@ -197,6 +202,10 @@
         console.log("showAttendancePopup called", {
             sessionId: activeSessionId,
             courseId: session.course_id,
+            batchId: session.batch_id,
+            status: session.status,
+            startTime: session.start_time,
+            endTime: session.end_time,
             subject: session.subject,
             lectureTitle: session.lecture_title
         });
@@ -216,11 +225,26 @@
     }
 
     async function checkActiveAttendance(forcePopup) {
-        if (!getStudentId() || !getSessionToken()) return null;
+        if (!getStudentId() || !getSessionToken()) {
+            console.warn("Student attendance check skipped: missing student session", {
+                studentId: getStudentId(),
+                hasSessionToken: Boolean(getSessionToken()),
+                watcherStarted: watcherStarted,
+                pollTimerActive: Boolean(pollTimer),
+                realtimeActive: Boolean(attendanceRealtimeChannel)
+            });
+            return null;
+        }
         try {
             const payload = await api("/api/student/attendance/active");
             logAttendanceDebug("Student attendance active check", payload);
             if (!payload.active) {
+                console.log("No active attendance popup to show", {
+                    studentId: getStudentId(),
+                    query: payload.debug && payload.debug.attendance_query,
+                    queryResult: payload.debug && payload.debug.query_result,
+                    sessionsFound: payload.debug && payload.debug.sessions_found
+                });
                 if (popupOpen) {
                     hidePopup();
                 }
@@ -340,10 +364,17 @@
     function initWatcher() {
         if (watcherStarted || document.body.classList.contains("admin-page")) return;
         watcherStarted = true;
+        console.log("Student attendance watcher started", {
+            studentId: getStudentId(),
+            hasSessionToken: Boolean(getSessionToken()),
+            pollingEveryMs: POLL_MS,
+            realtimeRequested: true
+        });
         window.setTimeout(function () { checkActiveAttendance(false); }, 800);
         startAttendanceRealtime();
         if (!document.hidden) {
             pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, POLL_MS);
+            console.log("Student attendance polling active", { everyMs: POLL_MS });
         }
     }
 
@@ -361,6 +392,10 @@
         try {
             const client = window.VinayakAuth.getClient();
             if (!client || typeof client.channel !== "function") return;
+            console.log("Student attendance realtime listener starting", {
+                table: "attendance_sessions",
+                studentId: getStudentId()
+            });
             attendanceRealtimeChannel = client
                 .channel("student-attendance-sessions-" + getStudentId())
                 .on("postgres_changes", {
