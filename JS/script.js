@@ -227,14 +227,14 @@ const courseData = [
         renderQuickAccess(courseData);
 
         const students = await safeFetch(window.VinayakAuth.getStudentsTableName(), function (table) {
-            return table.select("*").eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId).limit(1);
+            return table.select("id, name, father_name, course, course_id, batch_id, batch, mobile, account_status, fees_status, due_date").eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId).limit(1);
         });
         const student = students[0] || {};
         const fees = await safeFetch("student_fees", function (table) {
-            return table.select("*").eq("student_id", studentId).limit(1);
+            return table.select("id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount").eq("student_id", studentId).limit(1);
         });
         const emis = await safeFetch("emis", function (table) {
-            return table.select("*").eq("student_id", studentId).order("due_date", { ascending: true }).limit(24);
+            return table.select("id, student_id, emi_number, amount, due_date, paid_date, status").eq("student_id", studentId).order("due_date", { ascending: true }).limit(24);
         });
         const notes = window.VinayakNotesPage && window.VinayakNotesPage.fetchCourseNotes
             ? (await window.VinayakNotesPage.fetchCourseNotes(course)).slice(0, 5)
@@ -242,7 +242,7 @@ const courseData = [
         const announcements = window.VinayakAnnouncements
             ? await window.VinayakAnnouncements.fetchVisibleAnnouncements(5)
             : await safeFetch("announcements", function (table) {
-                return table.select("*").limit(5);
+                return table.select("id, title, message, target_course, created_at, all_courses, content, expires_at, is_pinned, target_courses").limit(5);
             });
 
         document.querySelectorAll("[data-layout-course]").forEach(function (node) {

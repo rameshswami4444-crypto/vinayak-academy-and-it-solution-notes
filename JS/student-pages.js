@@ -31,7 +31,7 @@
     async function getStudent(session) {
         const studentId = getStudentId(session);
         const rows = await safeFetch(window.VinayakAuth.getStudentsTableName(), function (table) {
-            return table.select("*").eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId).limit(1);
+            return table.select("id, name, father_name, course, course_id, batch_id, batch, mobile, email, address, admission_date, course_duration, account_status, fees_status").eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId).limit(1);
         });
         return rows[0] || {};
     }
@@ -113,7 +113,7 @@
         const notices = window.VinayakAnnouncements
             ? await window.VinayakAnnouncements.fetchVisibleAnnouncements()
             : await safeFetch("announcements", function (table) {
-                return table.select("*").limit(100);
+                return table.select("id, title, message, target_course, created_at, all_courses, content, expires_at, is_pinned, target_courses").limit(100);
             });
         if (window.VinayakAnnouncements) {
             window.VinayakAnnouncements.renderPage("noticesPageList", notices);
@@ -129,7 +129,7 @@
         const studentId = getStudentId(session);
         const student = await getStudent(session);
         const fees = await safeFetch("student_fees", function (table) {
-            return table.select("*").eq("student_id", studentId).limit(1);
+            return table.select("id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount").eq("student_id", studentId).limit(1);
         });
         const fee = fees[0] || {};
         const rows = [
@@ -163,10 +163,10 @@
     async function loadEmi(session) {
         const studentId = getStudentId(session);
         const fees = await safeFetch("student_fees", function (table) {
-            return table.select("*").eq("student_id", studentId).limit(1);
+            return table.select("id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount").eq("student_id", studentId).limit(1);
         });
         const emis = await safeFetch("emis", function (table) {
-            return table.select("*").eq("student_id", studentId).order("due_date", { ascending: true }).limit(60);
+            return table.select("id, student_id, emi_number, amount, due_date, paid_date, status").eq("student_id", studentId).order("due_date", { ascending: true }).limit(60);
         });
         const fee = fees[0] || {};
         const unpaid = emis.filter(function (emi) {

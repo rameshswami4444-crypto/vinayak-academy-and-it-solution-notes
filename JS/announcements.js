@@ -139,7 +139,7 @@
             if (announcementCache.expiresAt <= Date.now()) {
                 const result = await window.VinayakAuth.getClient()
                     .from("announcements")
-                    .select("*")
+                    .select("id, title, message, target_course, created_at, all_courses, content, expires_at, is_pinned, target_courses")
                     .limit(100);
                 if (result.error) throw result.error;
                 data = result.data || [];

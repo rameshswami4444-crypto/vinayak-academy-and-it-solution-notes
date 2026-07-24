@@ -15,22 +15,27 @@ module.exports = async function handler(request, response) {
 
     try {
         const prefix = request.query && request.query.prefix ? String(request.query.prefix) : "";
+        const limitValue = request.query && request.query.limit ? Number(request.query.limit) : 100;
+        const limit = Math.max(1, Math.min(Math.floor(Number.isFinite(limitValue) ? limitValue : 100), 500));
         const files = await listFiles(prefix);
+        const visibleFiles = files.slice(0, limit);
         response.statusCode = 200;
         response.setHeader("Content-Type", "application/json");
         response.end(JSON.stringify({
             success: true,
             prefix: prefix,
             totalFiles: files.length,
-            files: files.map(function (file) {
+            limit: limit,
+            hasMore: files.length > visibleFiles.length,
+            files: visibleFiles.map(function (file) {
                 return {
                     key: file.Key,
                     size: file.Size,
                     lastModified: file.LastModified,
-                    etag: file.ETag
+                    etag: request.query && request.query.include_etag === "1" ? file.ETag : undefined
                 };
             })
-        }, null, 2));
+        }));
     } catch (error) {
         const details = serializeR2Error(error);
         console.error("R2 list files failed", details);
@@ -40,6 +45,6 @@ module.exports = async function handler(request, response) {
             success: false,
             error: details.message,
             details: details
-        }, null, 2));
+        }));
     }
 };

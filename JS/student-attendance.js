@@ -4,6 +4,7 @@
 
     const POLL_MS = 5000;
     const POPUP_POLL_MS = 5000;
+    const REALTIME_BACKUP_POLL_MS = 30000;
     let activeSessionId = "";
     let popupOpen = false;
     let initialCheckDone = false;
@@ -14,6 +15,7 @@
     let watcherStarted = false;
     let autoTimeoutSubmitting = false;
     let attendanceRealtimeChannel = null;
+    let attendanceRealtimeActive = false;
     function apiUrl(path) {
         if (window.VinayakApi) return window.VinayakApi.url(path);
         return String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "") + path;
@@ -67,6 +69,7 @@
 
     function logAttendanceDebug(label, payload) {
         const debug = payload && payload.debug ? payload.debug : {};
+        if (!payload || !payload.debug) return;
         console.group(label);
         console.log("Logged-in student ID:", getStudentId());
         console.log("Student course_id:", debug.student_course_id || "(not returned)");
@@ -239,12 +242,6 @@
             const payload = await api("/api/student/attendance/active");
             logAttendanceDebug("Student attendance active check", payload);
             if (!payload.active) {
-                console.log("No active attendance popup to show", {
-                    studentId: getStudentId(),
-                    query: payload.debug && payload.debug.attendance_query,
-                    queryResult: payload.debug && payload.debug.query_result,
-                    sessionsFound: payload.debug && payload.debug.sessions_found
-                });
                 if (popupOpen) {
                     hidePopup();
                 }
@@ -373,9 +370,15 @@
         window.setTimeout(function () { checkActiveAttendance(false); }, 800);
         startAttendanceRealtime();
         if (!document.hidden) {
-            pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, POLL_MS);
-            console.log("Student attendance polling active", { everyMs: POLL_MS });
+            startMainPolling();
         }
+    }
+
+    function startMainPolling() {
+        if (pollTimer) window.clearInterval(pollTimer);
+        const interval = attendanceRealtimeActive ? REALTIME_BACKUP_POLL_MS : POLL_MS;
+        pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, interval);
+        console.log("Student attendance polling active", { everyMs: interval, realtimeActive: attendanceRealtimeActive });
     }
 
     function stopWatcherTimers() {
@@ -407,17 +410,24 @@
                     checkActiveAttendance(false);
                 })
                 .subscribe(function (status) {
+                    const wasActive = attendanceRealtimeActive;
+                    attendanceRealtimeActive = status === "SUBSCRIBED";
                     console.log("Student attendance realtime status", status);
+                    if (attendanceRealtimeActive !== wasActive && !document.hidden) {
+                        startMainPolling();
+                    }
                 });
         } catch (error) {
             console.warn("Student attendance realtime setup failed; polling remains active.", error);
             attendanceRealtimeChannel = null;
+            attendanceRealtimeActive = false;
         }
     }
 
     function stopAttendanceRealtime() {
         if (!attendanceRealtimeChannel || !window.VinayakAuth || typeof window.VinayakAuth.getClient !== "function") {
             attendanceRealtimeChannel = null;
+            attendanceRealtimeActive = false;
             return;
         }
         try {
@@ -427,6 +437,7 @@
             console.warn("Student attendance realtime cleanup failed", error);
         }
         attendanceRealtimeChannel = null;
+        attendanceRealtimeActive = false;
     }
 
     function handleVisibilityChange() {
@@ -438,7 +449,7 @@
         checkActiveAttendance(false);
         startAttendanceRealtime();
         if (!pollTimer) {
-            pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, POLL_MS);
+            startMainPolling();
         }
         if (popupOpen) startPopupPolling();
     }

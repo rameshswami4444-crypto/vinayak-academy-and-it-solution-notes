@@ -23,6 +23,9 @@
     const MAX_FAILED_LOGIN_ATTEMPTS = 5;
     const LOGIN_LOCK_MS = 60 * 60 * 1000;
     const FAILED_LOGIN_DELAY_MS = 1000;
+    const STUDENT_COLUMNS = "id, password, course, session_id, fees_status, due_date, payment_note, name, father_name, mobile, email, address, course_id, batch_id, admission_date, account_status, created_at, alternate_mobile, batch, course_duration, failed_attempts, locked_until, last_failed_login, student_name";
+    const ADMIN_COLUMNS = "username, password, role, institute_id, full_name, created_at, subscription_plan, subscription_start, subscription_end, account_status, status, failed_attempts, locked_until, last_failed_login";
+    const EMI_COLUMNS = "id, student_id, emi_number, amount, due_date, paid_date, status, payment_id, institute_id";
     let logoutBound = false;
     let silentSessionValidationTimer = null;
     let silentSessionValidationRunning = false;
@@ -178,7 +181,7 @@
         const supabaseClient = client || getClient();
         const { data, error } = await supabaseClient
             .from("emis")
-            .select("*")
+            .select(EMI_COLUMNS)
             .eq("student_id", identifier);
 
         if (error) {
@@ -874,7 +877,7 @@
         try {
             const { data, error } = await getClient()
                 .from("admins")
-                .select("*")
+                .select(ADMIN_COLUMNS)
                 .eq("username", inputId)
                 .limit(1);
             if (error) throw error;
@@ -891,7 +894,7 @@
         if (!inputId) return null;
         const { data, error } = await getClient()
             .from("admins")
-            .select("*")
+            .select(ADMIN_COLUMNS)
             .eq("username", inputId)
             .limit(1);
         if (error) throw error;
@@ -934,7 +937,7 @@
 
         const { data, error } = await getClient()
             .from(getStudentsTableName())
-            .select("*")
+            .select(STUDENT_COLUMNS)
             .eq(getStudentIdentifierColumn(), session.studentId)
             .eq("password", session.password)
             .limit(1);
@@ -1044,7 +1047,7 @@
 
             const { data, error } = await getClient()
                 .from(getStudentsTableName())
-                .select("*")
+                .select(STUDENT_COLUMNS)
                 .eq(getStudentIdentifierColumn(), studentId)
                 .limit(1);
 
@@ -1096,7 +1099,7 @@
             const sessionId = Date.now().toString();
             const { data, error } = await client
                 .from(getStudentsTableName())
-                .select("*")
+                .select(STUDENT_COLUMNS)
                 .eq(getStudentIdentifierColumn(), studentId)
                 .limit(1);
 

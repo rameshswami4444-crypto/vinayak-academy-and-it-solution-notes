@@ -7,6 +7,7 @@ const path = require("path");
 const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 const multer = require("multer");
 const { createClient } = require("@supabase/supabase-js");
 const {
@@ -14,7 +15,6 @@ const {
     fileExists,
     generateSignedUrl,
     getDiagnostics,
-    getPDFObject,
     serializeR2Error,
     testConnection,
     uploadPDF
@@ -24,6 +24,13 @@ const PORT = Number(process.env.PORT || 3000);
 const MAX_PDF_SIZE = 200 * 1024 * 1024;
 const ATTENDANCE_SESSION_COLUMNS = "id, course_id, batch_id, subject, lecture_title, duration_minutes, start_time, end_time, status, created_by, created_at, session_id";
 const ATTENDANCE_RESPONSE_COLUMNS = "id, session_id, student_id, response, response_time, created_at";
+const STUDENT_COLUMNS = "id, password, course, session_id, fees_status, due_date, payment_note, name, father_name, mobile, email, address, course_id, batch_id, admission_date, account_status, created_at, alternate_mobile, batch, course_duration, failed_attempts, locked_until, last_failed_login, student_name";
+const STUDENT_ADMIN_COLUMNS = "id, password, course, session_id, fees_status, due_date, payment_note, name, father_name, mobile, email, address, course_id, batch_id, admission_date, account_status, created_at, alternate_mobile, batch, course_duration";
+const STUDENT_FEE_COLUMNS = "id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount, institute_id";
+const EMI_COLUMNS = "id, student_id, emi_number, amount, due_date, paid_date, status, payment_id, institute_id";
+const PAYMENT_COLUMNS = "id, student_id, emi_id, amount, payment_mode, transaction_id, payment_date, remark, institute_id";
+const ANNOUNCEMENT_COLUMNS = "id, title, message, target_course, created_at, institute_id, all_courses, content, expires_at, is_pinned, target_courses";
+const COURSE_COLUMNS = "id, course_name, duration, total_fee, description, created_at, institute_id";
 const DB = {
     batches: {
         table: "batches",
@@ -54,6 +61,53 @@ const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_PDF_SIZE }
 });
+
+function parsePositiveInt(value, fallback, maxValue) {
+    const number = Math.floor(Number(value));
+    const safeFallback = Math.max(1, Math.floor(Number(fallback) || 1));
+    if (!Number.isFinite(number) || number < 1) return safeFallback;
+    return Math.min(number, Math.max(1, Math.floor(Number(maxValue) || number)));
+}
+
+function getPageSettings(request, defaults) {
+    const settings = defaults || {};
+    const page = parsePositiveInt(request.query.page, settings.page || 1, 100000);
+    const limit = parsePositiveInt(request.query.limit || request.query.page_size, settings.limit || 25, settings.max || 100);
+    return {
+        page: page,
+        limit: limit,
+        from: (page - 1) * limit,
+        to: (page - 1) * limit + limit - 1
+    };
+}
+
+function sendPaged(response, rows, count, pageSettings) {
+    const total = Number(count || 0);
+    response.json({
+        success: true,
+        rows: rows || [],
+        data: rows || [],
+        page: pageSettings.page,
+        limit: pageSettings.limit,
+        total: total,
+        total_pages: Math.max(1, Math.ceil(total / pageSettings.limit)),
+        has_more: pageSettings.to + 1 < total
+    });
+}
+
+function applyIlikeOr(query, columns, search) {
+    const term = String(search || "").trim();
+    if (!term) return query;
+    const escaped = term.replace(/[%(),]/g, " ");
+    return query.or(columns.map(function (column) {
+        return column + ".ilike.%" + escaped + "%";
+    }).join(","));
+}
+
+function shouldIncludeDebug(request) {
+    return String(request && request.query && request.query.debug || "").trim() === "1" ||
+        process.env.API_DEBUG_PAYLOADS === "true";
+}
 
 function readFrontendSupabaseConfig() {
     const configPath = path.join(__dirname, "JS", "supabase-config.js");
@@ -338,7 +392,8 @@ async function cachedFileExists(objectKey) {
     return exists;
 }
 
-async function filterExistingR2Materials(notes) {
+async function filterExistingR2Materials(notes, options) {
+    const verifyFiles = Boolean(options && options.verifyFiles) || process.env.VERIFY_R2_MATERIAL_LISTS === "true";
     const unique = {};
     const candidates = [];
     (notes || []).forEach(function (note) {
@@ -360,6 +415,12 @@ async function filterExistingR2Materials(notes) {
             storage_provider: "r2"
         });
     });
+    if (!verifyFiles) {
+        return candidates.sort(function (a, b) {
+            return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        });
+    }
+
     const filtered = [];
     const concurrency = 8;
     let cursor = 0;
@@ -427,7 +488,7 @@ async function resolveAuthorizedMaterial(request, materialId) {
     });
     const studentResult = await client
         .from("students")
-        .select("*")
+        .select(STUDENT_COLUMNS)
         .eq("id", auth.studentId)
         .limit(1);
     if (studentResult.error) throw studentResult.error;
@@ -575,6 +636,21 @@ function getRemainingSeconds(session) {
     return Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
 }
 
+function toStudentAttendanceSession(session) {
+    return session ? {
+        id: session.id,
+        course_id: session.course_id,
+        batch_id: session.batch_id,
+        subject: session.subject,
+        lecture_title: session.lecture_title,
+        duration_minutes: session.duration_minutes,
+        start_time: session.start_time,
+        end_time: session.end_time,
+        status: session.status,
+        created_by: session.created_by
+    } : null;
+}
+
 async function getAttendanceRows(client, session) {
     const sessionId = String(session && session.id || "");
     const courseId = String(session && session.course_id || "");
@@ -682,7 +758,7 @@ async function buildAttendanceLivePayload(client, session) {
     const rows = await getAttendanceRows(client, session);
     return {
         success: true,
-        session: session,
+        session: toStudentAttendanceSession(session),
         summary: buildAttendanceSummary(rows),
         remaining_seconds: getRemainingSeconds(session),
         students: rows
@@ -720,7 +796,8 @@ async function getStudentAttendanceCourseIds(client, student) {
     return courseId ? [courseId] : [];
 }
 
-async function getStudentActiveAttendance(client, student) {
+async function getStudentActiveAttendance(client, student, options) {
+    const includeDebug = Boolean(options && options.includeDebug);
     const now = new Date().toISOString();
     const courseId = String(student && student.course_id || "").trim();
     const batchId = String(student && student.batch_id || "").trim();
@@ -744,7 +821,7 @@ async function getStudentActiveAttendance(client, student) {
     console.log("Student active attendance lookup", debug);
     if (!courseId || !batchId) {
         debug.reason = !courseId ? "Student course_id is missing." : "Student batch_id is missing.";
-        return { active: false, session: null, response: null, debug: debug };
+        return Object.assign({ active: false, session: null, response: null }, includeDebug ? { debug: debug } : {});
     }
 
     const expiredResult = await client
@@ -806,7 +883,7 @@ async function getStudentActiveAttendance(client, student) {
     const session = sessions[0] || null;
     if (!session) {
         console.log("No active attendance session for student", debug);
-        return { active: false, session: null, response: null, debug: debug };
+        return Object.assign({ active: false, session: null, response: null }, includeDebug ? { debug: debug } : {});
     }
 
     const existing = await getStudentAttendance(client, session.id, student.id);
@@ -824,14 +901,13 @@ async function getStudentActiveAttendance(client, student) {
         session_id: session.id,
         already_responded: Boolean(existing)
     });
-    return {
+    return Object.assign({
         active: true,
         session: session,
         response: existing,
         can_respond: !existing,
-        remaining_seconds: getRemainingSeconds(session),
-        debug: debug
-    };
+        remaining_seconds: getRemainingSeconds(session)
+    }, includeDebug ? { debug: debug } : {});
 }
 
 async function getStudentAttendance(client, sessionId, studentId) {
@@ -885,6 +961,7 @@ function summarizeStudentAttendance(rows) {
 }
 
 const app = express();
+app.set("etag", "strong");
 const DEFAULT_ALLOWED_ORIGINS = [
     "https://www.vinayakacademy.online",
     "https://vinayakacademy.online",
@@ -918,6 +995,9 @@ app.use(function securityHeaders(request, response, next) {
     response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     next();
 });
+app.use(compression({
+    threshold: 1024
+}));
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -1014,7 +1094,7 @@ app.get("/api/materials", async function (request, response) {
         const client = getSupabaseClient();
         const studentResult = await client
             .from("students")
-            .select("*")
+            .select("id, course, course_id, session_id, account_status, fees_status")
             .eq("id", auth.studentId)
             .limit(1);
         if (studentResult.error) throw studentResult.error;
@@ -1036,6 +1116,11 @@ app.get("/api/materials", async function (request, response) {
             return;
         }
 
+        const page = parsePositiveInt(request.query.page, 1, 100000);
+        const limit = parsePositiveInt(request.query.limit, 200, 500);
+        const offset = (page - 1) * limit;
+        const verifyFiles = String(request.query.verify || "").trim() === "1";
+
         const linkResult = await client
             .from("material_courses")
             .select("note_id")
@@ -1052,7 +1137,8 @@ app.get("/api/materials", async function (request, response) {
         const legacyNotes = await selectNotes(client, function (query) {
             return query.in("course_id", courseIds);
         });
-        const materials = await filterExistingR2Materials(linkedNotes.concat(legacyNotes));
+        const allMaterials = await filterExistingR2Materials(linkedNotes.concat(legacyNotes), { verifyFiles: verifyFiles });
+        const materials = allMaterials.slice(offset, offset + limit);
 
         console.log("Material list returned", {
             studentId: auth.studentId,
@@ -1061,7 +1147,11 @@ app.get("/api/materials", async function (request, response) {
 
         response.json({
             success: true,
-            materials: materials
+            materials: materials,
+            page: page,
+            limit: limit,
+            total: allMaterials.length,
+            has_more: offset + limit < allMaterials.length
         });
     } catch (error) {
         console.error("Material list fetch error", serializeR2Error(error));
@@ -1072,19 +1162,26 @@ app.get("/api/materials", async function (request, response) {
 app.get("/api/admin/materials", async function (request, response) {
     try {
         const client = getSupabaseClient();
+        const page = parsePositiveInt(request.query.page, 1, 100000);
+        const limit = parsePositiveInt(request.query.limit, 250, 1000);
+        const offset = (page - 1) * limit;
+        const verifyFiles = String(request.query.verify || "").trim() === "1";
         const notes = await selectNotes(client, function (query) {
-            return query.order("created_at", { ascending: false });
+            return query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
         });
-        const materials = await filterExistingR2Materials(notes);
+        const materials = await filterExistingR2Materials(notes, { verifyFiles: verifyFiles });
         const noteIds = materials.map(function (note) { return note.id; }).filter(Boolean);
         const links = noteIds.length
-            ? await client.from("material_courses").select("*").in("note_id", noteIds)
+            ? await client.from("material_courses").select("note_id, course_id").in("note_id", noteIds)
             : { data: [], error: null };
         if (links.error) throw links.error;
         response.json({
             success: true,
             materials: materials,
-            material_courses: links.data || []
+            material_courses: links.data || [],
+            page: page,
+            limit: limit,
+            has_more: notes.length === limit
         });
     } catch (error) {
         console.error("Admin material list fetch error", serializeR2Error(error));
@@ -1183,14 +1280,9 @@ app.get("/api/material/:id/content", async function (request, response) {
             materialId: materialId,
             objectKey: objectKey
         });
-        const object = await getPDFObject(objectKey);
-        response.setHeader("Content-Type", object.contentType || "application/pdf");
-        response.setHeader("Content-Disposition", "inline; filename=\"material-" + materialId + ".pdf\"");
+        const signedUrl = await generateSignedUrl(objectKey, { expiresIn: 300 });
         response.setHeader("Cache-Control", "private, no-store, max-age=0");
-        if (object.contentLength) {
-            response.setHeader("Content-Length", String(object.contentLength));
-        }
-        object.body.pipe(response);
+        response.redirect(302, signedUrl);
     } catch (error) {
         console.error("PDF content stream error", {
             materialId: materialId,
@@ -1378,6 +1470,7 @@ app.get("/api/attendance/history", async function (request, response) {
 app.get("/api/attendance/report", async function (request, response) {
     try {
         const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 50, max: 500 });
         const fromDate = String(request.query.from_date || request.query.from || "").trim();
         const toDate = String(request.query.to_date || request.query.to || "").trim();
         let sessionQuery = client
@@ -1393,16 +1486,18 @@ app.get("/api/attendance/report", async function (request, response) {
         const sessions = sessionResult.data || [];
         const sessionIds = sessions.map(function (session) { return session.id; });
         let rows = [];
+        let totalRows = 0;
         if (sessionIds.length) {
             let attendanceQuery = client
                 .from(DB.attendanceResponses.table)
-                .select(ATTENDANCE_RESPONSE_COLUMNS)
+                .select(ATTENDANCE_RESPONSE_COLUMNS, { count: "exact" })
                 .in("session_id", sessionIds);
             if (request.query.student_id) attendanceQuery = attendanceQuery.eq("student_id", String(request.query.student_id));
             if (request.query.status) attendanceQuery = attendanceQuery.eq("response", normalizeAttendanceStatus(request.query.status));
-            const attendanceResult = await attendanceQuery;
+            const attendanceResult = await attendanceQuery.range(pageSettings.from, pageSettings.to);
             if (attendanceResult.error) throw attendanceResult.error;
             rows = attendanceResult.data || [];
+            totalRows = attendanceResult.count || 0;
         }
         const sessionById = {};
         sessions.forEach(function (session) {
@@ -1454,7 +1549,16 @@ app.get("/api/attendance/report", async function (request, response) {
                 remarks: ""
             };
         });
-        response.json({ success: true, rows: report, summary: buildAttendanceSummary(report) });
+        response.json({
+            success: true,
+            rows: report,
+            summary: buildAttendanceSummary(report),
+            page: pageSettings.page,
+            limit: pageSettings.limit,
+            total: totalRows || report.length,
+            total_pages: Math.max(1, Math.ceil(Number(totalRows || report.length) / pageSettings.limit)),
+            has_more: pageSettings.to + 1 < Number(totalRows || 0)
+        });
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not generate attendance report.", error);
     }
@@ -1495,7 +1599,11 @@ app.get("/api/attendance/dashboard", async function (request, response) {
             if (attendanceResult.error) throw attendanceResult.error;
             rows = attendanceResult.data || [];
         }
-        response.json({ success: true, summary: buildAttendanceSummary(rows), sessions: sessions });
+        const payload = { success: true, summary: buildAttendanceSummary(rows) };
+        if (String(request.query.include_sessions || "").trim() === "1") {
+            payload.sessions = sessions;
+        }
+        response.json(payload);
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not load attendance dashboard.", error);
     }
@@ -1504,7 +1612,7 @@ app.get("/api/attendance/dashboard", async function (request, response) {
 app.get("/api/student/attendance/active", async function (request, response) {
     try {
         const resolved = await resolveStudentForAttendance(request);
-        const payload = await getStudentActiveAttendance(resolved.client, resolved.student);
+        const payload = await getStudentActiveAttendance(resolved.client, resolved.student, { includeDebug: shouldIncludeDebug(request) });
         response.json(Object.assign({ success: true }, payload));
     } catch (error) {
         sendApiError(response, error.statusCode || 500, error.message || "Could not check active attendance.", error);
@@ -1595,11 +1703,13 @@ app.post("/api/student/attendance/respond", async function (request, response) {
 app.get("/api/student/attendance/history", async function (request, response) {
     try {
         const resolved = await resolveStudentForAttendance(request);
+        const pageSettings = getPageSettings(request, { limit: 30, max: 120 });
         const attendanceResult = await resolved.client
             .from(DB.attendanceResponses.table)
-            .select(ATTENDANCE_RESPONSE_COLUMNS)
+            .select(ATTENDANCE_RESPONSE_COLUMNS, { count: "exact" })
             .eq("student_id", resolved.auth.studentId)
-            .order("response_time", { ascending: false });
+            .order("response_time", { ascending: false })
+            .range(pageSettings.from, pageSettings.to);
         if (attendanceResult.error) throw attendanceResult.error;
         const rows = attendanceResult.data || [];
         const sessionIds = Array.from(new Set(rows.map(function (row) { return row.session_id; }).filter(Boolean)));
@@ -1623,9 +1733,129 @@ app.get("/api/student/attendance/history", async function (request, response) {
                 session: sessionById[String(row.session_id)] || null
             });
         });
-        response.json({ success: true, summary: summarizeStudentAttendance(records), records: records });
+        response.json({
+            success: true,
+            summary: summarizeStudentAttendance(records),
+            records: records,
+            page: pageSettings.page,
+            limit: pageSettings.limit,
+            total: attendanceResult.count || records.length,
+            has_more: pageSettings.to + 1 < Number(attendanceResult.count || 0)
+        });
     } catch (error) {
         sendApiError(response, error.statusCode || 500, error.message || "Could not load student attendance history.", error);
+    }
+});
+
+app.get("/api/admin/students", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 25, max: 100 });
+        let query = client
+            .from("students")
+            .select(STUDENT_ADMIN_COLUMNS, { count: "exact" });
+        query = applyIlikeOr(query, ["id", "name", "father_name", "course", "batch"], request.query.search);
+        if (request.query.course_id) query = query.eq("course_id", String(request.query.course_id));
+        if (request.query.course) query = query.eq("course", String(request.query.course));
+        if (request.query.batch_id) query = query.eq("batch_id", String(request.query.batch_id));
+        if (request.query.status) query = query.eq("account_status", String(request.query.status));
+        const result = await query
+            .order("id", { ascending: false })
+            .range(pageSettings.from, pageSettings.to);
+        if (result.error) throw result.error;
+        sendPaged(response, result.data || [], result.count, pageSettings);
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load students.", error);
+    }
+});
+
+app.get("/api/admin/fees", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 50, max: 200 });
+        let query = client.from("student_fees").select(STUDENT_FEE_COLUMNS, { count: "exact" });
+        if (request.query.student_id) query = query.eq("student_id", String(request.query.student_id));
+        if (request.query.status) query = query.eq("status", String(request.query.status));
+        query = applyIlikeOr(query, ["student_id", "status"], request.query.search);
+        const result = await query.order("id", { ascending: false }).range(pageSettings.from, pageSettings.to);
+        if (result.error) throw result.error;
+        sendPaged(response, result.data || [], result.count, pageSettings);
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load fees.", error);
+    }
+});
+
+app.get("/api/admin/emis", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 25, max: 200 });
+        let query = client.from("emis").select(EMI_COLUMNS, { count: "exact" });
+        if (request.query.student_id) query = query.eq("student_id", String(request.query.student_id));
+        if (request.query.status) query = query.eq("status", String(request.query.status));
+        query = applyIlikeOr(query, ["student_id", "status"], request.query.search);
+        const result = await query.order("due_date", { ascending: true }).range(pageSettings.from, pageSettings.to);
+        if (result.error) throw result.error;
+        sendPaged(response, result.data || [], result.count, pageSettings);
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load EMIs.", error);
+    }
+});
+
+app.get("/api/admin/payments", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 25, max: 200 });
+        let query = client.from("payments").select(PAYMENT_COLUMNS, { count: "exact" });
+        if (request.query.student_id) query = query.eq("student_id", String(request.query.student_id));
+        query = applyIlikeOr(query, ["student_id", "payment_mode", "transaction_id", "remark"], request.query.search);
+        const result = await query.order("payment_date", { ascending: false }).range(pageSettings.from, pageSettings.to);
+        if (result.error) throw result.error;
+        sendPaged(response, result.data || [], result.count, pageSettings);
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load payments.", error);
+    }
+});
+
+app.get("/api/admin/announcements", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 25, max: 100 });
+        let query = client.from("announcements").select(ANNOUNCEMENT_COLUMNS, { count: "exact" });
+        query = applyIlikeOr(query, ["title", "message", "content", "target_courses"], request.query.search);
+        const result = await query.order("created_at", { ascending: false }).range(pageSettings.from, pageSettings.to);
+        if (result.error) throw result.error;
+        sendPaged(response, result.data || [], result.count, pageSettings);
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load announcements.", error);
+    }
+});
+
+app.get("/api/admin/student-report", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 25, max: 100 });
+        let studentQuery = client.from("students").select(STUDENT_ADMIN_COLUMNS, { count: "exact" });
+        if (request.query.course_id) studentQuery = studentQuery.eq("course_id", String(request.query.course_id));
+        if (request.query.batch_id) studentQuery = studentQuery.eq("batch_id", String(request.query.batch_id));
+        studentQuery = applyIlikeOr(studentQuery, ["id", "name", "course", "batch"], request.query.search);
+        const studentResult = await studentQuery.order("id", { ascending: false }).range(pageSettings.from, pageSettings.to);
+        if (studentResult.error) throw studentResult.error;
+        const students = studentResult.data || [];
+        const studentIds = students.map(function (student) { return student.id; }).filter(Boolean);
+        const feeResult = studentIds.length
+            ? await client.from("student_fees").select(STUDENT_FEE_COLUMNS).in("student_id", studentIds)
+            : { data: [], error: null };
+        if (feeResult.error) throw feeResult.error;
+        const feeByStudent = {};
+        (feeResult.data || []).forEach(function (fee) {
+            feeByStudent[String(fee.student_id)] = fee;
+        });
+        const rows = students.map(function (student) {
+            return { student: student, fees: feeByStudent[String(student.id)] || {} };
+        });
+        sendPaged(response, rows, studentResult.count, pageSettings);
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load student report.", error);
     }
 });
 
@@ -1637,7 +1867,19 @@ app.get("/api/r2/credentials", require("./api/r2/credentials"));
 app.get("/api/r2/list", require("./api/r2/list"));
 app.post("/api/r2/upload-test", require("./api/r2/upload-test"));
 
-app.use(express.static(__dirname));
+app.use(express.static(__dirname, {
+    etag: true,
+    maxAge: "7d",
+    setHeaders: function (response, filePath) {
+        if (/\.(html)$/i.test(filePath)) {
+            response.setHeader("Cache-Control", "no-cache");
+            return;
+        }
+        if (/\.(js|css|png|jpg|jpeg|webp|gif|svg|ico|woff2?)$/i.test(filePath)) {
+            response.setHeader("Cache-Control", "public, max-age=604800, immutable");
+        }
+    }
+}));
 
 app.use(function (request, response) {
     response.status(404).json({

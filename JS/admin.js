@@ -18,6 +18,7 @@
     let attendancePollTimer = null;
     let attendanceRealtimeChannel = null;
     let attendanceRealtimeActive = false;
+    const serverPageState = {};
     const loadedAdminTables = {};
     let materialUploadQueue = [];
     let materialUploadCancelled = false;
@@ -25,8 +26,16 @@
     let bulkRows = [];
     let emiMode = "auto";
     let currentAdmissionStep = 1;
-    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1 };
-    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10 };
+    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, payments: 1, reports: 1, attendanceReport: 1 };
+    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, payments: 25, reports: 25, attendanceReport: 50 };
+    const TABLE_COLUMNS = {
+        student_fees: "id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount, institute_id",
+        emis: "id, student_id, emi_number, amount, due_date, paid_date, status, payment_id, institute_id",
+        payments: "id, student_id, emi_id, amount, payment_mode, transaction_id, payment_date, remark, institute_id",
+        announcements: "id, title, message, target_course, created_at, institute_id, all_courses, content, expires_at, is_pinned, target_courses",
+        batches: "id, course_id, batch_name, timing, status",
+        courses: "id, course_name, duration, total_fee, description, created_at, institute_id"
+    };
     const MAX_PDF_SIZE = 200 * 1024 * 1024;
     const DB = {
         batches: {
@@ -387,23 +396,66 @@
         }
         container.hidden = false;
         const pageButtons = [];
-        for (let current = 1; current <= totalPages; current += 1) {
+        const startPage = Math.max(1, page - 2);
+        const endPage = Math.min(totalPages, page + 2);
+        for (let current = startPage; current <= endPage; current += 1) {
             pageButtons.push(
                 '<button type="button" class="erp-page-btn' + (current === page ? " active" : "") + '" data-pagination-key="' + key + '" data-pagination-page="' + current + '">' + current + "</button>"
             );
         }
-        container.innerHTML = '<span class="erp-pagination-meta">Showing page ' + page + " of " + totalPages + " | " + totalItems + ' records</span><div class="erp-pagination-actions"><button type="button" class="erp-page-btn" data-pagination-key="' + key + '" data-pagination-page="' + Math.max(1, page - 1) + '"' + (page === 1 ? " disabled" : "") + '>Prev</button>' + pageButtons.join("") + '<button type="button" class="erp-page-btn" data-pagination-key="' + key + '" data-pagination-page="' + Math.min(totalPages, page + 1) + '"' + (page === totalPages ? " disabled" : "") + ">Next</button></div>";
+        container.innerHTML = '<span class="erp-pagination-meta">Showing page ' + page + " of " + totalPages + " | " + totalItems + ' records</span><div class="erp-pagination-actions"><select data-pagination-size="' + key + '"><option value="8">8</option><option value="10">10</option><option value="25">25</option><option value="50">50</option></select><button type="button" class="erp-page-btn" data-pagination-key="' + key + '" data-pagination-page="' + Math.max(1, page - 1) + '"' + (page === 1 ? " disabled" : "") + '>Prev</button>' + pageButtons.join("") + '<button type="button" class="erp-page-btn" data-pagination-key="' + key + '" data-pagination-page="' + Math.min(totalPages, page + 1) + '"' + (page === totalPages ? " disabled" : "") + ">Next</button></div>";
+        const size = container.querySelector("[data-pagination-size]");
+        if (size) size.value = String(PAGE_SIZES[key] || 8);
+    }
+
+    function renderServerPagination(targetId, key) {
+        const meta = serverPageState[key] || { page: paginationState[key] || 1, total_pages: 1, total: 0 };
+        renderPagination(targetId, key, meta.page || 1, meta.total_pages || 1, meta.total || 0);
+    }
+
+    async function fetchAdminPage(endpoint, key, params) {
+        const query = new URLSearchParams(params || {});
+        query.set("page", paginationState[key] || 1);
+        query.set("limit", PAGE_SIZES[key] || 25);
+        const response = await fetch(apiUrl(endpoint + "?" + query.toString()), {
+            method: "GET",
+            headers: { "Accept": "application/json" }
+        });
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.message || payload.error || "Could not load records.");
+        }
+        serverPageState[key] = {
+            page: payload.page || 1,
+            limit: payload.limit || (PAGE_SIZES[key] || 25),
+            total: payload.total || 0,
+            total_pages: payload.total_pages || 1,
+            has_more: Boolean(payload.has_more)
+        };
+        return payload.rows || payload.data || [];
+    }
+
+    async function fetchAdminRows(endpoint, params) {
+        const query = new URLSearchParams(params || {});
+        const response = await fetch(apiUrl(endpoint + "?" + query.toString()), {
+            method: "GET",
+            headers: { "Accept": "application/json" }
+        });
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.message || payload.error || "Could not load records.");
+        }
+        return payload.rows || payload.data || [];
     }
 
     async function fetchStudents() {
-        const { data, error } = await window.VinayakAuth.getClient()
-            .from(window.VinayakAuth.getStudentsTableName())
-            .select("*")
-            .order(window.VinayakAuth.getStudentIdentifierColumn(), { ascending: false });
-        if (error) {
-            throw error;
-        }
-        return (data || []).map(function (student) {
+        const rows = await fetchAdminPage("/api/admin/students", "students", {
+            search: getValue("studentSearchInput"),
+            course: getValue("studentCourseFilter"),
+            batch_id: getValue("studentBatchFilter"),
+            status: getValue("studentStatusFilter")
+        });
+        return (rows || []).map(function (student) {
             return Object.assign({}, student, {
                 course: window.VinayakAuth.normalizeSingleCourse(student.course),
                 batch_id: student[DB.students.batchId] || "",
@@ -418,9 +470,13 @@
 
     async function fetchTable(tableName, options) {
         const settings = options || {};
+        const columns = settings.columns || TABLE_COLUMNS[tableName];
+        if (!columns) {
+            throw new Error("No column allowlist configured for " + tableName);
+        }
         let query = window.VinayakAuth.getClient()
             .from(tableName)
-            .select(settings.columns || "*");
+            .select(columns);
         if (settings.orderBy) {
             query = query.order(settings.orderBy, { ascending: Boolean(settings.ascending) });
         }
@@ -482,14 +538,16 @@
             renderAnnouncementsAdmin();
             return;
         }
-        announcementsCache = await fetchOptionalTable("announcements");
+        announcementsCache = await fetchAdminPage("/api/admin/announcements", "announcements", {
+            search: getValue("announcementSearchInput")
+        });
         loadedAdminTables.announcements = true;
         renderAnnouncementsAdmin();
     }
 
     async function ensurePaymentsLoaded(force) {
         if (!force && loadedAdminTables.payments) return paymentsCache;
-        paymentsCache = await fetchOptionalTable("payments");
+        paymentsCache = await fetchAdminPage("/api/admin/payments", "payments", {});
         loadedAdminTables.payments = true;
         return paymentsCache;
     }
@@ -817,11 +875,10 @@
         tbody.innerHTML = "";
         if (!students.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">No students found.</td></tr>';
-            renderPagination("studentsPagination", "students", 1, 1, 0);
+            renderServerPagination("studentsPagination", "students");
             return;
         }
-        const pageData = paginateRows(students, "students");
-        pageData.rows.forEach(function (student) {
+        students.forEach(function (student) {
             const id = getIdentifier(student);
             const batchName = getStudentBatchName(student);
             const row = document.createElement("tr");
@@ -837,7 +894,7 @@
             ].join("");
             tbody.appendChild(row);
         });
-        renderPagination("studentsPagination", "students", pageData.page, pageData.totalPages, pageData.totalItems);
+        renderServerPagination("studentsPagination", "students");
     }
 
     function updateBatchFilter() {
@@ -855,21 +912,17 @@
         filter.value = batches.some(function (batch) { return batch.value === current; }) ? current : "";
     }
 
-    function applyStudentFilter(resetPage) {
-        const query = getValue("studentSearchInput").toLowerCase();
-        const course = getValue("studentCourseFilter");
-        const batch = getValue("studentBatchFilter");
-        const status = getValue("studentStatusFilter");
+    async function applyStudentFilter(resetPage) {
         if (resetPage !== false) {
             paginationState.students = 1;
         }
-        renderStudents(studentsCache.filter(function (student) {
-            const studentBatch = getStudentBatchName(student);
-            const matchesQuery = !query || [getIdentifier(student), student.name, student.father_name, student.mobile, student.course, studentBatch].some(function (value) {
-                return String(value || "").toLowerCase().includes(query);
-            });
-            return matchesQuery && (!course || student.course === course) && (!batch || getStudentBatchId(student) === batch) && (!status || student.account_status === status);
-        }));
+        try {
+            studentsCache = await fetchStudents();
+            renderStudents(studentsCache);
+        } catch (error) {
+            console.error("Student page fetch failed", error);
+            setPanelMessage(error.message || "Could not load students.", "error");
+        }
     }
 
     function getDashboardStudents() {
@@ -1197,10 +1250,12 @@
         if (!student) {
             return;
         }
-        await ensurePaymentsLoaded();
-        const fees = getStudentFees(studentId);
-        const emis = getStudentEmis(studentId);
-        const payments = getStudentPayments(studentId);
+        const feesRows = await fetchAdminRows("/api/admin/fees", { student_id: studentId, page: 1, limit: 1 });
+        const emiRows = await fetchAdminRows("/api/admin/emis", { student_id: studentId, page: 1, limit: 60 });
+        const paymentRows = await fetchAdminRows("/api/admin/payments", { student_id: studentId, page: 1, limit: 25 });
+        const fees = feesRows[0] || {};
+        const emis = emiRows || [];
+        const payments = paymentRows || [];
         const overdue = emis.filter(function (emi) { return normalizeEmiStatus(emi.status) === "overdue"; });
         const upcoming = emis.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid"; })[0];
         const profile = document.getElementById("studentProfileCard");
@@ -1229,14 +1284,7 @@
         if (!tbody) {
             return;
         }
-        const query = getValue("emiSearchInput").toLowerCase();
-        const rows = emisCache.filter(function (emi) {
-            return !query || [emi.student_id, emi.status].some(function (value) {
-                return String(value || "").toLowerCase().includes(query);
-            });
-        });
-        const pageData = paginateRows(rows, "emi");
-        tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (emi) {
+        tbody.innerHTML = emisCache.length ? emisCache.map(function (emi) {
             const status = normalizeEmiStatus(emi.status);
             return [
                 "<tr><td>", escapeHtml(emi.student_id), "</td><td>", escapeHtml(emi.emi_number), "</td><td>", money(emi.amount), "</td><td>",
@@ -1246,7 +1294,15 @@
                 "</td></tr>"
             ].join("");
         }).join("") : '<tr><td colspan="7" class="admin-empty">No EMI records.</td></tr>';
-        renderPagination("emiPagination", "emi", pageData.page, pageData.totalPages, pageData.totalItems);
+        renderServerPagination("emiPagination", "emi");
+    }
+
+    async function loadEmiPage(resetPage) {
+        if (resetPage !== false) paginationState.emi = 1;
+        emisCache = await fetchAdminPage("/api/admin/emis", "emi", {
+            search: getValue("emiSearchInput")
+        });
+        renderEmis();
     }
 
     async function markEmiPaid(studentId, emiKey) {
@@ -2456,16 +2512,12 @@
     function renderAnnouncementsAdmin() {
         const tbody = document.getElementById("announcementTableBody");
         if (!tbody) return;
-        const query = getValue("announcementSearchInput").toLowerCase();
-        const rows = announcementsCache.filter(function (item) {
-            return !query || [getAnnouncementTitle(item), getAnnouncementContent(item), getAnnouncementAudienceLabel(item)].join(" ").toLowerCase().includes(query);
-        }).sort(function (a, b) {
+        const rows = announcementsCache.slice().sort(function (a, b) {
             const pinnedDiff = Number(isAnnouncementPinned(b)) - Number(isAnnouncementPinned(a));
             if (pinnedDiff) return pinnedDiff;
             return String(b.created_at || "").localeCompare(String(a.created_at || ""));
         });
-        const pageData = paginateRows(rows, "announcements");
-        tbody.innerHTML = pageData.rows.length ? pageData.rows.map(function (item) {
+        tbody.innerHTML = rows.length ? rows.map(function (item) {
             const pinned = isAnnouncementPinned(item);
             return [
                 "<tr>",
@@ -2479,7 +2531,7 @@
                 "</tr>"
             ].join("");
         }).join("") : '<tr><td colspan="5" class="admin-empty">No announcements found.</td></tr>';
-        renderPagination("announcementPagination", "announcements", pageData.page, pageData.totalPages, pageData.totalItems);
+        renderServerPagination("announcementPagination", "announcements");
     }
 
     async function saveAnnouncement(event) {
@@ -2797,19 +2849,26 @@
         setBatchSelectOptions("reportBatchFilter", getValue("reportCourseFilter"), "All Batches", true, null, false);
     }
 
-    function renderReports() {
+    async function renderReports() {
         const tbody = document.getElementById("reportsTableBody");
         if (!tbody) return;
         const courseId = getValue("reportCourseFilter");
         const batchId = getValue("reportBatchFilter");
-        const rows = studentsCache.filter(function (student) {
-            return (!courseId || getStudentCourseId(student) === courseId) && (!batchId || getStudentBatchId(student) === batchId);
-        });
-        const reportRows = rows.map(function (student) {
-            const id = getIdentifier(student);
-            const fees = getStudentFees(id);
-            return { student: student, id: id, fees: fees };
-        });
+        let reportRows = [];
+        try {
+            const rows = await fetchAdminPage("/api/admin/student-report", "reports", {
+                course_id: courseId,
+                batch_id: batchId,
+                search: getValue("adminGlobalSearch")
+            });
+            reportRows = rows.map(function (row) {
+                const student = row.student || {};
+                return { student: student, id: getIdentifier(student), fees: row.fees || {} };
+            });
+        } catch (error) {
+            console.error("Student report fetch failed", error);
+            setPanelMessage(error.message || "Could not load reports.", "error");
+        }
         const totalFee = reportRows.reduce(function (sum, row) { return sum + toNumber(row.fees.total_fee); }, 0);
         const paid = reportRows.reduce(function (sum, row) { return sum + toNumber(row.fees.paid_amount || row.fees.admission_fee); }, 0);
         const pending = reportRows.reduce(function (sum, row) { return sum + toNumber(row.fees.remaining_fee); }, 0);
@@ -2820,6 +2879,7 @@
         tbody.innerHTML = reportRows.length ? reportRows.map(function (row) {
             return "<tr><td>" + escapeHtml(row.id) + "</td><td>" + escapeHtml(row.student.name || "-") + "</td><td>" + escapeHtml(row.student.course || "-") + "</td><td>" + escapeHtml(getStudentBatchName(row.student) || "-") + "</td><td>" + escapeHtml(row.student.mobile || "-") + "</td><td>" + escapeHtml(row.fees.status || row.student.fees_status || "-") + "</td><td>" + money(row.fees.remaining_fee) + "</td></tr>";
         }).join("") : '<tr><td colspan="7" class="admin-empty">No report rows found.</td></tr>';
+        renderServerPagination("reportsPagination", "reports");
     }
 
     function getStoredAdminId() {
@@ -3173,10 +3233,18 @@
     async function loadAttendanceReport() {
         try {
             const params = getReportFilters();
+            params.set("page", paginationState.attendanceReport || 1);
+            params.set("limit", PAGE_SIZES.attendanceReport || 50);
             const result = await attendanceRequest("/api/attendance/report" + (params.toString() ? "?" + params.toString() : ""));
             attendanceReportCache = { rows: result.rows || [] };
+            serverPageState.attendanceReport = {
+                page: result.page || 1,
+                limit: result.limit || (PAGE_SIZES.attendanceReport || 50),
+                total: result.total || 0,
+                total_pages: result.total_pages || 1
+            };
             renderAttendanceReport();
-            setText("attendanceReportMeta", (result.rows || []).length + " report rows found.");
+            setText("attendanceReportMeta", (result.total || (result.rows || []).length) + " report rows found.");
         } catch (error) {
             console.error("Attendance report failed", error);
             setPanelMessage(error.message || "Could not generate attendance report.", "error");
@@ -3204,6 +3272,7 @@
         tbody.innerHTML = rows.length ? rows.map(function (row) {
             return "<tr><td>" + escapeHtml(row.student_name || "-") + "</td><td>" + escapeHtml(row.batch || "-") + "</td><td>" + escapeHtml(row.course || getAttendanceCourseLabel(row.course_id)) + "</td><td>" + escapeHtml(row.date || "-") + '</td><td><span class="status-badge ' + attendanceStatusClass(row.status) + '">' + escapeHtml(attendanceStatusLabel(row.status)) + "</span></td><td>" + escapeHtml(row.time || "-") + "</td></tr>";
         }).join("") : '<tr><td colspan="6" class="admin-empty">Generate a report to view rows.</td></tr>';
+        renderServerPagination("attendanceReportPagination", "attendanceReport");
     }
 
     function getAttendanceExportRows() {
@@ -3276,9 +3345,9 @@
         batchesCache = await fetchOptionalTable(DB.batches.table, { columns: "id, course_id, batch_name, timing, status", orderBy: DB.batches.name, ascending: true });
         loadedAdminTables.batches = true;
         studentsCache = await fetchStudents();
-        feesCache = await fetchTable("student_fees");
-        emisCache = await fetchTable("emis", { orderBy: "due_date", ascending: true });
-        paymentsCache = await fetchOptionalTable("payments");
+        feesCache = await fetchAdminPage("/api/admin/fees", "payments", {});
+        emisCache = await fetchAdminPage("/api/admin/emis", "emi", {});
+        paymentsCache = [];
         try {
             await loadMaterialManagerRows();
         } catch (error) {
@@ -3286,17 +3355,19 @@
             notesCache = [];
             materialCoursesCache = [];
         }
-        announcementsCache = await fetchOptionalTable("announcements");
+        announcementsCache = await fetchAdminPage("/api/admin/announcements", "announcements", {
+            search: getValue("announcementSearchInput")
+        });
         loadedAdminTables.payments = true;
         loadedAdminTables.material = true;
         loadedAdminTables.announcements = true;
         updateBatchControls();
         updateBatchFilter();
-        applyStudentFilter();
+        await applyStudentFilter(false);
         renderEmis();
         renderDashboard();
         renderBatches();
-        renderReports();
+        await renderReports();
         renderMaterials();
         renderAnnouncementsAdmin();
         updateAttendanceControls();
@@ -3432,10 +3503,25 @@
             if (pageButton) {
                 paginationState[pageButton.getAttribute("data-pagination-key")] = Number(pageButton.getAttribute("data-pagination-page")) || 1;
                 if (pageButton.getAttribute("data-pagination-key") === "students") applyStudentFilter(false);
-                if (pageButton.getAttribute("data-pagination-key") === "emi") renderEmis();
+                if (pageButton.getAttribute("data-pagination-key") === "emi") loadEmiPage(false);
                 if (pageButton.getAttribute("data-pagination-key") === "bulk") renderBulkRows();
                 if (pageButton.getAttribute("data-pagination-key") === "material") renderMaterials();
-                if (pageButton.getAttribute("data-pagination-key") === "announcements") renderAnnouncementsAdmin();
+                if (pageButton.getAttribute("data-pagination-key") === "announcements") ensureAnnouncementsLoaded(true);
+                if (pageButton.getAttribute("data-pagination-key") === "reports") renderReports();
+                if (pageButton.getAttribute("data-pagination-key") === "attendanceReport") loadAttendanceReport();
+                return;
+            }
+            const pageSize = event.target.closest("[data-pagination-size]");
+            if (pageSize) {
+                const key = pageSize.getAttribute("data-pagination-size");
+                PAGE_SIZES[key] = Number(pageSize.value) || PAGE_SIZES[key] || 10;
+                paginationState[key] = 1;
+                if (key === "students") applyStudentFilter(false);
+                if (key === "emi") loadEmiPage(false);
+                if (key === "announcements") ensureAnnouncementsLoaded(true);
+                if (key === "reports") renderReports();
+                if (key === "attendanceReport") loadAttendanceReport();
+                if (key === "material") renderMaterials();
             }
             const previewMaterialButton = event.target.closest("[data-preview-material]");
             if (previewMaterialButton) previewMaterial(previewMaterialButton.getAttribute("data-preview-material"));
@@ -3482,6 +3568,19 @@
                 renderAttendanceReport();
             }
         });
+        document.addEventListener("change", function (event) {
+            const pageSize = event.target.closest("[data-pagination-size]");
+            if (!pageSize) return;
+            const key = pageSize.getAttribute("data-pagination-size");
+            PAGE_SIZES[key] = Number(pageSize.value) || PAGE_SIZES[key] || 10;
+            paginationState[key] = 1;
+            if (key === "students") applyStudentFilter(false);
+            if (key === "emi") loadEmiPage(false);
+            if (key === "announcements") ensureAnnouncementsLoaded(true);
+            if (key === "reports") renderReports();
+            if (key === "attendanceReport") loadAttendanceReport();
+            if (key === "material") renderMaterials();
+        });
         document.getElementById("adminMenuBtn").addEventListener("click", function () {
             if (window.innerWidth <= 1024) {
                 document.body.classList.toggle("admin-sidebar-open");
@@ -3514,7 +3613,7 @@
         document.getElementById("dashboardCourseFilter").addEventListener("change", renderDashboard);
         document.getElementById("emiSearchInput").addEventListener("input", function () {
             paginationState.emi = 1;
-            renderEmis();
+            loadEmiPage(false);
         });
         document.getElementById("validateImportBtn").addEventListener("click", validateBulkImport);
         document.getElementById("importStudentsBtn").addEventListener("click", importBulkStudents);
@@ -3611,7 +3710,7 @@
         const announcementSearchInput = document.getElementById("announcementSearchInput");
         if (announcementSearchInput) announcementSearchInput.addEventListener("input", function () {
             paginationState.announcements = 1;
-            renderAnnouncementsAdmin();
+            ensureAnnouncementsLoaded(true);
         });
         const announcementAllCoursesInput = document.getElementById("announcementAllCoursesInput");
         if (announcementAllCoursesInput) announcementAllCoursesInput.addEventListener("change", setAnnouncementAllCoursesState);
