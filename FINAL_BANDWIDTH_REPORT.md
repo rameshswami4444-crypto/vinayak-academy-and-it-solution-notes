@@ -124,12 +124,12 @@ Reduced repeated full admin fetches:
 
 Previously optimized:
 
-- `/api/material/:id/content` redirects to a signed R2 URL instead of streaming PDF bytes through Render.
+- `/api/material/:id/content` redirects to a signed R2 URL instead of streaming PDF bytes through the app server.
 
 Current state:
 
 - Normal PDF access uses signed R2 URLs.
-- Render no longer proxies PDF bytes for the fallback content route.
+- The app server no longer proxies PDF bytes for the fallback content route.
 - R2 diagnostic listing is capped and compact.
 
 ## Remaining Unpaginated APIs
@@ -165,7 +165,7 @@ Estimated reductions depend on data size:
 - Announcements: 50% to 90% less response data where historical announcements are large.
 - Attendance report: 70% to 95% less response data for large date ranges.
 - Student attendance polling: about 80% fewer repeated active-check requests after Realtime subscription.
-- PDF fallback route: near 100% Render bandwidth reduction for PDF bytes.
+- PDF fallback route: near 100% app-server bandwidth reduction for PDF bytes.
 - Static assets: strong reduction on repeat visits due to cache headers and ETag.
 - JSON/API compression: 40% to 80% smaller transferred JSON for compressible responses.
 

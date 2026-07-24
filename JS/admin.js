@@ -98,11 +98,16 @@
     }
 
     function getApiBase() {
-        return window.VinayakApi ? window.VinayakApi.baseUrl : String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "");
+        const configured = String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "");
+        return window.VinayakApi ? window.VinayakApi.baseUrl : (configured || (window.location && window.location.origin) || "");
     }
 
     function apiUrl(path) {
         return window.VinayakApi ? window.VinayakApi.url(path) : getApiBase() + path;
+    }
+
+    function apiFetch(path, options) {
+        return window.VinayakApi ? window.VinayakApi.fetch(path, options) : fetch(apiUrl(path), options);
     }
 
     function getCourseId(course) {
@@ -417,7 +422,7 @@
         const query = new URLSearchParams(params || {});
         query.set("page", paginationState[key] || 1);
         query.set("limit", PAGE_SIZES[key] || 25);
-        const response = await fetch(apiUrl(endpoint + "?" + query.toString()), {
+        const response = await apiFetch(endpoint + "?" + query.toString(), {
             method: "GET",
             headers: { "Accept": "application/json" }
         });
@@ -437,7 +442,7 @@
 
     async function fetchAdminRows(endpoint, params) {
         const query = new URLSearchParams(params || {});
-        const response = await fetch(apiUrl(endpoint + "?" + query.toString()), {
+        const response = await apiFetch(endpoint + "?" + query.toString(), {
             method: "GET",
             headers: { "Accept": "application/json" }
         });
@@ -521,7 +526,7 @@
     async function loadMaterialManagerRows() {
         const url = apiUrl("/api/admin/materials");
         console.log("Study Material Manager list URL", url);
-        const response = await fetch(url, {
+        const response = await apiFetch("/api/admin/materials", {
             method: "GET",
             headers: { "Accept": "application/json" }
         });
@@ -1775,7 +1780,7 @@
         if (!key) return;
         const url = apiUrl("/api/r2/delete");
         console.log("Study Material R2 delete URL", url);
-        const response = await fetch(url, {
+        const response = await apiFetch("/api/r2/delete", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ key: key })
@@ -1789,7 +1794,7 @@
     async function getR2SignedUrl(key) {
         const url = apiUrl("/api/r2/sign?key=" + encodeURIComponent(key));
         console.log("Study Material R2 sign URL", url);
-        const response = await fetch(url, {
+        const response = await apiFetch("/api/r2/sign?key=" + encodeURIComponent(key), {
             method: "GET"
         });
         const result = await response.json().catch(function () { return {}; });
@@ -2964,9 +2969,11 @@
     async function attendanceRequest(path, options) {
         const url = apiUrl(path);
         console.log("Attendance API URL", url);
-        const response = await window.fetch(url, Object.assign({
+        const response = await (window.VinayakApi ? window.VinayakApi.fetch(path, Object.assign({
             headers: { "Content-Type": "application/json" }
-        }, options || {}));
+        }, options || {})) : window.fetch(url, Object.assign({
+            headers: { "Content-Type": "application/json" }
+        }, options || {})));
         const payload = await response.json().catch(function () { return {}; });
         if (!response.ok || payload.success === false) {
             throw new Error(payload.message || payload.error || "Attendance request failed.");

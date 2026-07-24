@@ -13,9 +13,8 @@ Audited and repaired the frontend/backend connection, Study Material R2 flow, at
 - Centralized frontend backend URL construction in `JS/api-config.js`.
 - Added `window.VinayakApi.url(path)` so frontend API calls resolve through one helper.
 - Fixed production custom domain routing:
-  - `https://www.vinayakacademy.online` -> `https://vinayak-academy-and-it-solution-notes.onrender.com`
-  - `https://vinayakacademy.online` -> `https://vinayak-academy-and-it-solution-notes.onrender.com`
-  - `*.vercel.app` -> Render backend
+  - `https://www.vinayakacademy.online` -> same-origin VPS API
+  - `https://vinayakacademy.online` -> same-origin VPS API
   - `localhost:5500` / `127.0.0.1:5500` -> `http://localhost:3000`
   - `localhost:3000` -> same origin
 - Updated API helper usage in:
@@ -29,8 +28,8 @@ Audited and repaired the frontend/backend connection, Study Material R2 flow, at
 - Ensured `JS/supabase-config.js` always creates `window.VINAYAK_SUPABASE_CONFIG` with:
   - Supabase URL
   - existing anon/publishable key
-  - production Render API base
-- Prevented this config from forcing the Render backend during local same-origin backend development.
+  - production same-origin API base
+- Prevented this config from forcing a separate backend during local same-origin backend development.
 
 ### Study Material / R2
 
@@ -84,8 +83,8 @@ All passed.
 Simulated frontend script loading:
 
 - `https://www.vinayakacademy.online/admin.html`
-  - API base: `https://vinayak-academy-and-it-solution-notes.onrender.com`
-  - Upload URL: `https://vinayak-academy-and-it-solution-notes.onrender.com/api/upload-material`
+  - API base: `https://www.vinayakacademy.online`
+  - Upload URL: `https://www.vinayakacademy.online/api/upload-material`
 - `http://localhost:5500/admin.html`
   - API base: `http://localhost:3000`
   - Upload URL: `http://localhost:3000/api/upload-material`
@@ -101,7 +100,7 @@ Simulated frontend script loading:
   - Returned R2-only material rows
   - Server stayed running
   - No stderr output after the R2 warning reduction
-- Render `GET /api/upload-material/health`
+- VPS `GET /api/upload-material/health`
   - Status: `200`
   - R2 variables reported loaded
 
@@ -130,8 +129,8 @@ None found in the scanned targets:
 
 ## Remaining Bottlenecks / Production Recommendations
 
-- Deploy the updated frontend and backend together; the CORS allowlist change only applies after the Render backend redeploys.
-- In Render, set `ALLOWED_ORIGINS` if any additional production/staging frontend domains are used.
+- Deploy the updated frontend and backend together; the CORS allowlist change applies after the VPS process restarts.
+- Set `ALLOWED_ORIGINS` on the VPS if any additional production/staging frontend domains are used.
 - Add server-side pagination metadata to all large admin endpoints if any still return full datasets.
 - Keep old database rows whose R2 files are missing cleaned up or archived; they are filtered out at runtime, but cleanup will reduce verification work.
 - Review Supabase indexes for high-frequency attendance and student queries:

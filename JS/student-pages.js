@@ -38,13 +38,38 @@
 
     function apiUrl(path) {
         if (window.VinayakApi) return window.VinayakApi.url(path);
-        return String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "") + path;
+        const configured = String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "");
+        return (configured || (window.location && window.location.origin) || "") + path;
+    }
+
+    function apiFetch(path, options) {
+        return window.VinayakApi ? window.VinayakApi.fetch(path, options) : fetch(apiUrl(path), options);
+    }
+
+    function getStudentAuthHeaders() {
+        return {
+            "Accept": "application/json",
+            "X-Student-Id": window.VinayakAuth.getStoredStudentId ? window.VinayakAuth.getStoredStudentId() : window.localStorage.getItem("studentId") || "",
+            "X-Session-Token": window.VinayakAuth.getStoredStudentSessionId ? window.VinayakAuth.getStoredStudentSessionId() : window.localStorage.getItem("session_token") || ""
+        };
+    }
+
+    async function fetchStudentProfilePayload() {
+        const response = await apiFetch("/api/student/profile", {
+            method: "GET",
+            headers: getStudentAuthHeaders()
+        });
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.message || payload.error || "Could not load student profile.");
+        }
+        return payload;
     }
 
     async function fetchStudentAttendanceHistory() {
         const studentId = window.VinayakAuth.getStoredStudentId();
         const token = window.VinayakAuth.getStoredStudentSessionId();
-        const response = await fetch(apiUrl("/api/student/attendance/history"), {
+        const response = await apiFetch("/api/student/attendance/history", {
             headers: {
                 "Accept": "application/json",
                 "x-student-id": studentId,
@@ -127,11 +152,20 @@
 
     async function loadProfile(session) {
         const studentId = getStudentId(session);
-        const student = await getStudent(session);
-        const fees = await safeFetch("student_fees", function (table) {
-            return table.select("id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount").eq("student_id", studentId).limit(1);
-        });
-        const fee = fees[0] || {};
+        let student = {};
+        let fee = {};
+        try {
+            const profile = await fetchStudentProfilePayload();
+            student = profile.student || {};
+            fee = profile.fee || {};
+        } catch (error) {
+            console.warn("Student profile API failed; falling back to direct Supabase queries.", error);
+            student = await getStudent(session);
+            const fees = await safeFetch("student_fees", function (table) {
+                return table.select("id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount").eq("student_id", studentId).limit(1);
+            });
+            fee = fees[0] || {};
+        }
         const rows = [
             ["Student ID", studentId],
             ["Name", student.name || "-"],

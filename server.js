@@ -967,7 +967,11 @@ const DEFAULT_ALLOWED_ORIGINS = [
     "https://vinayakacademy.online",
     "http://localhost:3000",
     "http://localhost:5500",
-    "http://127.0.0.1:5500"
+    "http://localhost:5501",
+    "http://localhost:5502",
+    "http://127.0.0.1:5500",
+    "http://127.0.0.1:5501",
+    "http://127.0.0.1:5502"
 ];
 const configuredAllowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
     .split(",")
@@ -975,10 +979,10 @@ const configuredAllowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
     .filter(Boolean);
 const allowedOrigins = DEFAULT_ALLOWED_ORIGINS.concat(configuredAllowedOrigins);
 
-app.use(cors({
+const corsOptions = {
     origin: function (origin, callback) {
         try {
-            if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/i.test(new URL(origin).hostname)) {
+            if (!origin || allowedOrigins.includes(origin)) {
                 callback(null, true);
                 return;
             }
@@ -987,8 +991,14 @@ app.use(cors({
             return;
         }
         callback(new Error("CORS origin not allowed."));
-    }
-}));
+    },
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Student-Id", "X-Session-Token"],
+    optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+app.options(/^\/api\//, cors(corsOptions));
 app.use(function securityHeaders(request, response, next) {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("X-Frame-Options", "SAMEORIGIN");
@@ -1156,6 +1166,104 @@ app.get("/api/materials", async function (request, response) {
     } catch (error) {
         console.error("Material list fetch error", serializeR2Error(error));
         sendError(response, error, 500);
+    }
+});
+
+async function resolveStudentForApi(request) {
+    const auth = getStudentAuthFromRequest(request);
+    if (!auth.studentId || !auth.sessionToken) {
+        const error = new Error("Student session is required.");
+        error.statusCode = 401;
+        throw error;
+    }
+
+    const client = getSupabaseClient();
+    const studentResult = await client
+        .from("students")
+        .select(STUDENT_COLUMNS)
+        .eq("id", auth.studentId)
+        .limit(1);
+    if (studentResult.error) throw studentResult.error;
+    const student = studentResult.data && studentResult.data[0];
+    const tokens = getStudentTokens(student);
+    if (!student || !tokens.includes(auth.sessionToken)) {
+        const error = new Error("Invalid or expired student session.");
+        error.statusCode = 401;
+        throw error;
+    }
+    if (!isActiveStudent(student)) {
+        const error = new Error("Your account is not active.");
+        error.statusCode = 403;
+        throw error;
+    }
+    return { client: client, auth: auth, student: student };
+}
+
+function sanitizeStudent(student) {
+    const safe = Object.assign({}, student || {});
+    delete safe.password;
+    delete safe.session_id;
+    delete safe.session_token;
+    delete safe.sessionId;
+    if (!safe.name && safe.student_name) safe.name = safe.student_name;
+    return safe;
+}
+
+async function getStudentFinanceRows(client, studentId) {
+    const feeResult = await client
+        .from("student_fees")
+        .select(STUDENT_FEE_COLUMNS)
+        .eq("student_id", studentId)
+        .limit(1);
+    if (feeResult.error) throw feeResult.error;
+
+    const emiResult = await client
+        .from("emis")
+        .select(EMI_COLUMNS)
+        .eq("student_id", studentId)
+        .order("due_date", { ascending: true })
+        .limit(60);
+    if (emiResult.error) throw emiResult.error;
+
+    return {
+        fee: feeResult.data && feeResult.data[0] ? feeResult.data[0] : null,
+        emis: emiResult.data || []
+    };
+}
+
+app.get("/api/student/profile", async function (request, response) {
+    try {
+        const resolved = await resolveStudentForApi(request);
+        const finance = await getStudentFinanceRows(resolved.client, resolved.auth.studentId);
+        response.json({
+            success: true,
+            student: sanitizeStudent(resolved.student),
+            fee: finance.fee,
+            emis: finance.emis
+        });
+    } catch (error) {
+        sendApiError(response, error.statusCode || 500, error.message || "Could not load student profile.", error);
+    }
+});
+
+app.get("/api/dashboard", async function (request, response) {
+    try {
+        const resolved = await resolveStudentForApi(request);
+        const finance = await getStudentFinanceRows(resolved.client, resolved.auth.studentId);
+        const announcementResult = await resolved.client
+            .from("announcements")
+            .select(ANNOUNCEMENT_COLUMNS)
+            .limit(100);
+        if (announcementResult.error) throw announcementResult.error;
+        response.json({
+            success: true,
+            student: sanitizeStudent(resolved.student),
+            fee: finance.fee,
+            emis: finance.emis,
+            announcements: announcementResult.data || []
+        });
+    } catch (error) {
+        sendApiError(response, error.statusCode || 500, error.message || "Could not load dashboard.", error);
     }
 });
 

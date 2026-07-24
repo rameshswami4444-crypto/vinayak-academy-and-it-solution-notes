@@ -3,17 +3,7 @@
     window.__vinayakApiConfigLoaded = true;
 
     var config = window.VINAYAK_API_CONFIG || {};
-    var PRODUCTION_BACKEND_URL = "https://vinayak-academy-and-it-solution-notes.onrender.com";
     var DEBUG = Boolean(config.debug || window.VINAYAK_DEBUG);
-
-    function fromVercelHost() {
-        var host = String(window.location && window.location.hostname || "").toLowerCase();
-        if (!/\.vercel\.app$/.test(host)) {
-            return "";
-        }
-        var project = host.replace(/\.vercel\.app$/, "").split(".")[0];
-        return project ? "https://" + project + ".onrender.com" : "";
-    }
 
     function fromLocalStaticHost() {
         var host = String(window.location && window.location.hostname || "").toLowerCase();
@@ -24,42 +14,16 @@
         return "";
     }
 
-    function isLocalHost() {
-        var host = String(window.location && window.location.hostname || "").toLowerCase();
-        return host === "localhost" || host === "127.0.0.1";
-    }
-
     function fromConfiguredApiBase() {
-        if (isLocalHost()) {
-            return "";
-        }
         return config.apiBase || ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "");
     }
 
-    function fromProductionHost() {
-        var host = String(window.location && window.location.hostname || "").toLowerCase();
-        if (host === "www.vinayakacademy.online" || host === "vinayakacademy.online") {
-            return PRODUCTION_BACKEND_URL;
-        }
-        return "";
-    }
-
-    function fromUnresolvedProductionHost() {
-        var host = String(window.location && window.location.hostname || "").toLowerCase();
-        if (!host || host === "localhost" || host === "127.0.0.1") {
-            return "";
-        }
-        return PRODUCTION_BACKEND_URL;
-    }
-
     var backendUrl = String(
-        fromProductionHost() ||
-        window.API_BASE_URL ||
-        window.VINAYAK_API_BASE ||
-        fromVercelHost() ||
         fromLocalStaticHost() ||
         fromConfiguredApiBase() ||
-        fromUnresolvedProductionHost() ||
+        window.API_BASE_URL ||
+        window.VINAYAK_API_BASE ||
+        (window.location && window.location.origin) ||
         ""
     ).trim();
 
@@ -68,7 +32,25 @@
     window.VinayakApi = {
         baseUrl: window.API_BASE_URL,
         url: function (path) {
-            return window.API_BASE_URL + path;
+            var cleanPath = String(path || "");
+            if (/^https?:\/\//i.test(cleanPath)) {
+                return cleanPath;
+            }
+            if (cleanPath.charAt(0) !== "/") {
+                cleanPath = "/" + cleanPath;
+            }
+            return window.API_BASE_URL + cleanPath;
+        },
+        fetch: function (path, options) {
+            return window.fetch(window.VinayakApi.url(path), options || {});
+        },
+        json: async function (path, options) {
+            var response = await window.VinayakApi.fetch(path, options || {});
+            var payload = await response.json().catch(function () { return {}; });
+            if (!response.ok || payload.success === false) {
+                throw new Error(payload.message || payload.error || "API request failed.");
+            }
+            return payload;
         }
     };
     window.VinayakLogger = {

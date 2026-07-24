@@ -51,6 +51,36 @@ const courseData = [
         return "Rs. " + (Number.isFinite(number) ? number : 0).toFixed(2);
     }
 
+    function apiUrl(path) {
+        if (window.VinayakApi) return window.VinayakApi.url(path);
+        const configured = String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "");
+        return (configured || (window.location && window.location.origin) || "") + path;
+    }
+
+    function apiFetch(path, options) {
+        return window.VinayakApi ? window.VinayakApi.fetch(path, options) : fetch(apiUrl(path), options);
+    }
+
+    function getStudentAuthHeaders() {
+        return {
+            "Accept": "application/json",
+            "X-Student-Id": window.VinayakAuth.getStoredStudentId ? window.VinayakAuth.getStoredStudentId() : window.localStorage.getItem("studentId") || "",
+            "X-Session-Token": window.VinayakAuth.getStoredStudentSessionId ? window.VinayakAuth.getStoredStudentSessionId() : window.localStorage.getItem("session_token") || ""
+        };
+    }
+
+    async function fetchDashboardPayload() {
+        const response = await apiFetch("/api/dashboard", {
+            method: "GET",
+            headers: getStudentAuthHeaders()
+        });
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.message || payload.error || "Could not load dashboard.");
+        }
+        return payload;
+    }
+
     function getCurrentCourseData(course) {
         return courseData.find(function (subject) {
             return window.VinayakAuth && window.VinayakAuth.normalizeSingleCourse(subject.courseKey) === course;
@@ -226,24 +256,44 @@ const courseData = [
 
         renderQuickAccess(courseData);
 
-        const students = await safeFetch(window.VinayakAuth.getStudentsTableName(), function (table) {
-            return table.select("id, name, father_name, course, course_id, batch_id, batch, mobile, account_status, fees_status, due_date").eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId).limit(1);
-        });
-        const student = students[0] || {};
-        const fees = await safeFetch("student_fees", function (table) {
-            return table.select("id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount").eq("student_id", studentId).limit(1);
-        });
-        const emis = await safeFetch("emis", function (table) {
-            return table.select("id, student_id, emi_number, amount, due_date, paid_date, status").eq("student_id", studentId).order("due_date", { ascending: true }).limit(24);
-        });
-        const notes = window.VinayakNotesPage && window.VinayakNotesPage.fetchCourseNotes
-            ? (await window.VinayakNotesPage.fetchCourseNotes(course)).slice(0, 5)
-            : [];
+        let dashboard = {};
+        try {
+            dashboard = await fetchDashboardPayload();
+        } catch (error) {
+            console.warn("Dashboard API failed; falling back to direct Supabase queries.", error);
+        }
+        let student = dashboard.student || {};
+        let fees = dashboard.fee ? [dashboard.fee] : [];
+        let emis = dashboard.emis || [];
+        if (!student.id) {
+            const students = await safeFetch(window.VinayakAuth.getStudentsTableName(), function (table) {
+                return table.select("id, name, father_name, course, course_id, batch_id, batch, mobile, account_status, fees_status, due_date").eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId).limit(1);
+            });
+            student = students[0] || {};
+        }
+        if (!fees.length) {
+            fees = await safeFetch("student_fees", function (table) {
+                return table.select("id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount").eq("student_id", studentId).limit(1);
+            });
+        }
+        if (!emis.length) {
+            emis = await safeFetch("emis", function (table) {
+                return table.select("id, student_id, emi_number, amount, due_date, paid_date, status").eq("student_id", studentId).order("due_date", { ascending: true }).limit(24);
+            });
+        }
+        let notes = [];
+        try {
+            notes = window.VinayakNotesPage && window.VinayakNotesPage.fetchCourseNotes
+                ? (await window.VinayakNotesPage.fetchCourseNotes(course)).slice(0, 5)
+                : [];
+        } catch (error) {
+            console.warn("Recent study material load failed", error);
+        }
         const announcements = window.VinayakAnnouncements
             ? await window.VinayakAnnouncements.fetchVisibleAnnouncements(5)
-            : await safeFetch("announcements", function (table) {
+            : (dashboard.announcements || await safeFetch("announcements", function (table) {
                 return table.select("id, title, message, target_course, created_at, all_courses, content, expires_at, is_pinned, target_courses").limit(5);
-            });
+            })).slice(0, 5);
 
         document.querySelectorAll("[data-layout-course]").forEach(function (node) {
             node.textContent = courseData ? courseData.name : course;

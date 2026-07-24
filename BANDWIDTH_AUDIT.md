@@ -8,8 +8,8 @@ Scope: Express backend, R2 API handlers, and the frontend calls that repeatedly 
 
 ### PDF Serving
 
-- Changed `GET /api/material/:id/content` from proxy streaming R2 PDFs through Render to returning a `302` redirect to a signed Cloudflare R2 URL after authorization.
-- Result: PDF bytes no longer pass through Render for the fallback PDF route.
+- Changed `GET /api/material/:id/content` from proxy streaming R2 PDFs through the Node process to returning a `302` redirect to a signed Cloudflare R2 URL after authorization.
+- Result: PDF bytes no longer pass through the app server for the fallback PDF route.
 - Functionality preserved: the backend still validates student session and course access before issuing the redirect.
 
 ### Study Material Lists
@@ -94,10 +94,10 @@ Remaining:
 Risk: Critical if PDFs are viewed through fallback route.
 
 Before:
-- Render streamed the full PDF response.
+- The app server streamed the full PDF response.
 
 After:
-- Render authorizes and redirects to signed R2 URL.
+- The app server authorizes and redirects to signed R2 URL.
 - PDF bandwidth goes through Cloudflare R2.
 
 ### `GET /api/attendance/report`
@@ -171,7 +171,7 @@ After:
 - Student attendance history has no backend page/range limit.
 - `select("*")` still exists in some student-side direct Supabase calls outside the backend audit scope.
 
-## Files Proxied Through Render
+## Files Proxied Through App Server
 
 - PDFs:
   - Fixed for `/api/material/:id/content`; it now redirects to R2 instead of streaming.
@@ -179,11 +179,11 @@ After:
 
 - Images:
   - No backend image proxy endpoint was found in `server.js`.
-  - Static images served by `express.static(__dirname)` still come from Render if referenced from the app bundle.
+  - Static images served by `express.static(__dirname)` still come from the app server if referenced from the app bundle.
 
 ## Estimated Bandwidth Reduction
 
-- PDF fallback route: up to nearly 100% Render bandwidth reduction for PDFs opened through `/api/material/:id/content`.
+- PDF fallback route: up to nearly 100% app-server bandwidth reduction for PDFs opened through `/api/material/:id/content`.
 - Student attendance active checks: small per-request reduction, but significant over time because the call is repeated.
 - Student attendance polling frequency: about 80% fewer active-check requests after Realtime subscribes.
 - Material listing: large reduction for libraries with many PDFs because R2 HEAD checks are skipped and response size is capped.
@@ -193,8 +193,8 @@ After:
 
 - Add backend paginated endpoints for Students, Fees, EMIs, Payments, Announcements, and Reports.
 - Move admin tables away from direct `select("*")` Supabase calls.
-- Add HTTP compression at Render or Express middleware level.
+- Add HTTP compression at the reverse proxy or Express middleware level.
 - Add `Cache-Control` headers for static JS/CSS/assets.
-- Keep PDFs on signed R2 URLs; do not stream PDFs through Render.
+- Keep PDFs on signed R2 URLs; do not stream PDFs through the app server.
 - Use Realtime only for Attendance live updates and necessary notifications.
 - Add server-side export jobs for very large Attendance reports instead of returning huge JSON.

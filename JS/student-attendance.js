@@ -18,7 +18,8 @@
     let attendanceRealtimeActive = false;
     function apiUrl(path) {
         if (window.VinayakApi) return window.VinayakApi.url(path);
-        return String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "") + path;
+        const configured = String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "");
+        return (configured || (window.location && window.location.origin) || "") + path;
     }
 
     function getSession() {
@@ -50,9 +51,11 @@
     async function api(path, options) {
         const url = apiUrl(path);
         console.log("Student attendance API URL", url);
-        const response = await window.fetch(url, Object.assign({
+        const response = await (window.VinayakApi ? window.VinayakApi.fetch(path, Object.assign({
             headers: getHeaders()
-        }, options || {}));
+        }, options || {})) : window.fetch(url, Object.assign({
+            headers: getHeaders()
+        }, options || {})));
         const payload = await response.json().catch(function () { return {}; });
         console.log("Student attendance API response", {
             url: url,

@@ -4,7 +4,12 @@
     const output = document.getElementById("r2TestOutput");
     function apiUrl(path) {
         if (window.VinayakApi) return window.VinayakApi.url(path);
-        return String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "") + path;
+        const configured = String(window.API_BASE_URL || window.VINAYAK_API_BASE || "").replace(/\/+$/, "");
+        return (configured || (window.location && window.location.origin) || "") + path;
+    }
+
+    function apiFetch(path, options) {
+        return window.VinayakApi ? window.VinayakApi.fetch(path, options) : fetch(apiUrl(path), options);
     }
 
     function render(payload) {
@@ -16,7 +21,7 @@
         const startedAt = performance.now();
         const requestUrl = apiUrl(url);
         console.log("R2 diagnostic API URL", requestUrl);
-        const response = await fetch(requestUrl, options || {});
+        const response = await apiFetch(url, options || {});
         const text = await response.text();
         let body;
         try {

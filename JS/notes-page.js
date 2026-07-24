@@ -54,6 +54,10 @@
         return window.VinayakApi ? window.VinayakApi.url(path) : getApiBase() + path;
     }
 
+    function apiFetch(path, options) {
+        return window.VinayakApi ? window.VinayakApi.fetch(path, options) : fetch(apiUrl(path), options);
+    }
+
     function formatDate(value) {
         if (!value) return "Recent";
         const date = new Date(value);
@@ -91,7 +95,7 @@
         if (cached && cached.expiresAt > Date.now()) {
             return cached.rows;
         }
-        const response = await fetch(apiUrl("/api/materials"), {
+        const response = await apiFetch("/api/materials", {
             method: "GET",
             headers: getStudentAuthHeaders()
         });
@@ -121,7 +125,7 @@
             materialId: note.id,
             endpoint: endpoint
         });
-        const response = await fetch(endpoint, {
+        const response = await apiFetch(endpoint, {
             method: "GET",
             headers: getStudentAuthHeaders()
         });
