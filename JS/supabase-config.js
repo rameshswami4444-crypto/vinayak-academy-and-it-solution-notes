@@ -16,6 +16,4 @@
         studentIdentifierColumn: "id"
     };
 
-    console.log("VINAYAK_SUPABASE_CONFIG loaded:", window.VINAYAK_SUPABASE_CONFIG);
-    console.log("Configured API_BASE_URL:", window.API_BASE_URL);
 })();

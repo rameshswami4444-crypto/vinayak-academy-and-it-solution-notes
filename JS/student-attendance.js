@@ -50,44 +50,18 @@
 
     async function api(path, options) {
         const url = apiUrl(path);
-        console.log("Student attendance API URL", url);
         const response = await (window.VinayakApi ? window.VinayakApi.fetch(path, Object.assign({
             headers: getHeaders()
         }, options || {})) : window.fetch(url, Object.assign({
             headers: getHeaders()
         }, options || {})));
         const payload = await response.json().catch(function () { return {}; });
-        console.log("Student attendance API response", {
-            url: url,
-            status: response.status,
-            payload: payload
-        });
         if (!response.ok || payload.success === false) {
             const error = new Error(payload.message || payload.error || "Attendance request failed.");
             error.payload = payload;
             throw error;
         }
         return payload;
-    }
-
-    function logAttendanceDebug(label, payload) {
-        const debug = payload && payload.debug ? payload.debug : {};
-        if (!payload || !payload.debug) return;
-        console.group(label);
-        console.log("Logged-in student ID:", getStudentId());
-        console.log("Student course_id:", debug.student_course_id || "(not returned)");
-        console.log("Student batch_id:", debug.student_batch_id || "(not returned)");
-        console.log("Attendance query:", debug.attendance_query || {
-            table: "attendance_sessions",
-            status: "OPEN",
-            course_id: debug.student_course_id || "",
-            batch_id: debug.student_batch_id || "",
-            start_time: "<= now",
-            end_time: ">= now"
-        });
-        console.log("Number of sessions found:", debug.sessions_found == null ? 0 : debug.sessions_found);
-        console.log("Supabase errors:", debug.supabase_error || null);
-        console.groupEnd();
     }
 
     function formatClock(totalSeconds) {
@@ -205,16 +179,6 @@
         if (payload.already_submitted) {
             showMessage("Attendance Submitted", "success");
         }
-        console.log("showAttendancePopup called", {
-            sessionId: activeSessionId,
-            courseId: session.course_id,
-            batchId: session.batch_id,
-            status: session.status,
-            startTime: session.start_time,
-            endTime: session.end_time,
-            subject: session.subject,
-            lectureTitle: session.lecture_title
-        });
         startCountdown(session.end_time);
         startPopupPolling();
     }
@@ -243,7 +207,6 @@
         }
         try {
             const payload = await api("/api/student/attendance/active");
-            logAttendanceDebug("Student attendance active check", payload);
             if (!payload.active) {
                 if (popupOpen) {
                     hidePopup();
@@ -276,20 +239,6 @@
             initialCheckDone = true;
             return payload;
         } catch (error) {
-            logAttendanceDebug("Student attendance active check failed", {
-                debug: {
-                    student_course_id: "",
-                    attendance_query: {
-                        table: "attendance_sessions",
-                        status: "OPEN",
-                        batch_id: "",
-                        start_time: "<= now",
-                        end_time: ">= now"
-                    },
-                    sessions_found: 0,
-                    supabase_error: error.payload || error.message || error
-                }
-            });
             console.warn("Student attendance active check failed", error);
             initialCheckDone = true;
             return null;
@@ -307,16 +256,10 @@
         const button = modal.querySelector('button[type="submit"]');
         if (button) button.disabled = true;
         try {
-            console.log("Attendance submitted", {
-                studentId: getStudentId(),
-                sessionId: activeSessionId,
-                response: selected.value
-            });
             const result = await api("/api/student/attendance/respond", {
                 method: "POST",
                 body: JSON.stringify({ session_id: activeSessionId, response: selected.value })
             });
-            console.log("Supabase insert result", result);
             hidePopup();
             showSuccessNotice(result.message === "Attendance Submitted" ? "Attendance Submitted" : "Attendance Submitted Successfully");
         } catch (error) {
@@ -330,15 +273,10 @@
         if (autoTimeoutSubmitting || !activeSessionId) return;
         autoTimeoutSubmitting = true;
         try {
-            console.log("Attendance timer expired; auto-submitting Absent", {
-                studentId: getStudentId(),
-                sessionId: activeSessionId
-            });
-            const result = await api("/api/student/attendance/respond", {
+            await api("/api/student/attendance/respond", {
                 method: "POST",
                 body: JSON.stringify({ session_id: activeSessionId, response: "ABSENT", auto_timeout: true })
             });
-            console.log("Attendance timeout insert result", result);
             hidePopup();
         } catch (error) {
             console.warn("Attendance timeout auto-absent failed", error);
@@ -364,12 +302,6 @@
     function initWatcher() {
         if (watcherStarted || document.body.classList.contains("admin-page")) return;
         watcherStarted = true;
-        console.log("Student attendance watcher started", {
-            studentId: getStudentId(),
-            hasSessionToken: Boolean(getSessionToken()),
-            pollingEveryMs: POLL_MS,
-            realtimeRequested: true
-        });
         window.setTimeout(function () { checkActiveAttendance(false); }, 800);
         startAttendanceRealtime();
         if (!document.hidden) {
@@ -381,7 +313,6 @@
         if (pollTimer) window.clearInterval(pollTimer);
         const interval = attendanceRealtimeActive ? REALTIME_BACKUP_POLL_MS : POLL_MS;
         pollTimer = window.setInterval(function () { checkActiveAttendance(false); }, interval);
-        console.log("Student attendance polling active", { everyMs: interval, realtimeActive: attendanceRealtimeActive });
     }
 
     function stopWatcherTimers() {
@@ -398,24 +329,18 @@
         try {
             const client = window.VinayakAuth.getClient();
             if (!client || typeof client.channel !== "function") return;
-            console.log("Student attendance realtime listener starting", {
-                table: "attendance_sessions",
-                studentId: getStudentId()
-            });
             attendanceRealtimeChannel = client
                 .channel("student-attendance-sessions-" + getStudentId())
                 .on("postgres_changes", {
                     event: "*",
                     schema: "public",
                     table: "attendance_sessions"
-                }, function (payload) {
-                    console.log("Realtime event received for attendance session", payload);
+                }, function () {
                     checkActiveAttendance(false);
                 })
                 .subscribe(function (status) {
                     const wasActive = attendanceRealtimeActive;
                     attendanceRealtimeActive = status === "SUBSCRIBED";
-                    console.log("Student attendance realtime status", status);
                     if (attendanceRealtimeActive !== wasActive && !document.hidden) {
                         startMainPolling();
                     }

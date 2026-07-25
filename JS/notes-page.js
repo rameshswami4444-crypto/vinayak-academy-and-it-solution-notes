@@ -121,22 +121,11 @@
             throw new Error("This PDF file is not available.");
         }
         const endpoint = apiUrl("/api/material/" + encodeURIComponent(note.id));
-        console.log("PDF retrieval frontend: requesting material endpoint", {
-            materialId: note.id,
-            endpoint: endpoint
-        });
         const response = await apiFetch(endpoint, {
             method: "GET",
             headers: getStudentAuthHeaders()
         });
         const result = await response.json().catch(function () { return {}; });
-        console.log("PDF retrieval frontend: material endpoint response", {
-            materialId: note.id,
-            status: response.status,
-            success: Boolean(result.success),
-            hasUrl: Boolean(result.url || result.signedUrl),
-            message: result.message || result.error || ""
-        });
         const accessUrl = result.url || result.signedUrl;
         if (!response.ok || !result.success || !accessUrl) {
             const debugDetails = result.details ? " Details: " + JSON.stringify(result.details) : "";

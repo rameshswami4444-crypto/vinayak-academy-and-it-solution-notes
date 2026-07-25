@@ -19,8 +19,6 @@
 
     async function requestJson(url, options) {
         const startedAt = performance.now();
-        const requestUrl = apiUrl(url);
-        console.log("R2 diagnostic API URL", requestUrl);
         const response = await apiFetch(url, options || {});
         const text = await response.text();
         let body;

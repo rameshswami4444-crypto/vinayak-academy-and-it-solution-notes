@@ -462,7 +462,6 @@
             if (course) params.set("course", course);
         }
         const path = "/api/admin/dashboard/stats" + (params.toString() ? "?" + params.toString() : "");
-        console.log("Dashboard statistics API URL", apiUrl(path));
         const response = await apiFetch(path, {
             method: "GET",
             headers: { "Accept": "application/json" }
@@ -471,7 +470,9 @@
         if (!response.ok || payload.success === false) {
             throw new Error(payload.message || payload.error || "Could not load dashboard statistics.");
         }
-        console.log("Dashboard statistics result", payload);
+        if (!payload.stats) {
+            throw new Error("Dashboard statistics response did not include stats.");
+        }
         return {
             stats: payload.stats || {},
             lists: payload.lists || {}
@@ -559,8 +560,6 @@
     }
 
     async function loadMaterialManagerRows() {
-        const url = apiUrl("/api/admin/materials");
-        console.log("Study Material Manager list URL", url);
         const response = await apiFetch("/api/admin/materials", {
             method: "GET",
             headers: { "Accept": "application/json" }
@@ -617,18 +616,15 @@
             renderCourses();
             return coursesCache;
         }
-        console.group("loadCourses");
         try {
             const { data, error } = await window.VinayakAuth.getClient()
                 .from("courses")
                 .select("id, course_name, duration, total_fee, description, created_at")
                 .order("course_name", { ascending: true });
-            console.log("Supabase courses response", { data: data, error: error });
             if (error) {
                 throw error;
             }
             coursesCache = data || [];
-            console.log("Courses loaded", { count: coursesCache.length, rows: coursesCache });
             updateCourseControls();
             renderCourses();
             return coursesCache;
@@ -637,10 +633,8 @@
             coursesCache = [];
             updateCourseControls("Could not load courses");
             renderCourses();
-            setPanelMessage((error && error.message ? error.message : "Could not load courses.") + " Check the browser console for the Supabase courses response.", "error");
+            setPanelMessage(error && error.message ? error.message : "Could not load courses.", "error");
             return [];
-        } finally {
-            console.groupEnd();
         }
     }
 
@@ -783,18 +777,9 @@
     async function addStudent(event) {
         event.preventDefault();
         clearPanelMessage();
-        console.group("Admission submit");
-        console.log("Submit event received", {
-            eventType: event.type,
-            submitter: event.submitter ? event.submitter.textContent.trim() : "",
-            viewportWidth: window.innerWidth,
-            emiMode: emiMode,
-            scriptLoadedAt: window.__vinayakAdminLoadedAt
-        });
 
         try {
             updateRemainingFee();
-            console.log("Fee values recalculated");
 
             const studentId = getValue("newStudentId");
             const totalFee = toNumber(getValue("newTotalFee"));
@@ -802,26 +787,12 @@
             const remainingFee = toNumber(getValue("newRemainingFee"));
             const selectedBatch = getBatchById(getValue("newBatch"));
             const selectedCourseId = getSelectedCourseIdFromStudentSelect("newStudentCourse");
-            console.log("Admission values", {
-                studentId: studentId,
-                course: getValue("newStudentCourse"),
-                course_id: selectedCourseId,
-                batch_id: getValue("newBatch"),
-                batch: selectedBatch ? getBatchName(selectedBatch) : "",
-                totalFee: totalFee,
-                admissionFee: admissionFee,
-                remainingFee: remainingFee,
-                firstDueDate: getValue("autoFirstDueDate")
-            });
 
             const emis = emiMode === "auto" ? buildAutoEmis() : readManualEmis();
-            console.log("EMI rows prepared", emis);
 
             validateAdmission(studentId, getValue("newMobile"), getValue("newAlternateMobile"), totalFee, admissionFee, remainingFee, emis);
-            console.log("Admission validation passed");
 
             const client = window.VinayakAuth.getClient();
-            console.log("Checking duplicate student ID");
             const { data: existing, error: existingError } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .select(window.VinayakAuth.getStudentIdentifierColumn())
@@ -856,12 +827,10 @@
                 payment_note: remainingFee > 0 ? "EMI schedule created" : "Fee paid in full"
             };
 
-            console.log("Inserting student", studentPayload);
             const { error: studentError } = await client.from(window.VinayakAuth.getStudentsTableName()).insert([studentPayload]);
             if (studentError) {
                 throw studentError;
             }
-            console.log("Student inserted successfully");
 
             const feePayload = {
                 student_id: studentId,
@@ -871,12 +840,10 @@
                 paid_amount: admissionFee,
                 status: remainingFee > 0 ? "pending" : "paid"
             };
-            console.log("Inserting student fee", feePayload);
             const { error: feeError } = await client.from("student_fees").insert([feePayload]);
             if (feeError) {
                 throw feeError;
             }
-            console.log("Student fee inserted successfully");
 
             if (emis.length) {
                 const emiPayload = emis.map(function (emi) {
@@ -885,25 +852,20 @@
                         paid_date: emi.status === "paid" ? getTodayDateString() : null
                     });
                 });
-                console.log("Inserting EMI schedule", emiPayload);
                 const { error: emiError } = await client.from("emis").insert(emiPayload);
                 if (emiError) {
                     throw emiError;
                 }
-                console.log("EMI schedule inserted successfully");
             }
 
             document.getElementById("addStudentForm").reset();
             setupAdmissionDefaults();
             setPanelMessage("Admission completed and EMI schedule created.", "success");
             await refreshAll();
-            console.log("Admin data refreshed after admission");
             showAdminSection("students");
         } catch (error) {
             console.error("Admission failed", error);
-            setPanelMessage((error && error.message ? error.message : "Could not complete admission.") + " Check browser console for detailed admission logs.", "error");
-        } finally {
-            console.groupEnd();
+            setPanelMessage(error && error.message ? error.message : "Could not complete admission.", "error");
         }
     }
 
@@ -965,11 +927,6 @@
         }
     }
 
-    function getDashboardStudents() {
-        const course = getValue("dashboardCourseFilter");
-        return course ? studentsCache.filter(function (student) { return student.course === course; }) : studentsCache;
-    }
-
     function renderList(targetId, items, emptyMessage, renderItem) {
         const target = document.getElementById(targetId);
         if (!target) {
@@ -979,28 +936,20 @@
     }
 
     function renderDashboard() {
-        const students = getDashboardStudents();
-        const studentIds = students.map(getIdentifier);
-        const today = getTodayDateString();
-        const active = students.filter(function (student) { return student.account_status === "active"; });
-        const blocked = students.filter(function (student) { return student.account_status !== "active"; });
-        const scopedEmis = emisCache.filter(function (emi) { return studentIds.includes(String(emi.student_id || "")); });
-        const todayDue = scopedEmis.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid" && window.VinayakAuth.normalizeDateValue(emi.due_date) === today; });
-        const dueStudentIds = scopedEmis.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid"; }).map(function (emi) { return String(emi.student_id); });
         const dashboardPayload = dashboardStatsCache || globalStatsCache || {};
-        const stats = dashboardPayload.stats || null;
+        const stats = dashboardPayload.stats || {};
         const lists = dashboardPayload.lists || {};
-        const recentAdmissions = lists.recent_admissions || students.slice(0, 5);
-        const dueEmiStudents = lists.due_emi_students || students.filter(function (student) { return dueStudentIds.includes(getIdentifier(student)); }).slice(0, 5);
-        const pendingEmis = lists.pending_emis || scopedEmis.filter(function (emi) { return normalizeEmiStatus(emi.status) === "pending"; }).slice(0, 5);
-        const todayDueEmis = lists.today_due_emis || todayDue;
+        const recentAdmissions = Array.isArray(lists.recent_admissions) ? lists.recent_admissions : [];
+        const dueEmiStudents = Array.isArray(lists.due_emi_students) ? lists.due_emi_students : [];
+        const pendingEmis = Array.isArray(lists.pending_emis) ? lists.pending_emis : [];
+        const todayDueEmis = Array.isArray(lists.today_due_emis) ? lists.today_due_emis : [];
 
-        setText("statTotalStudents", stats ? stats.total_students : students.length);
-        setText("statActiveStudents", stats ? stats.active_students : active.length);
-        setText("statBlockedStudents", stats ? stats.blocked_students : blocked.length);
-        setText("statPendingEmi", stats ? stats.pending_emi : pendingEmis.length);
-        setText("statPaidEmi", stats ? stats.paid_emi : 0);
-        setText("statTodayDue", stats ? stats.today_due_emi : todayDue.length);
+        setText("statTotalStudents", stats.total_students ?? 0);
+        setText("statActiveStudents", stats.active_students ?? 0);
+        setText("statBlockedStudents", stats.blocked_students ?? 0);
+        setText("statPendingEmi", stats.pending_emi ?? 0);
+        setText("statPaidEmi", stats.paid_emi ?? 0);
+        setText("statTodayDue", stats.today_due_emi ?? 0);
 
         renderList("recentStudentsList", recentAdmissions, "No admissions yet.", function (student) {
             return '<div class="erp-list-item"><span><strong>' + escapeHtml(student.name || getIdentifier(student)) + '</strong><small>' + escapeHtml(student.admission_date || student.course || "-") + '</small></span><span>' + escapeHtml(student.course || "-") + "</span></div>";
@@ -1109,7 +1058,6 @@
             paid_date: null
         };
         try {
-            console.log("Add EMI request payload", payload);
             const response = await fetch(apiUrl("/api/admin/emis"), {
                 method: "POST",
                 headers: {
@@ -1119,10 +1067,6 @@
                 body: JSON.stringify(payload)
             });
             const result = await response.json().catch(function () { return {}; });
-            console.log("Add EMI response", {
-                status: response.status,
-                result: result
-            });
             if (!response.ok || result.success === false || !result.emi || !result.emi.id) {
                 throw new Error(result.message || result.error || "EMI insert was not confirmed.");
             }
@@ -1793,7 +1737,6 @@
         return new Promise(function (resolve, reject) {
             const xhr = new XMLHttpRequest();
             const url = apiUrl("/api/upload-material");
-            console.log("Study Material upload URL", url);
             xhr.open("POST", url);
             if (settings.uploadId) {
                 activeMaterialUploads[settings.uploadId] = xhr;
@@ -1843,8 +1786,6 @@
 
     async function deletePdfFromR2(key) {
         if (!key) return;
-        const url = apiUrl("/api/r2/delete");
-        console.log("Study Material R2 delete URL", url);
         const response = await apiFetch("/api/r2/delete", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1857,8 +1798,6 @@
     }
 
     async function getR2SignedUrl(key) {
-        const url = apiUrl("/api/r2/sign?key=" + encodeURIComponent(key));
-        console.log("Study Material R2 sign URL", url);
         const response = await apiFetch("/api/r2/sign?key=" + encodeURIComponent(key), {
             method: "GET"
         });
@@ -2059,13 +1998,9 @@
 
     function renderCourseStats() {
         const stats = (globalStatsCache && globalStatsCache.stats) || {};
-        setText("courseStatTotal", stats.total_courses != null ? stats.total_courses : coursesCache.length);
-        setText("courseStatStudents", stats.total_students != null ? stats.total_students : coursesCache.reduce(function (sum, course) {
-            return sum + getCourseLinkedStudents(getCourseName(course)).length;
-        }, 0));
-        setText("courseStatNotes", stats.total_notes != null ? stats.total_notes : coursesCache.reduce(function (sum, course) {
-            return sum + getCourseLinkedNotes(getCourseId(course)).length;
-        }, 0));
+        setText("courseStatTotal", stats.total_courses ?? 0);
+        setText("courseStatStudents", stats.total_students ?? 0);
+        setText("courseStatNotes", stats.total_notes ?? 0);
     }
 
     function renderCourses() {
@@ -2135,7 +2070,6 @@
             const result = courseId
                 ? await client.from("courses").update(payload).eq("id", courseId)
                 : await client.from("courses").insert([payload]);
-            console.log("Course save response", result);
             if (result.error) throw result.error;
             setPanelMessage(courseId ? "Course updated successfully." : "Course added successfully.", "success");
             clearCourseForm();
@@ -2162,7 +2096,6 @@
         }
         try {
             const result = await window.VinayakAuth.getClient().from("courses").delete().eq("id", courseId);
-            console.log("Course delete response", result);
             if (result.error) throw result.error;
             setPanelMessage("Course deleted successfully.", "success");
             await loadCourses(true);
@@ -2463,7 +2396,6 @@
                 const noteCourseIds = getNoteCourseIds(note);
                 const courseIds = noteCourseIds.length ? noteCourseIds : [note.course_id].filter(Boolean);
                 setMaterialProgress(20);
-                console.log("Replacing study material through backend", { oldKey: note.file_path, courses: courseIds, size: file.size });
                 await uploadMaterialToBackend(file, note.title, note.subject || "General", courseIds, id, { chapter: getMaterialChapter(note), uploadedBy: "admin" });
                 setMaterialProgress(100);
                 setPanelMessage("PDF replaced successfully.", "success");
@@ -2486,7 +2418,6 @@
             if (deleteResult.error) throw deleteResult.error;
             const key = getMaterialKey(note);
             if (key) {
-                console.log("Deleting study material PDF from Cloudflare R2", { key: key });
                 await deletePdfFromR2(key);
             }
             setPanelMessage("Study material deleted.", "success");
@@ -2714,9 +2645,9 @@
             return matchesQuery && (!courseId || String(batch[DB.batches.courseId] || "") === courseId) && (!status || getBatchStatus(batch) === status);
         });
         const stats = (globalStatsCache && globalStatsCache.stats) || {};
-        setText("batchStatTotal", stats.total_batches != null ? stats.total_batches : batchesCache.length);
-        setText("batchStatActive", stats.active_batches != null ? stats.active_batches : batchesCache.filter(function (batch) { return getBatchStatus(batch) === "Active"; }).length);
-        setText("batchStatStudents", stats.linked_batch_students != null ? stats.linked_batch_students : studentsCache.filter(function (student) { return getStudentBatchId(student); }).length);
+        setText("batchStatTotal", stats.total_batches ?? 0);
+        setText("batchStatActive", stats.active_batches ?? 0);
+        setText("batchStatStudents", stats.linked_batch_students ?? 0);
         tbody.innerHTML = rows.length ? rows.map(function (batch) {
             const id = getBatchId(batch);
             const totalStudents = getBatchStudents(id).length;
@@ -3035,7 +2966,6 @@
 
     async function attendanceRequest(path, options) {
         const url = apiUrl(path);
-        console.log("Attendance API URL", url);
         const response = await (window.VinayakApi ? window.VinayakApi.fetch(path, Object.assign({
             headers: { "Content-Type": "application/json" }
         }, options || {})) : window.fetch(url, Object.assign({
@@ -3110,16 +3040,6 @@
                 body: JSON.stringify(payload)
             });
             activeAttendanceSessionId = result.session && result.session.id ? result.session.id : "";
-            if (result.session) {
-                console.log("attendance_sessions row after Start Attendance:", {
-                    id: result.session.id,
-                    course_id: result.session.course_id,
-                    batch_id: result.session.batch_id,
-                    status: result.session.status,
-                    start_time: result.session.start_time,
-                    end_time: result.session.end_time
-                });
-            }
             renderLiveAttendance(result, "attendanceLiveTableBody");
             startAttendancePolling();
             setPanelMessage("Attendance started. Changes auto-save.", "success");
@@ -3191,8 +3111,7 @@
                     schema: "public",
                     table: "attendance_responses",
                     filter: "session_id=eq." + activeAttendanceSessionId
-                }, function (payload) {
-                    console.log("Admin attendance realtime event received", payload);
+                }, function () {
                     refreshLiveAttendance();
                 })
                 .subscribe(function (status) {
@@ -3506,12 +3425,6 @@
         const addForm = document.getElementById("addStudentForm");
         const editForm = document.getElementById("editStudentForm");
         const deleteForm = document.getElementById("deleteStudentForm");
-        console.log("Admin JS loaded", {
-            loadedAt: window.__vinayakAdminLoadedAt,
-            viewportWidth: window.innerWidth,
-            addStudentFormFound: Boolean(addForm),
-            admissionSubmitButtons: addForm ? addForm.querySelectorAll('[type="submit"]').length : 0
-        });
         if (addForm) {
             addForm.addEventListener("submit", addStudent);
             addForm.addEventListener("invalid", function (event) {

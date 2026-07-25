@@ -532,8 +532,6 @@
         window.localStorage.setItem("loggedIn", "true");
         window.localStorage.setItem("studentId", session.studentId);
         window.localStorage.setItem("course", session.course);
-        console.log("LOGIN SUCCESS", student);
-        console.log("SESSION:", session.sessionId);
     }
 
     async function updateStudentSessionToken(client, studentId, sessionId) {
@@ -1209,7 +1207,6 @@
 
     async function runProtectedPageInit(options) {
         const settings = options || {};
-        console.log("CONFIG:", getConfig());
 
         if (!isConfigured()) {
             renderConfigError();
@@ -1257,8 +1254,6 @@
     }
 
     async function runBlockedPageInit() {
-        console.log("CONFIG:", getConfig());
-
         if (!isConfigured()) {
             renderConfigError();
             return null;
@@ -1362,8 +1357,6 @@
     }
 
     async function runLoginPageInit() {
-        console.log("CONFIG:", getConfig());
-
         if (!isConfigured()) {
             renderConfigError();
             return;
