@@ -46,10 +46,6 @@
                 render(await requestJson("/api/r2/test"));
                 return;
             }
-            if (type === "upload") {
-                render(await requestJson("/api/r2/upload-test", { method: "POST" }));
-                return;
-            }
             if (type === "list") {
                 render(await requestJson("/api/r2/list"));
             }

@@ -1,6 +1,6 @@
 "use strict";
 
-const { generateSignedUrl, serializeR2Error } = require("../services/r2");
+const { generateSignedUrl, getDiagnostics, serializeR2Error } = require("../services/r2");
 
 module.exports = async function handler(request, response) {
     if (request.method && request.method !== "GET") {
@@ -17,7 +17,18 @@ module.exports = async function handler(request, response) {
             throw new Error("R2 object key is required.");
         }
 
+        const diagnostics = getDiagnostics();
+        console.log("R2 sign endpoint requested", {
+            bucket: diagnostics.bucket,
+            endpoint: diagnostics.endpoint,
+            objectKey: key
+        });
         const signedUrl = await generateSignedUrl(key, { expiresIn: 300 });
+        console.log("R2 sign endpoint generated URL", {
+            bucket: diagnostics.bucket,
+            objectKey: key,
+            signedUrl: signedUrl
+        });
         response.statusCode = 200;
         response.setHeader("Content-Type", "application/json");
         response.end(JSON.stringify({

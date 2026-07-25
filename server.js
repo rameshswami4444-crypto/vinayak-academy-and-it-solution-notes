@@ -5,6 +5,7 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { Readable } = require("stream");
 const express = require("express");
 const cors = require("cors");
 const compression = require("compression");
@@ -15,6 +16,7 @@ const {
     fileExists,
     generateSignedUrl,
     getDiagnostics,
+    getPDFObject,
     serializeR2Error,
     testConnection,
     uploadPDF
@@ -393,7 +395,7 @@ async function cachedFileExists(objectKey) {
 }
 
 async function filterExistingR2Materials(notes, options) {
-    const verifyFiles = Boolean(options && options.verifyFiles) || process.env.VERIFY_R2_MATERIAL_LISTS === "true";
+    const verifyFiles = !(options && options.verifyFiles === false);
     const unique = {};
     const candidates = [];
     (notes || []).forEach(function (note) {
@@ -436,6 +438,11 @@ async function filterExistingR2Materials(notes, options) {
                     filtered.push(item);
                 } else {
                     missingCount += 1;
+                    console.warn("Skipping note because R2 object is missing", {
+                        noteId: item.id,
+                        bucket: getDiagnostics().bucket,
+                        objectKey: item.r2_key
+                    });
                 }
             } catch (error) {
                 failedCount += 1;
@@ -448,9 +455,10 @@ async function filterExistingR2Materials(notes, options) {
         }
     }
     await Promise.all(Array.from({ length: Math.min(concurrency, candidates.length) }, worker));
-    if (failedCount || process.env.DEBUG_R2_MATERIALS === "true") {
-        console.warn("Study material R2 verification skipped rows", {
+    if (missingCount || failedCount || process.env.DEBUG_R2_MATERIALS === "true") {
+        console.warn("Study material R2 verification complete", {
             checked: candidates.length,
+            returned: filtered.length,
             missingCount: missingCount,
             failedCount: failedCount,
             lastFailure: lastFailure
@@ -585,7 +593,8 @@ async function resolveAuthorizedMaterial(request, materialId) {
     if (!exists) {
         const error = new Error("This PDF file is missing from Cloudflare R2. Please contact admin.");
         error.statusCode = 404;
-        error.context = { materialId: materialId, objectKey: note.r2_key || note.file_path };
+        error.context = { materialId: materialId, bucket: getDiagnostics().bucket, objectKey: note.r2_key || note.file_path };
+        console.warn("PDF open blocked because R2 object is missing", error.context);
         throw error;
     }
 
@@ -1129,7 +1138,7 @@ app.get("/api/materials", async function (request, response) {
         const page = parsePositiveInt(request.query.page, 1, 100000);
         const limit = parsePositiveInt(request.query.limit, 200, 500);
         const offset = (page - 1) * limit;
-        const verifyFiles = String(request.query.verify || "").trim() === "1";
+        const verifyFiles = String(request.query.verify || "").trim() !== "0";
 
         const linkResult = await client
             .from("material_courses")
@@ -1273,7 +1282,7 @@ app.get("/api/admin/materials", async function (request, response) {
         const page = parsePositiveInt(request.query.page, 1, 100000);
         const limit = parsePositiveInt(request.query.limit, 250, 1000);
         const offset = (page - 1) * limit;
-        const verifyFiles = String(request.query.verify || "").trim() === "1";
+        const verifyFiles = String(request.query.verify || "").trim() !== "0";
         const notes = await selectNotes(client, function (query) {
             return query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
         });
@@ -1335,9 +1344,16 @@ app.get("/api/material/:id", async function (request, response) {
             expiryTime: expiryTime
         });
         const signedUrl = await generateSignedUrl(objectKey, { expiresIn: expiresInSeconds });
+        const fallbackUrl = "/api/material/" + encodeURIComponent(materialId) + "/content?access_token=" + encodeURIComponent(createMaterialAccessToken({
+            materialId: materialId,
+            studentId: auth.studentId,
+            objectKey: objectKey,
+            expiresAt: Date.now() + expiresInSeconds * 1000
+        }));
         console.log("PDF retrieval step: generated signed URL", {
             materialId: materialId,
             objectKey: objectKey,
+            bucket: getDiagnostics().bucket,
             signedUrl: signedUrl
         });
         console.log("Signed URL generated", {
@@ -1356,9 +1372,10 @@ app.get("/api/material/:id", async function (request, response) {
         });
         response.json({
             success: true,
-            url: signedUrl,
+            url: fallbackUrl,
             signedUrl: signedUrl,
-            fallbackUrl: "/api/material/" + encodeURIComponent(materialId) + "/content",
+            fallbackUrl: fallbackUrl,
+            delivery: "proxy",
             expiresIn: expiresInSeconds,
             expiresAt: expiryTime,
             title: note.title,
@@ -1377,22 +1394,120 @@ app.get("/api/material/:id", async function (request, response) {
     }
 });
 
+function getMaterialAccessSecret() {
+    return String(process.env.PDF_ACCESS_SECRET || process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || getSupabaseConfig().key || "");
+}
+
+function createMaterialAccessToken(payload) {
+    const body = Buffer.from(JSON.stringify(payload || {}), "utf8").toString("base64url");
+    const signature = crypto
+        .createHmac("sha256", getMaterialAccessSecret())
+        .update(body)
+        .digest("base64url");
+    return body + "." + signature;
+}
+
+function verifyMaterialAccessToken(token, materialId) {
+    const parts = String(token || "").split(".");
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+    const expected = crypto
+        .createHmac("sha256", getMaterialAccessSecret())
+        .update(parts[0])
+        .digest("base64url");
+    const received = parts[1];
+    if (expected.length !== received.length ||
+        !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received))) {
+        return null;
+    }
+    let payload = null;
+    try {
+        payload = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+    } catch (error) {
+        return null;
+    }
+    if (!payload || String(payload.materialId || "") !== String(materialId || "")) return null;
+    if (!payload.objectKey || Number(payload.expiresAt || 0) <= Date.now()) return null;
+    return payload;
+}
+
+async function sendPdfObject(response, objectKey, context) {
+    const info = context || {};
+    const pdf = await getPDFObject(objectKey);
+    response.setHeader("Content-Type", pdf.contentType || "application/pdf");
+    response.setHeader("Content-Disposition", "inline; filename=\"study-material.pdf\"");
+    response.setHeader("Cache-Control", "private, no-store, max-age=0");
+    response.setHeader("Accept-Ranges", "none");
+    if (pdf.contentLength) {
+        response.setHeader("Content-Length", String(pdf.contentLength));
+    }
+    console.log("PDF proxy stream started", {
+        studentId: info.studentId || "",
+        materialId: info.materialId || "",
+        bucket: pdf.bucket || getDiagnostics().bucket,
+        objectKey: pdf.objectKey || objectKey,
+        contentLength: pdf.contentLength || "",
+        contentType: pdf.contentType || "application/pdf"
+    });
+
+    const body = pdf.body;
+    if (!body) {
+        throw new Error("R2 returned an empty PDF body.");
+    }
+    if (typeof body.pipe === "function") {
+        body.on("error", function (error) {
+            console.error("PDF proxy stream body error", {
+                studentId: info.studentId || "",
+                materialId: info.materialId || "",
+                objectKey: pdf.objectKey || objectKey,
+                error: serializeR2Error(error)
+            });
+            if (!response.headersSent) {
+                response.status(500).end("Could not stream PDF.");
+            } else {
+                response.destroy(error);
+            }
+        });
+        body.pipe(response);
+        return;
+    }
+    if (typeof body.transformToByteArray === "function") {
+        const bytes = await body.transformToByteArray();
+        response.end(Buffer.from(bytes));
+        return;
+    }
+    if (body[Symbol.asyncIterator]) {
+        Readable.from(body).pipe(response);
+        return;
+    }
+    throw new Error("Unsupported R2 PDF body stream.");
+}
+
 app.get("/api/material/:id/content", async function (request, response) {
     const materialId = String(request.params.id || "").trim();
     try {
-        const authorized = await resolveAuthorizedMaterial(request, materialId);
-        const note = authorized.note;
-        const objectKey = note.r2_key || note.file_path;
-        console.log("PDF content stream requested", {
-            studentId: authorized.auth.studentId,
+        const tokenPayload = verifyMaterialAccessToken(request.query.access_token, materialId);
+        let studentId = "";
+        let objectKey = "";
+        if (tokenPayload) {
+            studentId = String(tokenPayload.studentId || "");
+            objectKey = String(tokenPayload.objectKey || "");
+        } else {
+            const authorized = await resolveAuthorizedMaterial(request, materialId);
+            studentId = authorized.auth.studentId;
+            objectKey = authorized.note.r2_key || authorized.note.file_path;
+        }
+        console.log("PDF content proxy requested", {
+            studentId: studentId,
             materialId: materialId,
+            bucket: getDiagnostics().bucket,
             objectKey: objectKey
         });
-        const signedUrl = await generateSignedUrl(objectKey, { expiresIn: 300 });
-        response.setHeader("Cache-Control", "private, no-store, max-age=0");
-        response.redirect(302, signedUrl);
+        await sendPdfObject(response, objectKey, {
+            studentId: studentId,
+            materialId: materialId
+        });
     } catch (error) {
-        console.error("PDF content stream error", {
+        console.error("PDF content proxy error", {
             materialId: materialId,
             studentId: getStudentAuthFromRequest(request).studentId,
             error: serializeR2Error(error)
@@ -1967,13 +2082,11 @@ app.get("/api/admin/student-report", async function (request, response) {
     }
 });
 
-app.post("/api/r2/upload", require("./api/r2/upload"));
 app.post("/api/r2/delete", require("./api/r2/delete"));
 app.get("/api/r2/sign", require("./api/r2/sign"));
 app.get("/api/r2/test", require("./api/r2/test"));
 app.get("/api/r2/credentials", require("./api/r2/credentials"));
 app.get("/api/r2/list", require("./api/r2/list"));
-app.post("/api/r2/upload-test", require("./api/r2/upload-test"));
 
 app.use(express.static(__dirname, {
     etag: true,

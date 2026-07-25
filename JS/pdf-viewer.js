@@ -123,15 +123,18 @@
                 ? await window.VinayakNotesPage.createR2PdfAccess(note)
                 : { url: await window.VinayakNotesPage.createR2SignedUrl(note), fallbackUrl: "" };
             const signedUrl = access.url;
-            console.log("PDF page viewer: loading signed URL returned by backend", {
+            console.log("PDF page viewer: loading PDF URL returned by backend", {
                 materialId: note.id,
+                delivery: access.delivery || "signed-url",
                 urlHost: (function () {
                     try { return new URL(signedUrl).host; } catch (error) { return ""; }
                 }())
             });
             setLoading(true, "Opening secure PDF...");
             try {
-                pdfDoc = await window.pdfjsLib.getDocument({ url: signedUrl }).promise;
+                pdfDoc = await window.pdfjsLib.getDocument({
+                    url: signedUrl
+                }).promise;
             } catch (pdfError) {
                 console.error("PDF.js failed while fetching signed URL", {
                     materialId: note.id,

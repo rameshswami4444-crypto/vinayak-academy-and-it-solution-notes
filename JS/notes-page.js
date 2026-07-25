@@ -137,15 +137,16 @@
             hasUrl: Boolean(result.url || result.signedUrl),
             message: result.message || result.error || ""
         });
-        const signedUrl = result.url || result.signedUrl;
-        if (!response.ok || !result.success || !signedUrl) {
+        const accessUrl = result.url || result.signedUrl;
+        if (!response.ok || !result.success || !accessUrl) {
             const debugDetails = result.details ? " Details: " + JSON.stringify(result.details) : "";
             throw new Error((result.message || result.error || "Could not create a secure PDF link.") + debugDetails);
         }
         return {
-            url: signedUrl,
-            signedUrl: signedUrl,
+            url: accessUrl,
+            signedUrl: result.signedUrl || accessUrl,
             fallbackUrl: result.fallbackUrl ? apiUrl(result.fallbackUrl) : "",
+            delivery: result.delivery || "",
             expiresIn: result.expiresIn,
             expiresAt: result.expiresAt
         };

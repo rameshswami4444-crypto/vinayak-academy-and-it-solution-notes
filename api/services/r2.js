@@ -106,7 +106,20 @@ function createClient() {
 }
 
 function normalizeKey(key) {
-    const objectKey = String(key || "").replace(/^\/+/, "");
+    const config = getConfig();
+    let objectKey = String(key || "").trim();
+    if (/^https?:\/\//i.test(objectKey)) {
+        try {
+            const parsed = new URL(objectKey);
+            objectKey = decodeURIComponent(parsed.pathname || "");
+        } catch (error) {
+            // Fall through to regular cleanup below.
+        }
+    }
+    objectKey = objectKey.split("?")[0].replace(/^\/+/, "");
+    if (config.bucket && objectKey.indexOf(config.bucket + "/") === 0) {
+        objectKey = objectKey.slice(config.bucket.length + 1);
+    }
     if (!objectKey) {
         throw new Error("R2 object key is required.");
     }
@@ -261,33 +274,76 @@ async function generateSignedUrl(key, options) {
     const settings = options || {};
     const config = getConfig();
     assertConfig(config);
+    const objectKey = normalizeKey(key);
 
     const command = new GetObjectCommand({
         Bucket: config.bucket,
-        Key: normalizeKey(key),
+        Key: objectKey,
         ResponseContentType: "application/pdf"
     });
 
-    return getSignedUrl(createClient(), command, {
-        expiresIn: Number(settings.expiresIn || DEFAULT_SIGNED_URL_SECONDS)
-    });
+    try {
+        const signedUrl = await getSignedUrl(createClient(), command, {
+            expiresIn: Number(settings.expiresIn || DEFAULT_SIGNED_URL_SECONDS)
+        });
+        console.log("R2 signed URL generated", {
+            bucket: config.bucket,
+            endpoint: config.endpoint,
+            objectKey: objectKey,
+            expiresIn: Number(settings.expiresIn || DEFAULT_SIGNED_URL_SECONDS),
+            signedUrl: signedUrl
+        });
+        return signedUrl;
+    } catch (error) {
+        console.error("R2 signed URL generation error", {
+            bucket: config.bucket,
+            endpoint: config.endpoint,
+            objectKey: objectKey,
+            error: serializeR2Error(error)
+        });
+        throw error;
+    }
 }
 
 async function getPDFObject(key) {
     const config = getConfig();
     assertConfig(config);
+    const objectKey = normalizeKey(key);
 
-    const result = await createClient().send(new GetObjectCommand({
-        Bucket: config.bucket,
-        Key: normalizeKey(key),
-        ResponseContentType: "application/pdf"
-    }));
+    try {
+        console.log("R2 PDF object requested", {
+            bucket: config.bucket,
+            endpoint: config.endpoint,
+            objectKey: objectKey
+        });
+        const result = await createClient().send(new GetObjectCommand({
+            Bucket: config.bucket,
+            Key: objectKey,
+            ResponseContentType: "application/pdf"
+        }));
 
-    return {
-        body: result.Body,
-        contentLength: result.ContentLength,
-        contentType: result.ContentType || "application/pdf"
-    };
+        console.log("R2 PDF object fetched", {
+            bucket: config.bucket,
+            objectKey: objectKey,
+            contentLength: result.ContentLength || "",
+            contentType: result.ContentType || "application/pdf"
+        });
+        return {
+            body: result.Body,
+            contentLength: result.ContentLength,
+            contentType: result.ContentType || "application/pdf",
+            objectKey: objectKey,
+            bucket: config.bucket
+        };
+    } catch (error) {
+        console.error("R2 PDF object fetch error", {
+            bucket: config.bucket,
+            endpoint: config.endpoint,
+            objectKey: objectKey,
+            error: serializeR2Error(error)
+        });
+        throw error;
+    }
 }
 
 async function listFiles(prefix) {

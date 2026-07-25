@@ -546,8 +546,9 @@
                 ? await window.VinayakNotesPage.createR2PdfAccess(note)
                 : { url: await window.VinayakNotesPage.createR2SignedUrl(note), fallbackUrl: "" };
             const signedUrl = access.url;
-            console.log("PDF modal viewer: loading signed URL returned by backend", {
+            console.log("PDF modal viewer: loading PDF URL returned by backend", {
                 materialId: note.id,
+                delivery: access.delivery || "signed-url",
                 urlHost: (function () {
                     try { return new URL(signedUrl).host; } catch (error) { return ""; }
                 }())
