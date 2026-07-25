@@ -4,12 +4,16 @@
 
     var config = window.VINAYAK_API_CONFIG || {};
     var DEBUG = Boolean(config.debug || window.VINAYAK_DEBUG);
+    var HOSTINGER_API_BASE = "https://www.vinayakacademy.online";
 
     function fromLocalStaticHost() {
         var host = String(window.location && window.location.hostname || "").toLowerCase();
         var port = String(window.location && window.location.port || "");
         if ((host === "localhost" || host === "127.0.0.1") && ["5500", "5501", "5502"].indexOf(port) !== -1) {
             return "http://localhost:3000";
+        }
+        if (host === "localhost" || host === "127.0.0.1") {
+            return (window.location && window.location.origin) || "http://localhost:3000";
         }
         return "";
     }
@@ -18,13 +22,22 @@
         return config.apiBase || ((window.VINAYAK_SUPABASE_CONFIG && window.VINAYAK_SUPABASE_CONFIG.apiBase) || "");
     }
 
+    function fromProductionHost() {
+        var host = String(window.location && window.location.hostname || "").toLowerCase();
+        if (host === "www.vinayakacademy.online" || host === "vinayakacademy.online" || /\.vercel\.app$/.test(host)) {
+            return HOSTINGER_API_BASE;
+        }
+        return "";
+    }
+
     var backendUrl = String(
         fromLocalStaticHost() ||
         fromConfiguredApiBase() ||
         window.API_BASE_URL ||
         window.VINAYAK_API_BASE ||
+        fromProductionHost() ||
         (window.location && window.location.origin) ||
-        ""
+        HOSTINGER_API_BASE
     ).trim();
 
     window.API_BASE_URL = backendUrl.replace(/\/+$/, "");

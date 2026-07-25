@@ -106,6 +106,16 @@ function applyIlikeOr(query, columns, search) {
     }).join(","));
 }
 
+async function countRows(client, tableName, columns, configure) {
+    let query = client.from(tableName).select(columns || "id", { count: "exact", head: true });
+    if (typeof configure === "function") {
+        query = configure(query);
+    }
+    const result = await query;
+    if (result.error) throw result.error;
+    return Number(result.count || 0);
+}
+
 function shouldIncludeDebug(request) {
     return String(request && request.query && request.query.debug || "").trim() === "1" ||
         process.env.API_DEBUG_PAYLOADS === "true";
@@ -1970,6 +1980,121 @@ app.get("/api/student/attendance/history", async function (request, response) {
     }
 });
 
+app.get("/api/admin/dashboard/stats", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const course = String(request.query.course || "").trim();
+        const courseId = String(request.query.course_id || "").trim();
+        const today = new Date().toISOString().slice(0, 10);
+        const todayStart = today + "T00:00:00.000Z";
+        const tomorrowStart = new Date(Date.parse(todayStart) + 24 * 60 * 60 * 1000).toISOString();
+        const applyStudentScope = function (query) {
+            if (courseId) return query.eq("course_id", courseId);
+            if (course) return query.eq("course", course);
+            return query;
+        };
+        const scopeActive = Boolean(courseId || course);
+        const scopedStudentResult = scopeActive
+            ? await applyStudentScope(client.from("students").select("id")).order("id", { ascending: true })
+            : { data: [], error: null };
+        if (scopedStudentResult.error) throw scopedStudentResult.error;
+        const scopedStudentIds = (scopedStudentResult.data || []).map(function (student) { return String(student.id || ""); }).filter(Boolean);
+        const applyEmiScope = function (query) {
+            if (!scopeActive) return query;
+            return scopedStudentIds.length ? query.in("student_id", scopedStudentIds) : query.eq("student_id", "__no_matching_student__");
+        };
+
+        const [
+            totalStudents,
+            activeStudents,
+            blockedStudents,
+            linkedBatchStudents,
+            totalCourses,
+            totalBatches,
+            activeBatches,
+            totalNotes,
+            totalAnnouncements,
+            pendingEmis,
+            paidEmis,
+            todayDueEmis,
+            todayAttendance,
+            totalAttendanceSessions,
+            recentAdmissionsResult,
+            pendingEmisResult,
+            todayDueEmisResult,
+            dueEmiStudentIdsResult
+        ] = await Promise.all([
+            countRows(client, "students", "id", applyStudentScope),
+            countRows(client, "students", "id", function (query) { return applyStudentScope(query).eq("account_status", "active"); }),
+            countRows(client, "students", "id", function (query) { return applyStudentScope(query).in("account_status", ["blocked", "disabled", "inactive", "suspended"]); }),
+            countRows(client, "students", "id", function (query) { return applyStudentScope(query).not("batch_id", "is", null); }),
+            countRows(client, "courses", "id"),
+            countRows(client, "batches", "id"),
+            countRows(client, "batches", "id", function (query) { return query.eq("status", "Active"); }),
+            countRows(client, "notes", "id"),
+            countRows(client, "announcements", "id"),
+            countRows(client, "emis", "id", function (query) { return applyEmiScope(query).eq("status", "pending"); }),
+            countRows(client, "emis", "id", function (query) { return applyEmiScope(query).eq("status", "paid"); }),
+            countRows(client, "emis", "id", function (query) { return applyEmiScope(query).neq("status", "paid").eq("due_date", today); }),
+            countRows(client, "attendance_responses", "id", function (query) { return query.gte("response_time", todayStart).lt("response_time", tomorrowStart); }),
+            countRows(client, "attendance_sessions", "id"),
+            applyStudentScope(client.from("students").select("id, name, course, admission_date, created_at, account_status, fees_status")).not("admission_date", "is", null).order("admission_date", { ascending: false }).limit(5),
+            applyEmiScope(client.from("emis").select("id, student_id, emi_number, amount, due_date, status")).eq("status", "pending").order("due_date", { ascending: true }).limit(5),
+            applyEmiScope(client.from("emis").select("id, student_id, emi_number, amount, due_date, status")).neq("status", "paid").eq("due_date", today).order("emi_number", { ascending: true }).limit(10),
+            applyEmiScope(client.from("emis").select("student_id, due_date, status")).neq("status", "paid").order("due_date", { ascending: true }).limit(100)
+        ]);
+        [recentAdmissionsResult, pendingEmisResult, todayDueEmisResult, dueEmiStudentIdsResult].forEach(function (result) {
+            if (result.error) throw result.error;
+        });
+        const dueStudentIds = Array.from(new Set((dueEmiStudentIdsResult.data || []).map(function (emi) {
+            return String(emi.student_id || "");
+        }).filter(Boolean))).slice(0, 5);
+        const dueStudentsResult = dueStudentIds.length
+            ? await client.from("students").select("id, name, course, fees_status").in("id", dueStudentIds)
+            : { data: [], error: null };
+        if (dueStudentsResult.error) throw dueStudentsResult.error;
+        const dueStudentsById = {};
+        (dueStudentsResult.data || []).forEach(function (student) {
+            dueStudentsById[String(student.id)] = student;
+        });
+        const dueStudents = dueStudentIds.map(function (studentId) {
+            return dueStudentsById[studentId];
+        }).filter(Boolean);
+
+        response.json({
+            success: true,
+            stats: {
+                total_students: totalStudents,
+                active_students: activeStudents,
+                blocked_students: blockedStudents,
+                linked_batch_students: linkedBatchStudents,
+                total_courses: totalCourses,
+                total_batches: totalBatches,
+                active_batches: activeBatches,
+                total_notes: totalNotes,
+                total_announcements: totalAnnouncements,
+                pending_emi: pendingEmis,
+                paid_emi: paidEmis,
+                today_due_emi: todayDueEmis,
+                today_attendance: todayAttendance,
+                total_attendance_sessions: totalAttendanceSessions,
+                filters: {
+                    course: course,
+                    course_id: courseId
+                }
+            },
+            lists: {
+                recent_admissions: recentAdmissionsResult.data || [],
+                due_emi_students: dueStudents,
+                pending_emis: pendingEmisResult.data || [],
+                today_due_emis: todayDueEmisResult.data || []
+            }
+        });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load dashboard statistics.", error);
+    }
+});
+
 app.get("/api/admin/students", async function (request, response) {
     try {
         const client = getSupabaseClient();
@@ -2021,6 +2146,95 @@ app.get("/api/admin/emis", async function (request, response) {
         sendPaged(response, result.data || [], result.count, pageSettings);
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not load EMIs.", error);
+    }
+});
+
+app.post("/api/admin/emis", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const studentId = String(request.body.student_id || "").trim();
+        const emiNumber = Math.floor(Number(request.body.emi_number || 0));
+        const amount = Number(request.body.amount || 0);
+        const dueDate = String(request.body.due_date || "").trim();
+        const status = String(request.body.status || "pending").trim().toLowerCase();
+        const paidDate = String(request.body.paid_date || "").trim();
+
+        if (!studentId) {
+            response.status(400).json({ success: false, message: "student_id is required." });
+            return;
+        }
+        if (!emiNumber || emiNumber < 1) {
+            response.status(400).json({ success: false, message: "Valid emi_number is required." });
+            return;
+        }
+        if (!Number.isFinite(amount) || amount < 0) {
+            response.status(400).json({ success: false, message: "Valid EMI amount is required." });
+            return;
+        }
+        if (!dueDate) {
+            response.status(400).json({ success: false, message: "due_date is required." });
+            return;
+        }
+        if (!["pending", "paid", "overdue"].includes(status)) {
+            response.status(400).json({ success: false, message: "Invalid EMI status." });
+            return;
+        }
+
+        const studentResult = await client
+            .from("students")
+            .select("id")
+            .eq("id", studentId)
+            .limit(1);
+        if (studentResult.error) {
+            console.error("EMI create student lookup failed", studentResult.error);
+            throw studentResult.error;
+        }
+        if (!studentResult.data || !studentResult.data.length) {
+            response.status(404).json({ success: false, message: "Student was not found." });
+            return;
+        }
+
+        const payload = {
+            student_id: studentId,
+            emi_number: emiNumber,
+            amount: amount,
+            due_date: dueDate,
+            paid_date: paidDate || null,
+            status: status
+        };
+        console.log("Creating EMI row", payload);
+        const insertResult = await client
+            .from("emis")
+            .insert([payload])
+            .select(EMI_COLUMNS)
+            .single();
+        if (insertResult.error) {
+            console.error("EMI insert failed", {
+                payload: payload,
+                error: insertResult.error
+            });
+            throw insertResult.error;
+        }
+        if (!insertResult.data || !insertResult.data.id) {
+            const error = new Error("EMI insert did not return a created row.");
+            console.error("EMI insert missing returned row", {
+                payload: payload,
+                result: insertResult
+            });
+            throw error;
+        }
+        console.log("EMI insert confirmed", {
+            id: insertResult.data.id,
+            student_id: insertResult.data.student_id,
+            emi_number: insertResult.data.emi_number
+        });
+        response.status(201).json({
+            success: true,
+            message: "EMI added.",
+            emi: insertResult.data
+        });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not add EMI.", error);
     }
 });
 

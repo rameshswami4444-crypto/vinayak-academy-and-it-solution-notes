@@ -13,6 +13,8 @@
     let materialCoursesCache = [];
     let announcementsCache = [];
     let attendanceReportCache = null;
+    let dashboardStatsCache = null;
+    let globalStatsCache = null;
     let activeBatchDetailsId = "";
     let activeAttendanceSessionId = "";
     let attendancePollTimer = null;
@@ -451,6 +453,39 @@
             throw new Error(payload.message || payload.error || "Could not load records.");
         }
         return payload.rows || payload.data || [];
+    }
+
+    async function fetchDashboardStats(useDashboardFilter) {
+        const params = new URLSearchParams();
+        if (useDashboardFilter) {
+            const course = getValue("dashboardCourseFilter");
+            if (course) params.set("course", course);
+        }
+        const path = "/api/admin/dashboard/stats" + (params.toString() ? "?" + params.toString() : "");
+        console.log("Dashboard statistics API URL", apiUrl(path));
+        const response = await apiFetch(path, {
+            method: "GET",
+            headers: { "Accept": "application/json" }
+        });
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.message || payload.error || "Could not load dashboard statistics.");
+        }
+        console.log("Dashboard statistics result", payload);
+        return {
+            stats: payload.stats || {},
+            lists: payload.lists || {}
+        };
+    }
+
+    async function refreshDashboardStats() {
+        try {
+            dashboardStatsCache = await fetchDashboardStats(true);
+            renderDashboard();
+        } catch (error) {
+            console.error("Dashboard statistics fetch failed", error);
+            setPanelMessage(error.message || "Could not load dashboard statistics.", "error");
+        }
     }
 
     async function fetchStudents() {
@@ -952,22 +987,31 @@
         const scopedEmis = emisCache.filter(function (emi) { return studentIds.includes(String(emi.student_id || "")); });
         const todayDue = scopedEmis.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid" && window.VinayakAuth.normalizeDateValue(emi.due_date) === today; });
         const dueStudentIds = scopedEmis.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid"; }).map(function (emi) { return String(emi.student_id); });
+        const dashboardPayload = dashboardStatsCache || globalStatsCache || {};
+        const stats = dashboardPayload.stats || null;
+        const lists = dashboardPayload.lists || {};
+        const recentAdmissions = lists.recent_admissions || students.slice(0, 5);
+        const dueEmiStudents = lists.due_emi_students || students.filter(function (student) { return dueStudentIds.includes(getIdentifier(student)); }).slice(0, 5);
+        const pendingEmis = lists.pending_emis || scopedEmis.filter(function (emi) { return normalizeEmiStatus(emi.status) === "pending"; }).slice(0, 5);
+        const todayDueEmis = lists.today_due_emis || todayDue;
 
-        setText("statTotalStudents", students.length);
-        setText("statActiveStudents", active.length);
-        setText("statBlockedStudents", blocked.length);
-        setText("statTodayDue", todayDue.length);
+        setText("statTotalStudents", stats ? stats.total_students : students.length);
+        setText("statActiveStudents", stats ? stats.active_students : active.length);
+        setText("statBlockedStudents", stats ? stats.blocked_students : blocked.length);
+        setText("statPendingEmi", stats ? stats.pending_emi : pendingEmis.length);
+        setText("statPaidEmi", stats ? stats.paid_emi : 0);
+        setText("statTodayDue", stats ? stats.today_due_emi : todayDue.length);
 
-        renderList("recentStudentsList", students.slice(0, 5), "No admissions yet.", function (student) {
+        renderList("recentStudentsList", recentAdmissions, "No admissions yet.", function (student) {
             return '<div class="erp-list-item"><span><strong>' + escapeHtml(student.name || getIdentifier(student)) + '</strong><small>' + escapeHtml(student.admission_date || student.course || "-") + '</small></span><span>' + escapeHtml(student.course || "-") + "</span></div>";
         });
-        renderList("dueEmiStudentsList", students.filter(function (student) { return dueStudentIds.includes(getIdentifier(student)); }).slice(0, 5), "No due EMI students.", function (student) {
+        renderList("dueEmiStudentsList", dueEmiStudents, "No due EMI students.", function (student) {
             return '<div class="erp-list-item"><span><strong>' + escapeHtml(student.name || getIdentifier(student)) + '</strong><small>' + escapeHtml(getIdentifier(student)) + '</small></span><span class="status-badge status-due">Due</span></div>';
         });
-        renderList("pendingEmiList", scopedEmis.filter(function (emi) { return normalizeEmiStatus(emi.status) === "pending"; }).slice(0, 5), "No pending EMIs.", function (emi) {
+        renderList("pendingEmiList", pendingEmis, "No pending EMIs.", function (emi) {
             return '<div class="erp-list-item"><span><strong>' + escapeHtml(emi.student_id) + ' - EMI ' + escapeHtml(emi.emi_number) + '</strong><small>' + escapeHtml(emi.due_date || "-") + '</small></span><span>' + money(emi.amount) + "</span></div>";
         });
-        renderList("todayDueList", todayDue, "No EMIs due today.", function (emi) {
+        renderList("todayDueList", todayDueEmis, "No EMIs due today.", function (emi) {
             return '<div class="erp-list-item"><span><strong>' + escapeHtml(emi.student_id) + ' - EMI ' + escapeHtml(emi.emi_number) + '</strong><small>' + escapeHtml(emi.due_date || "-") + '</small></span><span>' + money(emi.amount) + "</span></div>";
         });
     }
@@ -1055,7 +1099,7 @@
             setPanelMessage("Select a student before adding EMI.", "error");
             return;
         }
-        const rows = getStudentEmis(studentId);
+        const rows = await fetchAdminRows("/api/admin/emis", { student_id: studentId, page: 1, limit: 200 });
         const payload = {
             student_id: studentId,
             emi_number: rows.length ? Math.max.apply(null, rows.map(function (emi) { return Number(emi.emi_number || 0); })) + 1 : 1,
@@ -1064,14 +1108,35 @@
             status: "pending",
             paid_date: null
         };
-        const { error } = await window.VinayakAuth.getClient().from("emis").insert([payload]);
-        if (error) {
+        try {
+            console.log("Add EMI request payload", payload);
+            const response = await fetch(apiUrl("/api/admin/emis"), {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json().catch(function () { return {}; });
+            console.log("Add EMI response", {
+                status: response.status,
+                result: result
+            });
+            if (!response.ok || result.success === false || !result.emi || !result.emi.id) {
+                throw new Error(result.message || result.error || "EMI insert was not confirmed.");
+            }
+            const updatedRows = await fetchAdminRows("/api/admin/emis", { student_id: studentId, page: 1, limit: 200 });
+            emisCache = emisCache.filter(function (emi) {
+                return String(emi.student_id || "") !== String(studentId);
+            }).concat(updatedRows);
+            setPanelMessage("EMI added.", "success");
+            renderEditEmis(studentId);
+            await loadEmiPage(false);
+        } catch (error) {
+            console.error("Add EMI failed", error);
             setPanelMessage(error.message || "Could not add EMI.", "error");
-            return;
         }
-        setPanelMessage("EMI added.", "success");
-        await refreshAll();
-        renderEditEmis(studentId);
     }
 
     function getEditedEmiPayload(row) {
@@ -1993,11 +2058,12 @@
     }
 
     function renderCourseStats() {
-        setText("courseStatTotal", coursesCache.length);
-        setText("courseStatStudents", coursesCache.reduce(function (sum, course) {
+        const stats = (globalStatsCache && globalStatsCache.stats) || {};
+        setText("courseStatTotal", stats.total_courses != null ? stats.total_courses : coursesCache.length);
+        setText("courseStatStudents", stats.total_students != null ? stats.total_students : coursesCache.reduce(function (sum, course) {
             return sum + getCourseLinkedStudents(getCourseName(course)).length;
         }, 0));
-        setText("courseStatNotes", coursesCache.reduce(function (sum, course) {
+        setText("courseStatNotes", stats.total_notes != null ? stats.total_notes : coursesCache.reduce(function (sum, course) {
             return sum + getCourseLinkedNotes(getCourseId(course)).length;
         }, 0));
     }
@@ -2647,9 +2713,10 @@
             });
             return matchesQuery && (!courseId || String(batch[DB.batches.courseId] || "") === courseId) && (!status || getBatchStatus(batch) === status);
         });
-        setText("batchStatTotal", batchesCache.length);
-        setText("batchStatActive", batchesCache.filter(function (batch) { return getBatchStatus(batch) === "Active"; }).length);
-        setText("batchStatStudents", studentsCache.filter(function (student) { return getStudentBatchId(student); }).length);
+        const stats = (globalStatsCache && globalStatsCache.stats) || {};
+        setText("batchStatTotal", stats.total_batches != null ? stats.total_batches : batchesCache.length);
+        setText("batchStatActive", stats.active_batches != null ? stats.active_batches : batchesCache.filter(function (batch) { return getBatchStatus(batch) === "Active"; }).length);
+        setText("batchStatStudents", stats.linked_batch_students != null ? stats.linked_batch_students : studentsCache.filter(function (student) { return getStudentBatchId(student); }).length);
         tbody.innerHTML = rows.length ? rows.map(function (batch) {
             const id = getBatchId(batch);
             const totalStudents = getBatchStudents(id).length;
@@ -3365,6 +3432,8 @@
         announcementsCache = await fetchAdminPage("/api/admin/announcements", "announcements", {
             search: getValue("announcementSearchInput")
         });
+        globalStatsCache = await fetchDashboardStats(false);
+        dashboardStatsCache = getValue("dashboardCourseFilter") ? await fetchDashboardStats(true) : globalStatsCache;
         loadedAdminTables.payments = true;
         loadedAdminTables.material = true;
         loadedAdminTables.announcements = true;
@@ -3617,7 +3686,7 @@
             updateBatchFilter();
             applyStudentFilter();
         });
-        document.getElementById("dashboardCourseFilter").addEventListener("change", renderDashboard);
+        document.getElementById("dashboardCourseFilter").addEventListener("change", refreshDashboardStats);
         document.getElementById("emiSearchInput").addEventListener("input", function () {
             paginationState.emi = 1;
             loadEmiPage(false);

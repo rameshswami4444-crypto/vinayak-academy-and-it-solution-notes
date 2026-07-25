@@ -11,7 +11,7 @@
         publishableKey: SUPABASE_ANON_KEY,
         loginRedirect: "index.html",
         adminRedirect: "admin.html",
-        apiBase: "",
+        apiBase: "https://www.vinayakacademy.online",
         studentsTable: "students",
         studentIdentifierColumn: "id"
     };
