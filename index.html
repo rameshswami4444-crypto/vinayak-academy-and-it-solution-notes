@@ -3,20 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting - Vinayak Academy</title>
+    <title>Vinayak Academy & IT Solution</title>
+    <meta name="description" content="Vinayak Academy & IT Solution offers computer courses, competition coaching and professional IT services in Suratgarh.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/public.css?v=dropdown-hero-why-20260726">
 </head>
-<body>
-    <script>
-        (function () {
-            if (window.localStorage.getItem("admin_session")) {
-                window.location.replace("admin.html");
-                return;
-            }
-            var isStudentLoggedIn = window.localStorage.getItem("loggedIn") === "true" ||
-                Boolean(window.localStorage.getItem("student_session"));
-            window.location.replace(isStudentLoggedIn ? "dashboard.html" : "login.html");
-        }());
-    </script>
-    <a href="login.html">Open Login</a>
+<body class="public-page">
+    <div data-public-header></div>
+
+    <main id="main-content" class="public-main">
+        <section class="home-hero" aria-label="Vinayak Academy highlights" data-hero-slider>
+            <article class="home-slide is-active" data-slide style="background-image: url('assets/images/banners/academy-computer-lab-1.png')">
+                <div class="home-slide-overlay"></div>
+                <div class="public-container home-slide-inner">
+                    <div class="home-hero-card">
+                        <span class="home-badge">Founded in 2017</span>
+                        <h1>Vinayak Academy &amp; IT Solution</h1>
+                        <p>Best Coaching &amp; IT Training Institute for Your Success. Affordable, career-focused computer and IT training that helps learners grow with confidence.</p>
+                        <a class="home-red-btn" href="/skill-courses">Explore Courses</a>
+                    </div>
+                </div>
+            </article>
+
+            <article class="home-slide" data-slide style="background-image: url('assets/images/banners/academy-computer-lab-2.png')">
+                <div class="home-slide-overlay"></div>
+                <div class="public-container home-slide-inner">
+                    <div class="home-hero-card">
+                        <span class="home-badge">Career Focused Training</span>
+                        <h2>Learn Computer &amp; IT Skills</h2>
+                        <p>Build practical skills with expert guidance and industry-ready computer courses for your future.</p>
+                        <a class="home-red-btn" href="/skill-courses">Explore Courses</a>
+                    </div>
+                </div>
+            </article>
+
+            <article class="home-slide" data-slide style="background-image: url('assets/images/banners/academy-computer-lab-3.png')">
+                <div class="home-slide-overlay"></div>
+                <div class="public-container home-slide-inner">
+                    <div class="home-hero-card">
+                        <span class="home-badge">Trusted Institute</span>
+                        <h2>Transform Your Future</h2>
+                        <p>Join thousands of learners who upgraded their careers with Vinayak Academy.</p>
+                        <a class="home-red-btn" href="/skill-courses">Explore Courses</a>
+                    </div>
+                </div>
+            </article>
+
+            <button class="home-slider-arrow home-slider-prev" type="button" aria-label="Previous slide" data-slide-prev>
+                <i data-lucide="chevron-left" aria-hidden="true"></i>
+            </button>
+            <button class="home-slider-arrow home-slider-next" type="button" aria-label="Next slide" data-slide-next>
+                <i data-lucide="chevron-right" aria-hidden="true"></i>
+            </button>
+            <div class="home-slider-dots" role="tablist" aria-label="Hero slides" data-slide-dots></div>
+        </section>
+
+        <section class="home-section home-skill-section" id="skill-courses">
+            <div class="public-container">
+                <div class="home-section-heading">
+                    <span>Our Skill Courses</span>
+                    <h2>Choose Your Career Program</h2>
+                    <p>Practical computer and IT courses for beginners, diploma and advanced learners.</p>
+                </div>
+
+                <div class="home-course-grid">
+                    <article class="home-course-card">
+                        <img src="assets/images/gallery/academy-training-1.png" width="870" height="608" alt="Students learning basic computer skills" loading="lazy">
+                        <div class="home-card-body">
+                            <span class="home-tag">Beginner</span>
+                            <h3>Basic Skill Programs</h3>
+                            <p>Short duration basic computer training courses.</p>
+                            <ul>
+                                <li>Hindi Typing</li>
+                                <li>English Typing</li>
+                                <li>Computer Basics</li>
+                                <li>RS-CIT</li>
+                                <li>CCC</li>
+                                <li>Office Management</li>
+                                <li>Advanced Excel</li>
+                            </ul>
+                            <a class="home-outline-btn" href="/skill-courses/basic">View Courses</a>
+                        </div>
+                    </article>
+
+                    <article class="home-course-card is-featured">
+                        <img src="assets/images/banners/academy-computer-lab-1.png" width="1536" height="1024" alt="Vinayak Academy computer lab for diploma programs" loading="lazy">
+                        <div class="home-card-body">
+                            <span class="home-tag">Popular</span>
+                            <h3>Diploma Programs</h3>
+                            <p>Diploma level computer courses with practical training.</p>
+                            <ul>
+                                <li>DCA - Diploma in Computer Application</li>
+                                <li>DDEO - Diploma in Data Entry Operation</li>
+                                <li>DWD - Diploma in Web Designing</li>
+                                <li>DITGIT - Diploma in Graphics &amp; IT</li>
+                                <li>DDI - Diploma in Digital Imaging</li>
+                                <li>DCIS - Diploma in CCTV &amp; Security Systems</li>
+                                <li>Diploma in Computerized Financial Accounting (DCFA)</li>
+                                <li>RS-CFA</li>
+                            </ul>
+                            <a class="home-outline-btn" href="/skill-courses/diploma">View Courses</a>
+                        </div>
+                    </article>
+
+                    <article class="home-course-card">
+                        <img src="assets/images/gallery/academy-training-2.png" width="806" height="553" alt="Advanced IT training at Vinayak Academy" loading="lazy">
+                        <div class="home-card-body">
+                            <span class="home-tag">Advanced</span>
+                            <h3>Advanced Diploma Programs</h3>
+                            <p>Advanced diploma programs for professional careers.</p>
+                            <ul>
+                                <li>ADFA - Advanced Diploma in Financial Accounting</li>
+                                <li>ADCA - Advanced Diploma in Computer Application</li>
+                                <li>ADOM - Advanced Diploma in Office Management</li>
+                                <li>ADCH - Advanced Diploma in Computer Hardware</li>
+                                <li>ADNS - Advanced Diploma in Networking &amp; Security</li>
+                                <li>ADWD - Advanced Diploma in Web Designing</li>
+                                <li>ADDA - Advanced Diploma in Data Analytics</li>
+                                <li>ADFD - Advanced Diploma in Full Stack Development</li>
+                            </ul>
+                            <a class="home-outline-btn" href="/skill-courses/advanced-diploma">View Courses</a>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="home-section home-exam-section" id="competition-courses">
+            <div class="public-container">
+                <div class="home-section-heading">
+                    <span>Exam Preparation</span>
+                    <h2>Choose Your Exam Category</h2>
+                    <p>Prepare for teaching, Rajasthan government and central government exams with focused course programs.</p>
+                </div>
+
+                <div class="home-exam-grid">
+                    <article class="home-exam-card">
+                        <img src="assets/images/exams/teaching-exams.png" width="1024" height="1024" alt="Teaching exam preparation" loading="lazy">
+                        <div>
+                            <span class="home-tag">Teaching</span>
+                            <h3>Teaching Exams</h3>
+                            <ul>
+                                <li>PRE PTET</li>
+                                <li>PRE BSTC</li>
+                                <li>REET PRE</li>
+                                <li>REET Mains</li>
+                                <li>Mother Teacher Bharti</li>
+                                <li>Second Grade Teacher</li>
+                                <li>First Grade Teacher</li>
+                            </ul>
+                            <a class="home-outline-btn" href="/competition-courses/teaching-exams">View Courses</a>
+                        </div>
+                    </article>
+
+                    <article class="home-exam-card is-featured">
+                        <img src="assets/images/exams/rajasthan-government-exams.png" width="1024" height="1024" alt="Rajasthan government exam preparation" loading="lazy">
+                        <div>
+                            <span class="home-tag">Rajasthan Govt.</span>
+                            <h3>Rajasthan Government Exams</h3>
+                            <ul>
+                                <li>LDC</li>
+                                <li>Rajasthan Police</li>
+                                <li>Patwari</li>
+                                <li>VDO</li>
+                                <li>Jail Prahari</li>
+                            </ul>
+                            <a class="home-outline-btn" href="/competition-courses/rajasthan-government-exams">View Courses</a>
+                        </div>
+                    </article>
+
+                    <article class="home-exam-card">
+                        <img src="assets/images/exams/central-government-exams.png" width="1024" height="1024" alt="Central government exam preparation" loading="lazy">
+                        <div>
+                            <span class="home-tag">Central Govt.</span>
+                            <h3>Central Government Exams</h3>
+                            <ul>
+                                <li>SSC GD</li>
+                                <li>Railway Group D</li>
+                                <li>Loco Pilot</li>
+                                <li>Banking</li>
+                            </ul>
+                            <a class="home-outline-btn" href="/competition-courses/central-government-exams">View Courses</a>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="home-section home-services-section" id="services">
+            <div class="public-container">
+                <div class="home-section-heading">
+                    <h2>Our Professional Services</h2>
+                    <p>Complete business for students and complete digital &amp; IT solutions.</p>
+                </div>
+
+                <div class="home-service-grid">
+                    <a href="/services/accounting-gst"><article><i data-lucide="receipt-text"></i><h3>Accounting &amp; GST</h3><p>Accounting, GST registration, ITR filing and book keeping services.</p></article></a>
+                    <a href="/services/business-registration"><article><i data-lucide="file-check-2"></i><h3>Business Registration</h3><p>Firm registration, MSME registration aur Shop Act license services.</p></article></a>
+                    <a href="/services/it-software"><article><i data-lucide="monitor-cog"></i><h3>IT &amp; Software</h3><p>Tally Prime setup, Busy software aur accounting software installation.</p></article></a>
+                    <a href="/services/ads-promotion"><article><i data-lucide="megaphone"></i><h3>Ads &amp; Promotion</h3><p>Facebook Ads, Instagram Ads, YouTube Ads aur lead generation campaigns.</p></article></a>
+                    <a href="/services/creative-design"><article><i data-lucide="palette"></i><h3>Creative &amp; Design</h3><p>Poster design, banner design, social media graphics aur reels creation.</p></article></a>
+                    <a href="/services/website-development"><article><i data-lucide="globe-2"></i><h3>Website Development</h3><p>Website update, speed optimization, backup aur security maintenance.</p></article></a>
+                    <a href="/services/ecommerce-development"><article><i data-lucide="shopping-cart"></i><h3>E-Commerce Development</h3><p>Online store setup, product listing, product management and payment gateway integration.</p></article></a>
+                    <a href="/services/seo-services"><article><i data-lucide="search-check"></i><h3>SEO Services</h3><p>Website SEO, Google ranking aur local business promotion.</p></article></a>
+                </div>
+            </div>
+        </section>
+
+        <section class="why-choose-us">
+            <div class="container">
+                <div class="section-heading">
+                    <h2>Why Choose Us</h2>
+                    <p>Quality training, practical knowledge aur trusted IT</p>
+                </div>
+
+                <div class="why-grid">
+                    <article class="why-card">
+                        <div class="why-icon"><img src="assets/images/about/certified-courses.png" width="160" height="120" alt="Certified Courses" loading="lazy"></div>
+                        <h3>Certified Courses</h3>
+                        <p>Government recognized aur industry-relevant courses.</p>
+                    </article>
+                    <article class="why-card">
+                        <div class="why-icon"><img src="assets/images/gallery/academy-training-1.png" width="160" height="120" alt="Experienced Trainers" loading="lazy"></div>
+                        <h3>Experienced Trainers</h3>
+                        <p>Professional trainers ke saath practical learning.</p>
+                    </article>
+                    <article class="why-card">
+                        <div class="why-icon"><img src="assets/images/gallery/academy-training-2.png" width="160" height="120" alt="Job Oriented Training" loading="lazy"></div>
+                        <h3>Job Oriented Training</h3>
+                        <p>Courses designed for real career opportunities.</p>
+                    </article>
+                    <article class="why-card">
+                        <div class="why-icon"><img src="assets/images/gallery/academy-training-3.png" width="160" height="120" alt="IT and Business Services" loading="lazy"></div>
+                        <h3>IT &amp; Business Services</h3>
+                        <p>Computer training &amp; complete IT solutions.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="home-section home-about-section" id="about">
+            <div class="public-container">
+                <div class="home-section-heading">
+                    <span>About Us</span>
+                    <h2>About Vinayak Academy &amp; IT Solution</h2>
+                    <p>Quality training, practical knowledge and trusted IT services for students, professionals and businesses.</p>
+                </div>
+
+                <div class="home-about-grid">
+                    <div class="home-about-content">
+                        <span class="home-label">Founded in 2017</span>
+                        <h3>Empowering Careers With Computer Education &amp; Digital Solutions</h3>
+                        <p>Vinayak Academy &amp; IT Solution is committed to providing high-quality, affordable training that helps learners build essential computer skills. Over the years, we have helped students grow with practical learning, career-focused courses and reliable digital services.</p>
+                        <div class="home-feature-grid">
+                            <span><i data-lucide="check"></i>Digital Services</span>
+                            <span><i data-lucide="check"></i>Affordable Fees</span>
+                            <span><i data-lucide="check"></i>Admission Support</span>
+                            <span><i data-lucide="check"></i>Business Solutions</span>
+                            <span><i data-lucide="check"></i>Experienced Trainers</span>
+                            <span><i data-lucide="check"></i>Practical Computer Training</span>
+                        </div>
+                        <a class="home-red-btn" href="/skill-courses">Explore Courses</a>
+                    </div>
+
+                    <aside class="home-about-card">
+                        <span>Complete IT &amp; Digital Services</span>
+                        <h3>For Students &amp; Businesses</h3>
+                        <ul>
+                            <li>Computer Courses</li>
+                            <li>Competition Coaching</li>
+                            <li>Website Development</li>
+                            <li>Accounting Software Setup</li>
+                            <li>Digital Marketing</li>
+                        </ul>
+                        <div class="home-stats">
+                            <strong>2017<span>Founded</span></strong>
+                            <strong>1000+<span>Learners</span></strong>
+                            <strong>IT<span>Solutions</span></strong>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </section>
+
+        <section class="home-section home-gallery-section" id="gallery">
+            <div class="public-container">
+                <div class="home-section-heading">
+                    <span>Course Gallery</span>
+                    <h2>Inside Vinayak Academy</h2>
+                    <p>Classroom, lab and training glimpses from the institute.</p>
+                </div>
+                <div class="home-gallery-grid">
+                    <img src="assets/images/banners/academy-computer-lab-1.png" width="1536" height="1024" alt="Vinayak Academy computer lab" loading="lazy">
+                    <img src="assets/images/banners/academy-computer-lab-2.png" width="1536" height="1024" alt="Vinayak Academy classroom computers" loading="lazy">
+                    <img src="assets/images/banners/academy-computer-lab-3.png" width="1536" height="1024" alt="Vinayak Academy training lab" loading="lazy">
+                </div>
+            </div>
+        </section>
+
+        <section class="home-cta-section" id="enquiry">
+            <div class="public-container home-cta-inner">
+                <div>
+                    <span>Need course guidance?</span>
+                    <h2>Start your learning journey with Vinayak Academy.</h2>
+                </div>
+                <a class="home-red-btn" href="https://wa.me/919950756514" target="_blank" rel="noopener">Chat on WhatsApp</a>
+            </div>
+        </section>
+    </main>
+
+    <div data-public-footer></div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="JS/supabase-config.js?v=prod-audit-20260725"></script>
+    <script src="JS/api-config.js?v=prod-audit-20260725"></script>
+    <script src="JS/auth.js?v=public-phase-2-20260726"></script>
+    <script src="assets/js/public-layout.js?v=dropdown-hero-why-20260726"></script>
 </body>
 </html>

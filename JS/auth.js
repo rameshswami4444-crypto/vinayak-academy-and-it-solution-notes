@@ -4,7 +4,7 @@
 
     const LOGIN_PATH = "login.html";
     const BLOCKED_PATH = "blocked.html";
-    const STUDENT_HOME_PATH = "index.html";
+    const STUDENT_HOME_PATH = "dashboard.html";
     const LEGACY_SESSION_KEY = "vinayak_session";
     const STUDENT_SESSION_KEY = "student_session";
     const ADMIN_SESSION_KEY = "admin_session";
@@ -845,6 +845,12 @@
         });
     }
 
+    function getRequestedLoginTab() {
+        const params = new URLSearchParams(window.location.search || "");
+        const requested = String(params.get("role") || params.get("tab") || window.location.hash.replace(/^#/, "") || "").trim().toLowerCase();
+        return requested === "admin" ? "admin" : "student";
+    }
+
     async function validateAdminSession(session) {
         if (!session || session.role !== "admin" || isSessionExpired(session)) {
             return null;
@@ -1396,7 +1402,7 @@
             adminForm.addEventListener("submit", handleAdminLogin);
         }
 
-        setLoginTab("student");
+        setLoginTab(getRequestedLoginTab());
         clearFallbackMessage();
         showBody();
     }

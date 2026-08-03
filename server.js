@@ -33,6 +33,8 @@ const EMI_COLUMNS = "id, student_id, emi_number, amount, due_date, paid_date, st
 const PAYMENT_COLUMNS = "id, student_id, emi_id, amount, payment_mode, transaction_id, payment_date, remark, institute_id";
 const ANNOUNCEMENT_COLUMNS = "id, title, message, target_course, created_at, institute_id, all_courses, content, expires_at, is_pinned, target_courses";
 const COURSE_COLUMNS = "id, course_name, duration, total_fee, description, created_at, institute_id";
+const ENQUIRY_SELECT_COLUMNS = "*";
+const ENQUIRY_STATUSES = ["new", "contacted", "follow_up", "interested", "converted", "rejected", "closed"];
 const DB = {
     batches: {
         table: "batches",
@@ -59,6 +61,67 @@ const DB = {
         responseTime: "response_time"
     }
 };
+const PUBLIC_SKILL_CATEGORIES = [
+    { slug: "basic", title: "Basic Skill Programs", description: "Short duration basic computer training courses.", type: "skill" },
+    { slug: "diploma", title: "Diploma Programs", description: "Diploma level computer courses with practical training.", type: "skill" },
+    { slug: "advanced-diploma", title: "Advanced Diploma Programs", description: "Advanced diploma programs for professional careers.", type: "skill" }
+];
+const PUBLIC_COMPETITION_CATEGORIES = [
+    { slug: "teaching-exams", title: "Teaching Exams", description: "PRE PTET, PRE BSTC, REET and teacher recruitment preparation.", type: "competition" },
+    { slug: "rajasthan-government-exams", title: "Rajasthan Government Exams", description: "Rajasthan LDC, Police, Patwari, VDO and Jail Prahari preparation.", type: "competition" },
+    { slug: "central-government-exams", title: "Central Government Exams", description: "SSC GD, Railway Group D, Loco Pilot and Banking preparation.", type: "competition" }
+];
+const PUBLIC_COURSE_CATALOG = [
+    { slug: "hindi-typing", title: "Hindi Typing", category: "Basic Skill Programs", duration: "3 Months", price: 2500, description: "Hindi typing course with regular speed and accuracy practice." },
+    { slug: "english-typing", title: "English Typing", category: "Basic Skill Programs", duration: "3 Months", price: 2500, description: "English typing course for speed, accuracy and office work." },
+    { slug: "computer-basics", title: "Computer Basics", category: "Basic Skill Programs", duration: "3 Months", price: 3000, description: "Basic computer operation, internet, email and office foundation training." },
+    { slug: "rscit", aliases: ["rs-cit"], title: "RS-CIT", category: "Basic Skill Programs", duration: "3 Months", price: 3500, description: "Rajasthan State Certificate in IT preparation and practical training." },
+    { slug: "ccc", title: "CCC", category: "Basic Skill Programs", duration: "3 Months", price: 3500, description: "Course on Computer Concepts for digital literacy and practical computer use." },
+    { slug: "office-management", title: "Office Management", category: "Basic Skill Programs", duration: "3 Months", price: 5000, description: "Office documentation, file handling, communication and computer workflow training." },
+    { slug: "advanced-excel", title: "Advanced Excel", category: "Basic Skill Programs", duration: "2 Months", price: 4500, description: "Advanced Excel formulas, reports, data handling and office automation." },
+    { slug: "dca", title: "DCA", category: "Diploma Programs", duration: "6 Months", price: 12000, description: "Diploma in Computer Application with office, internet and practical IT training." },
+    { slug: "ddeo", title: "DDEO", category: "Diploma Programs", duration: "6 Months", price: 12000, description: "Diploma in Data Entry Operation focused on typing, accuracy and office data work." },
+    { slug: "dwd", title: "DWD", category: "Diploma Programs", duration: "6 Months", price: 15000, description: "Diploma in Web Designing with HTML, CSS, design and practical website work." },
+    { slug: "ditgit", title: "DITGIT", category: "Diploma Programs", duration: "6 Months", price: 15000, description: "Diploma in Graphics and IT with creative software and computer skills." },
+    { slug: "ddi", title: "DDI", category: "Diploma Programs", duration: "6 Months", price: 15000, description: "Diploma in Digital Imaging for image editing and design workflows." },
+    { slug: "dcis", title: "DCIS", category: "Diploma Programs", duration: "6 Months", price: 15000, description: "Diploma in CCTV and Security Systems with practical setup guidance." },
+    { slug: "dcfa", title: "DCFA", category: "Diploma Programs", duration: "6 Months", price: 18000, description: "Diploma in Computerized Financial Accounting." },
+    { slug: "rscfa", aliases: ["rs-cfa"], title: "RS-CFA", category: "Diploma Programs", duration: "6 Months", price: 18000, description: "Rajasthan State Certificate in Financial Accounting." },
+    { slug: "adfa", title: "ADFA", category: "Advanced Diploma Programs", duration: "12 Months", price: 26000, description: "Advanced Diploma in Financial Accounting." },
+    { slug: "adca", title: "ADCA", category: "Advanced Diploma Programs", duration: "12 Months", price: 24000, description: "Advanced Diploma in Computer Application." },
+    { slug: "adom", title: "ADOM", category: "Advanced Diploma Programs", duration: "12 Months", price: 24000, description: "Advanced Diploma in Office Management." },
+    { slug: "adch", title: "ADCH", category: "Advanced Diploma Programs", duration: "12 Months", price: 26000, description: "Advanced Diploma in Computer Hardware." },
+    { slug: "adns", title: "ADNS", category: "Advanced Diploma Programs", duration: "12 Months", price: 28000, description: "Advanced Diploma in Networking and Security." },
+    { slug: "adwd", title: "ADWD", category: "Advanced Diploma Programs", duration: "12 Months", price: 28000, description: "Advanced Diploma in Web Designing." },
+    { slug: "adda", title: "ADDA", category: "Advanced Diploma Programs", duration: "12 Months", price: 30000, description: "Advanced Diploma in Data Analytics." },
+    { slug: "adfd", title: "ADFD", category: "Advanced Diploma Programs", duration: "12 Months", price: 32000, description: "Advanced Diploma in Full Stack Development." },
+    { slug: "pre-ptet", title: "PRE PTET", category: "Teaching Exams", duration: "26 Weeks", price: 999, description: "PRE PTET preparation for teacher education entrance exam aspirants." },
+    { slug: "pre-bstc", title: "PRE BSTC", category: "Teaching Exams", duration: "26 Weeks", price: 999, description: "PRE BSTC preparation with exam-oriented practice and guidance." },
+    { slug: "reet-pre", title: "REET PRE", category: "Teaching Exams", duration: "6 Months", price: 999, description: "REET pre-level preparation for teaching exam aspirants." },
+    { slug: "reet-mains", title: "REET Mains", category: "Teaching Exams", duration: "6 Months", price: 999, description: "REET mains preparation with syllabus coverage and practice tests." },
+    { slug: "mother-teacher-bharti", title: "Mother Teacher Bharti", category: "Teaching Exams", duration: "6 Months", price: 999, description: "Mother Teacher Bharti exam preparation and guidance." },
+    { slug: "second-grade-teacher", title: "Second Grade Teacher", category: "Teaching Exams", duration: "6 Months", price: 999, description: "Second Grade Teacher recruitment exam preparation." },
+    { slug: "first-grade-teacher", title: "First Grade Teacher", category: "Teaching Exams", duration: "6 Months", price: 999, description: "First Grade Teacher recruitment exam preparation." },
+    { slug: "ldc", title: "LDC", category: "Rajasthan Government Exams", duration: "6 Months", price: 999, description: "Rajasthan LDC exam preparation with regular practice." },
+    { slug: "rajasthan-police", title: "Rajasthan Police", category: "Rajasthan Government Exams", duration: "6 Months", price: 999, description: "Rajasthan Police recruitment preparation." },
+    { slug: "patwari", title: "Patwari", category: "Rajasthan Government Exams", duration: "6 Months", price: 999, description: "Rajasthan Patwari exam preparation." },
+    { slug: "vdo", title: "VDO", category: "Rajasthan Government Exams", duration: "6 Months", price: 999, description: "VDO exam preparation with guided practice." },
+    { slug: "jail-prahari", title: "Jail Prahari", category: "Rajasthan Government Exams", duration: "6 Months", price: 999, description: "Jail Prahari exam preparation." },
+    { slug: "ssc-gd", title: "SSC GD", category: "Central Government Exams", duration: "6 Months", price: 999, description: "SSC GD preparation for central government aspirants." },
+    { slug: "railway-group-d", title: "Railway Group D", category: "Central Government Exams", duration: "6 Months", price: 999, description: "Railway Group D preparation course for central government railway recruitment exams." },
+    { slug: "loco-pilot", title: "Loco Pilot", category: "Central Government Exams", duration: "6 Months", price: 999, description: "Loco Pilot exam preparation with technical and general practice." },
+    { slug: "banking", title: "Banking", category: "Central Government Exams", duration: "6 Months", price: 999, description: "Banking exam preparation with reasoning, maths and awareness practice." }
+];
+const PUBLIC_SERVICES = [
+    { slug: "accounting-gst", title: "Accounting & GST", icon: "receipt-text", description: "Accounting, GST registration, ITR filing and book keeping services.", features: ["GST registration and return support", "Book keeping", "ITR filing"], process: ["Discuss requirement", "Collect documents", "Complete filing or setup"], audience: "Students, shops, firms and local businesses" },
+    { slug: "business-registration", title: "Business Registration", icon: "file-check-2", description: "Firm registration, MSME registration aur Shop Act license services.", features: ["MSME registration", "Firm registration", "Shop Act guidance"], process: ["Document checklist", "Application preparation", "Registration support"], audience: "New businesses and local entrepreneurs" },
+    { slug: "it-software", title: "IT & Software", icon: "monitor-cog", description: "Tally Prime setup, Busy software aur accounting software installation.", features: ["Software setup", "Basic training", "Troubleshooting"], process: ["Requirement check", "Installation", "Training and support"], audience: "Offices and accounting users" },
+    { slug: "ads-promotion", title: "Ads & Promotion", icon: "megaphone", description: "Facebook Ads, Instagram Ads, YouTube Ads aur lead generation campaigns.", features: ["Campaign planning", "Creative setup", "Lead tracking"], process: ["Goal planning", "Campaign launch", "Performance review"], audience: "Businesses that need enquiries and local reach" },
+    { slug: "creative-design", title: "Creative & Design", icon: "palette", description: "Poster design, banner design, social media graphics aur reels creation.", features: ["Poster design", "Social media creatives", "Reels and banner support"], process: ["Brief", "Design", "Revision and delivery"], audience: "Brands, institutes and local shops" },
+    { slug: "website-development", title: "Website Development", icon: "globe-2", description: "Website update, speed optimization, backup aur security maintenance.", features: ["Business website", "Maintenance", "Speed and security"], process: ["Plan structure", "Build pages", "Launch and maintain"], audience: "Businesses, coaching centres and service providers" },
+    { slug: "ecommerce-development", title: "E-Commerce Development", icon: "shopping-cart", description: "Online store setup, product listing, product management and payment gateway integration.", features: ["Store setup", "Product listing", "Payment gateway guidance"], process: ["Catalogue planning", "Store setup", "Launch support"], audience: "Sellers moving online" },
+    { slug: "seo-services", title: "SEO Services", icon: "search-check", description: "Website SEO, Google ranking aur local business promotion.", features: ["Local SEO", "On-page SEO", "Google profile guidance"], process: ["Audit", "Optimization", "Monthly improvements"], audience: "Businesses that want search visibility" }
+];
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_PDF_SIZE }
@@ -330,6 +393,284 @@ function getStudentTokens(student) {
 function isActiveStudent(student) {
     const accountStatus = String(student && (student.account_status || student.status || "active")).trim().toLowerCase();
     return !["blocked", "inactive", "suspended", "disabled"].includes(accountStatus);
+}
+
+function slugifyCourse(value) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, " and ")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+function isValidCourseSlug(value) {
+    return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(value || "").trim());
+}
+
+function firstValue(row, keys) {
+    for (const key of keys) {
+        if (row && row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== "") {
+            return row[key];
+        }
+    }
+    return "";
+}
+
+function asArray(value) {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (value && typeof value === "object") return Object.values(value).filter(Boolean);
+    if (typeof value !== "string") return [];
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch (error) {
+        // Plain-text descriptions are expected in the current production schema.
+    }
+    return trimmed.split(/\r?\n|;/).map(function (item) { return item.trim(); }).filter(Boolean);
+}
+
+function shortDescription(text) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    if (!clean) return "";
+    return clean.length > 168 ? clean.slice(0, 165).replace(/\s+\S*$/, "") + "..." : clean;
+}
+
+function courseCategoryFromRow(row) {
+    const explicit = firstValue(row, ["category_name", "category", "course_category", "type"]);
+    if (explicit) return String(explicit);
+    const title = String(firstValue(row, ["course_name", "title", "name"]) || "").toLowerCase();
+    if (/(railway|ssc|bank|loco|group d|gd|defence)/.test(title)) return "Central Government Exams";
+    if (/(reet|bstc|ptet|teacher|teaching|ecce)/.test(title)) return "Teaching Exams";
+    if (/(patwari|police|ldc|vdo|rajasthan|jail)/.test(title)) return "Rajasthan Government Exams";
+    if (/(hindi typing|english typing|computer basics|rscit|rs-cit|ccc|office management|advanced excel)/.test(title)) return "Basic Skill Programs";
+    if (/(dca|ddeo|dwd|ditgit|ddi|dcis|dcfa|rscfa|rs-cfa)/.test(title)) return "Diploma Programs";
+    if (/(adfa|adca|adom|adch|adns|adwd|adda|adfd)/.test(title)) return "Advanced Diploma Programs";
+    return "Skill Courses";
+}
+
+function normalizeCourse(row) {
+    const title = String(firstValue(row, ["title", "course_title", "course_name", "name"]) || "Course");
+    const description = String(firstValue(row, ["overview", "long_description", "description", "short_description"]) || "");
+    const price = firstValue(row, ["sale_price", "price", "total_fee", "fee", "course_fee"]);
+    const duration = firstValue(row, ["duration_text", "duration", "course_duration"]);
+    const lessons = Number(firstValue(row, ["total_lessons", "lessons_count", "lesson_count"]) || 0);
+    const quizzes = Number(firstValue(row, ["total_quizzes", "quizzes_count", "quiz_count"]) || 0);
+    const students = Number(firstValue(row, ["total_students", "students_count", "enrolled_students"]) || 0);
+    return {
+        id: row.id,
+        slug: String(firstValue(row, ["slug", "course_slug"]) || slugifyCourse(title)),
+        title: title,
+        category: courseCategoryFromRow(row),
+        instructor: String(firstValue(row, ["instructor_name", "teacher_name", "faculty_name"]) || "Admin"),
+        imageUrl: String(firstValue(row, ["image_url", "thumbnail_url", "banner_url", "course_image"]) || ""),
+        duration: String(duration || ""),
+        level: String(firstValue(row, ["level", "course_level"]) || "All Levels"),
+        lessons: Number.isFinite(lessons) ? lessons : 0,
+        quizzes: Number.isFinite(quizzes) ? quizzes : 0,
+        students: Number.isFinite(students) ? students : 0,
+        price: price === "" ? null : Number(price),
+        rating: Number(firstValue(row, ["rating", "average_rating"]) || 0),
+        reviewCount: Number(firstValue(row, ["review_count", "reviews_count"]) || 0),
+        overview: description,
+        shortDescription: shortDescription(firstValue(row, ["short_description", "description", "overview"])),
+        highlights: asArray(firstValue(row, ["highlights", "course_highlights", "learning_outcomes", "outcomes"])),
+        curriculum: asArray(firstValue(row, ["curriculum", "syllabus", "modules"])),
+        faqs: asArray(firstValue(row, ["faqs", "faq"])),
+        requirements: asArray(firstValue(row, ["requirements", "eligibility"])),
+        raw: row
+    };
+}
+
+async function loadPublicCourseRows(client) {
+    const result = await client.from("courses").select("*").limit(500);
+    if (result.error) throw result.error;
+    return result.data || [];
+}
+
+function catalogCourseRows() {
+    return PUBLIC_COURSE_CATALOG.map(function (course) {
+        return {
+            id: "catalog-" + course.slug,
+            course_name: course.title,
+            duration: course.duration,
+            total_fee: course.price,
+            description: course.description,
+            category: course.category,
+            slug: course.slug,
+            aliases: course.aliases || []
+        };
+    });
+}
+
+function courseMatchesSlug(course, slug) {
+    const raw = course.raw || {};
+    const aliases = Array.isArray(raw.aliases) ? raw.aliases : [];
+    return course.slug === slug || slugifyCourse(course.title) === slug || aliases.includes(slug);
+}
+
+function mergeCatalogCourses(databaseRows) {
+    const bySlug = new Map();
+    catalogCourseRows().map(normalizeCourse).forEach(function (course) {
+        bySlug.set(course.slug, course);
+        (course.raw.aliases || []).forEach(function (alias) { bySlug.set(alias, course); });
+    });
+    (databaseRows || []).map(normalizeCourse).forEach(function (course) {
+        const known = PUBLIC_COURSE_CATALOG.find(function (item) {
+            return item.slug === course.slug || (item.aliases || []).includes(course.slug) || slugifyCourse(item.title) === course.slug;
+        });
+        if (known) {
+            course.slug = known.slug;
+            course.category = known.category;
+            course.raw.aliases = known.aliases || [];
+        }
+        bySlug.set(course.slug, course);
+        (course.raw.aliases || []).forEach(function (alias) { bySlug.set(alias, course); });
+    });
+    const unique = [];
+    const seenIds = new Set();
+    Array.from(bySlug.values()).forEach(function (course) {
+        const key = course.id || course.slug;
+        if (seenIds.has(key)) return;
+        seenIds.add(key);
+        unique.push(course);
+    });
+    return unique.sort(function (a, b) { return a.title.localeCompare(b.title); });
+}
+
+async function findPublicCourseBySlug(client, slug) {
+    const rows = await loadPublicCourseRows(client);
+    const normalized = mergeCatalogCourses(rows);
+    const course = normalized.find(function (item) {
+        return courseMatchesSlug(item, slug);
+    });
+    return { course: course || null, courses: normalized };
+}
+
+function buildCategoryCounts(courses) {
+    const counts = new Map();
+    courses.forEach(function (course) {
+        const name = course.category || "Courses";
+        counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    return Array.from(counts.entries()).map(function (entry) {
+        return { name: entry[0], count: entry[1], slug: slugifyCourse(entry[0]) };
+    }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+}
+
+function publicPageNotFound(response) {
+    response.status(404).sendFile(path.join(__dirname, "public-page.html"));
+}
+
+function findService(slug) {
+    return PUBLIC_SERVICES.find(function (service) { return service.slug === slug; }) || null;
+}
+
+function categoryBySlug(collection, slug) {
+    return collection.find(function (category) { return category.slug === slug; }) || null;
+}
+
+function coursesForCategory(courses, categoryTitle) {
+    return courses.filter(function (course) { return course.category === categoryTitle; });
+}
+
+function formString(value, maxLength) {
+    return String(value || "")
+        .replace(/[<>]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, maxLength || 300);
+}
+
+function normalizeKey(value) {
+    return String(value || "").trim().toLowerCase();
+}
+
+const PUBLIC_FORM_RATE_LIMIT = new Map();
+function rateLimitPublicForm(request) {
+    const key = String(request.ip || request.get("x-forwarded-for") || "local").split(",")[0].trim();
+    const now = Date.now();
+    const windowMs = 10 * 60 * 1000;
+    const current = PUBLIC_FORM_RATE_LIMIT.get(key) || [];
+    const recent = current.filter(function (time) { return now - time < windowMs; });
+    recent.push(now);
+    PUBLIC_FORM_RATE_LIMIT.set(key, recent);
+    return recent.length <= 5;
+}
+
+function getAdminAuthFromRequest(request) {
+    return {
+        adminId: formString(request.get("x-admin-id") || "", 120),
+        password: String(request.get("x-admin-password") || "")
+    };
+}
+
+async function requireAdmin(request, response) {
+    const auth = getAdminAuthFromRequest(request);
+    if (!auth.adminId || !auth.password) {
+        response.status(401).json({ success: false, message: "Admin authentication required." });
+        return null;
+    }
+    const result = await getSupabaseClient()
+        .from("admins")
+        .select("username, password, role, account_status, status, full_name")
+        .eq("username", auth.adminId)
+        .limit(1);
+    if (result.error) throw result.error;
+    const admin = result.data && result.data[0];
+    const status = String(admin && (admin.account_status || admin.status || "active")).toLowerCase();
+    if (!admin || String(admin.password || "") !== auth.password || ["blocked", "disabled", "inactive", "suspended"].includes(status)) {
+        response.status(403).json({ success: false, message: "Admin access denied." });
+        return null;
+    }
+    return admin;
+}
+
+function isIndianMobile(value) {
+    return /^[6-9]\d{9}$/.test(String(value || "").replace(/\D/g, "").slice(-10));
+}
+
+function normalizePhone(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+function isValidEmail(value) {
+    const email = String(value || "").trim();
+    return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidDateInput(value) {
+    const text = String(value || "").trim();
+    if (!text) return true;
+    const date = new Date(text + "T00:00:00");
+    return !Number.isNaN(date.getTime()) && date <= new Date();
+}
+
+async function resolvePublicCourse(client, value) {
+    const needle = String(value || "").trim();
+    if (!needle) return null;
+    const rows = await loadPublicCourseRows(client);
+    const courses = mergeCatalogCourses(rows);
+    return courses.find(function (course) {
+        return String(course.id) === needle ||
+            course.slug === slugifyCourse(needle) ||
+            normalizeKey(course.title) === normalizeKey(needle);
+    }) || null;
+}
+
+async function generateEnquiryNumber(client) {
+    const year = new Date().getFullYear();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        const suffix = String(Date.now()).slice(-6) + String(Math.floor(Math.random() * 100)).padStart(2, "0");
+        const number = "VCA-APP-" + year + "-" + suffix;
+        const existing = await client.from("enquiries").select("id").eq("enquiry_number", number).limit(1);
+        if (existing.error) throw existing.error;
+        if (!existing.data || !existing.data.length) return number;
+    }
+    return "VCA-APP-" + year + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 }
 
 async function getStudentCourseIds(client, student) {
@@ -1012,7 +1353,7 @@ const corsOptions = {
         callback(new Error("CORS origin not allowed."));
     },
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Student-Id", "X-Session-Token"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Student-Id", "X-Session-Token", "X-Admin-Id", "X-Admin-Password"],
     optionsSuccessStatus: 204
 };
 
@@ -2238,6 +2579,88 @@ app.post("/api/admin/emis", async function (request, response) {
     }
 });
 
+app.patch("/api/admin/emis/:id", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const emiId = String(request.params.id || "").trim();
+        const studentId = String(request.body.student_id || request.query.student_id || "").trim();
+        if (!emiId) {
+            response.status(400).json({ success: false, message: "EMI id is required." });
+            return;
+        }
+        if (!studentId) {
+            response.status(400).json({ success: false, message: "student_id is required." });
+            return;
+        }
+        const payload = {};
+        if (request.body.emi_number !== undefined) payload.emi_number = Math.floor(Number(request.body.emi_number || 0));
+        if (request.body.amount !== undefined) payload.amount = Number(request.body.amount || 0);
+        if (request.body.due_date !== undefined) payload.due_date = String(request.body.due_date || "").trim() || null;
+        if (request.body.status !== undefined) {
+            const status = String(request.body.status || "").trim().toLowerCase();
+            if (!["pending", "paid", "overdue"].includes(status)) {
+                response.status(400).json({ success: false, message: "Invalid EMI status." });
+                return;
+            }
+            payload.status = status;
+        }
+        if (request.body.paid_date !== undefined) payload.paid_date = String(request.body.paid_date || "").trim() || null;
+        if (payload.emi_number !== undefined && (!payload.emi_number || payload.emi_number < 1)) {
+            response.status(400).json({ success: false, message: "Valid emi_number is required." });
+            return;
+        }
+        if (payload.amount !== undefined && (!Number.isFinite(payload.amount) || payload.amount < 0)) {
+            response.status(400).json({ success: false, message: "Valid EMI amount is required." });
+            return;
+        }
+        const result = await client.from("emis").update(payload).eq("id", emiId).eq("student_id", studentId).select(EMI_COLUMNS).maybeSingle();
+        if (result.error) throw result.error;
+        if (!result.data) {
+            response.status(404).json({ success: false, message: "EMI record was not found for this student." });
+            return;
+        }
+        response.json({ success: true, message: "EMI updated.", emi: result.data });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not update EMI.", error);
+    }
+});
+
+app.delete("/api/admin/emis/:id", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const emiId = String(request.params.id || "").trim();
+        const studentId = String(request.body.student_id || request.query.student_id || "").trim();
+        if (!emiId) {
+            response.status(400).json({ success: false, message: "EMI id is required." });
+            return;
+        }
+        if (!studentId) {
+            response.status(400).json({ success: false, message: "student_id is required." });
+            return;
+        }
+        const emiResult = await client.from("emis").select("id, student_id, payment_id").eq("id", emiId).eq("student_id", studentId).maybeSingle();
+        if (emiResult.error) throw emiResult.error;
+        if (!emiResult.data) {
+            response.status(404).json({ success: false, message: "EMI record was not found for this student." });
+            return;
+        }
+        const paymentId = emiResult.data && emiResult.data.payment_id;
+        if (paymentId) {
+            const paymentCheck = await client.from("payments").select("id").eq("emi_id", paymentId).limit(1);
+            if (paymentCheck.error) throw paymentCheck.error;
+            if (paymentCheck.data && paymentCheck.data.length) {
+                response.status(409).json({ success: false, message: "This EMI has payment history. Mark it paid/adjust it instead of deleting." });
+                return;
+            }
+        }
+        const result = await client.from("emis").delete().eq("id", emiId).eq("student_id", studentId).select("id").single();
+        if (result.error) throw result.error;
+        response.json({ success: true, message: "EMI deleted.", id: result.data && result.data.id });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not delete EMI.", error);
+    }
+});
+
 app.get("/api/admin/payments", async function (request, response) {
     try {
         const client = getSupabaseClient();
@@ -2301,6 +2724,454 @@ app.get("/api/r2/sign", require("./api/r2/sign"));
 app.get("/api/r2/test", require("./api/r2/test"));
 app.get("/api/r2/credentials", require("./api/r2/credentials"));
 app.get("/api/r2/list", require("./api/r2/list"));
+
+app.get("/api/public/courses/:slug", async function (request, response) {
+    const slug = String(request.params.slug || "").trim().toLowerCase();
+    if (!isValidCourseSlug(slug)) {
+        response.status(400).json({ success: false, message: "Invalid course URL." });
+        return;
+    }
+    try {
+        const client = getSupabaseClient();
+        const result = await findPublicCourseBySlug(client, slug);
+        if (!result.course) {
+            response.status(404).json({ success: false, message: "Course was not found." });
+            return;
+        }
+        const related = result.courses
+            .filter(function (course) { return course.id !== result.course.id; })
+            .sort(function (a, b) {
+                const sameA = a.category === result.course.category ? 0 : 1;
+                const sameB = b.category === result.course.category ? 0 : 1;
+                return sameA - sameB || a.title.localeCompare(b.title);
+            })
+            .slice(0, 4);
+        response.json({
+            success: true,
+            course: result.course,
+            categories: buildCategoryCounts(result.courses),
+            related: related,
+            auth: {
+                login: "login.html",
+                studentDashboard: "dashboard.html",
+                adminDashboard: "admin.html"
+            },
+            enrollment: {
+                available: false,
+                actionLabel: "Apply for Course",
+                reason: "No public payment or enrolment checkout route exists in this project yet."
+            }
+        });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load course.", error, { slug: slug });
+    }
+});
+
+app.get("/api/public/page-data", async function (request, response) {
+    const pagePath = String(request.query.path || "/").replace(/\/+$/, "") || "/";
+    try {
+        const client = getSupabaseClient();
+        const courses = mergeCatalogCourses(await loadPublicCourseRows(client));
+        const skillCategories = PUBLIC_SKILL_CATEGORIES.map(function (category) {
+            return Object.assign({}, category, { count: coursesForCategory(courses, category.title).length });
+        });
+        const competitionCategories = PUBLIC_COMPETITION_CATEGORIES.map(function (category) {
+            return Object.assign({}, category, { count: coursesForCategory(courses, category.title).length });
+        });
+        const base = {
+            success: true,
+            path: pagePath,
+            skillCategories: skillCategories,
+            competitionCategories: competitionCategories,
+            services: PUBLIC_SERVICES,
+            gallery: [
+                { src: "/assets/images/banners/academy-computer-lab-1.png", title: "Computer Lab", category: "Computer Lab" },
+                { src: "/assets/images/banners/academy-computer-lab-2.png", title: "Classroom Training", category: "Classroom" },
+                { src: "/assets/images/banners/academy-computer-lab-3.png", title: "Student Activity", category: "Student Activity" },
+                { src: "/assets/images/gallery/academy-training-1.png", title: "Practical Training", category: "Classroom" },
+                { src: "/assets/images/gallery/academy-training-2.png", title: "IT Training", category: "Computer Lab" },
+                { src: "/assets/images/gallery/academy-training-3.png", title: "Academy Session", category: "Event" }
+            ]
+        };
+        if (pagePath === "/skill-courses") {
+            response.json(Object.assign(base, {
+                pageType: "course-listing",
+                title: "Skill Courses",
+                eyebrow: "Our Skill Courses",
+                description: "Choose from basic, diploma and advanced diploma computer programs.",
+                courses: courses.filter(function (course) { return /Programs$/.test(course.category); }),
+                categories: skillCategories,
+                mode: "skill"
+            }));
+            return;
+        }
+        if (pagePath.indexOf("/skill-courses/") === 0) {
+            const slug = pagePath.split("/").pop();
+            const category = categoryBySlug(PUBLIC_SKILL_CATEGORIES, slug);
+            if (!category) { response.status(404).json({ success: false, message: "Category was not found." }); return; }
+            response.json(Object.assign(base, {
+                pageType: "course-category",
+                title: category.title,
+                eyebrow: "Skill Course Category",
+                description: category.description,
+                category: Object.assign({}, category, { count: coursesForCategory(courses, category.title).length }),
+                courses: coursesForCategory(courses, category.title),
+                categories: skillCategories,
+                mode: "skill"
+            }));
+            return;
+        }
+        if (pagePath === "/competition-courses") {
+            response.json(Object.assign(base, {
+                pageType: "course-listing",
+                title: "Competition Courses",
+                eyebrow: "Exam Preparation",
+                description: "Prepare for teaching, Rajasthan government and central government exams.",
+                courses: courses.filter(function (course) { return /Exams$/.test(course.category); }),
+                categories: competitionCategories,
+                mode: "competition"
+            }));
+            return;
+        }
+        if (pagePath.indexOf("/competition-courses/") === 0) {
+            const slug = pagePath.split("/").pop();
+            const category = categoryBySlug(PUBLIC_COMPETITION_CATEGORIES, slug);
+            if (!category) { response.status(404).json({ success: false, message: "Category was not found." }); return; }
+            response.json(Object.assign(base, {
+                pageType: "course-category",
+                title: category.title,
+                eyebrow: "Competition Course Category",
+                description: category.description,
+                category: Object.assign({}, category, { count: coursesForCategory(courses, category.title).length }),
+                courses: coursesForCategory(courses, category.title),
+                categories: competitionCategories,
+                mode: "competition"
+            }));
+            return;
+        }
+        if (pagePath === "/services") {
+            response.json(Object.assign(base, {
+                pageType: "services",
+                title: "Our Services",
+                eyebrow: "Professional Services",
+                description: "Complete digital, accounting and IT service support for students and businesses."
+            }));
+            return;
+        }
+        if (pagePath.indexOf("/services/") === 0) {
+            const service = findService(pagePath.split("/").pop());
+            if (!service) { response.status(404).json({ success: false, message: "Service was not found." }); return; }
+            response.json(Object.assign(base, {
+                pageType: "service-detail",
+                title: service.title,
+                eyebrow: "Service Detail",
+                description: service.description,
+                service: service,
+                related: PUBLIC_SERVICES.filter(function (item) { return item.slug !== service.slug; }).slice(0, 4)
+            }));
+            return;
+        }
+        const simplePages = {
+            "/course-gallery": ["gallery", "Course Gallery", "Academy Gallery", "Classroom, computer lab and student activity images."],
+            "/contact": ["contact", "Contact Us", "Get In Touch", "Contact Vinayak Academy & IT Solution for courses, admissions and services."],
+            "/apply-now": ["apply", "Apply Now", "Admission Form", "Submit your admission enquiry for available courses."],
+            "/about": ["about", "About Us", "Founded in 2017", "Learn about Vinayak Academy & IT Solution, our mission and values."],
+            "/privacy-policy": ["legal", "Privacy Policy", "Owner Review Required", "Draft privacy policy for Vinayak Academy & IT Solution."],
+            "/terms-and-conditions": ["legal", "Terms and Conditions", "Owner Review Required", "Draft terms for Vinayak Academy & IT Solution."]
+        };
+        if (simplePages[pagePath]) {
+            const item = simplePages[pagePath];
+            response.json(Object.assign(base, {
+                pageType: item[0],
+                title: item[1],
+                eyebrow: item[2],
+                description: item[3],
+                courses: courses
+            }));
+            return;
+        }
+        response.status(404).json({ success: false, message: "Public page was not found." });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load public page.", error, { path: pagePath });
+    }
+});
+
+app.get("/courses/:slug", async function (request, response) {
+    const slug = String(request.params.slug || "").trim().toLowerCase();
+    if (!isValidCourseSlug(slug)) {
+        response.status(404).sendFile(path.join(__dirname, "course-detail.html"));
+        return;
+    }
+    try {
+        const client = getSupabaseClient();
+        const result = await findPublicCourseBySlug(client, slug);
+        if (!result.course) {
+            response.status(404).sendFile(path.join(__dirname, "course-detail.html"));
+            return;
+        }
+        response.sendFile(path.join(__dirname, "course-detail.html"));
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load course page.", error, { slug: slug });
+    }
+});
+
+app.get(["/skill-courses.html", "/competition-courses.html", "/services.html", "/course-gallery.html", "/contact.html"], function (request, response) {
+    const clean = request.path.replace(/\.html$/i, "");
+    response.redirect(301, clean);
+});
+
+app.get("/gallery", function (request, response) {
+    response.redirect(301, "/course-gallery");
+});
+
+app.get([
+    "/skill-courses",
+    "/skill-courses/:categorySlug",
+    "/competition-courses",
+    "/competition-courses/:categorySlug",
+    "/services",
+    "/services/:serviceSlug",
+    "/course-gallery",
+    "/contact",
+    "/apply-now",
+    "/about",
+    "/privacy-policy",
+    "/terms-and-conditions"
+], function (request, response) {
+    const publicPath = request.path.replace(/\/+$/, "") || "/";
+    if (publicPath.indexOf("/skill-courses/") === 0 && !categoryBySlug(PUBLIC_SKILL_CATEGORIES, publicPath.split("/").pop())) {
+        publicPageNotFound(response);
+        return;
+    }
+    if (publicPath.indexOf("/competition-courses/") === 0 && !categoryBySlug(PUBLIC_COMPETITION_CATEGORIES, publicPath.split("/").pop())) {
+        publicPageNotFound(response);
+        return;
+    }
+    if (publicPath.indexOf("/services/") === 0 && !findService(publicPath.split("/").pop())) {
+        publicPageNotFound(response);
+        return;
+    }
+    response.sendFile(path.join(__dirname, "public-page.html"));
+});
+
+app.post("/api/public/contact", async function (request, response) {
+    if (!rateLimitPublicForm(request)) {
+        response.status(429).json({ success: false, message: "Please wait before submitting another enquiry." });
+        return;
+    }
+    const payload = {
+        name: formString(request.body.name, 120),
+        phone: formString(request.body.phone, 30),
+        email: formString(request.body.email, 160),
+        subject: formString(request.body.subject, 180),
+        message: formString(request.body.message, 1200),
+        source: "public_contact"
+    };
+    if (!payload.name || !/^[0-9+\-\s]{8,18}$/.test(payload.phone) || !payload.message) {
+        response.status(400).json({ success: false, message: "Name, valid phone and message are required." });
+        return;
+    }
+    try {
+        const result = await getSupabaseClient().from("enquiries").insert([payload]).select("id").single();
+        if (result.error) throw result.error;
+        response.json({ success: true, message: "Thank you. We will contact you soon.", id: result.data && result.data.id });
+    } catch (error) {
+        sendApiError(response, 503, "Enquiry storage table is not available. Apply the public forms SQL migration.", error);
+    }
+});
+
+app.post("/api/public/apply-now", async function (request, response) {
+    if (!rateLimitPublicForm(request)) {
+        response.status(429).json({ success: false, message: "Please wait before submitting another application." });
+        return;
+    }
+    const payload = {
+        student_name: formString(request.body.student_name, 120),
+        guardian_name: formString(request.body.guardian_name, 120),
+        mobile: normalizePhone(request.body.mobile),
+        alternate_mobile: normalizePhone(request.body.alternate_mobile),
+        email: formString(request.body.email, 160),
+        date_of_birth: formString(request.body.date_of_birth, 30),
+        gender: formString(request.body.gender, 40),
+        address: formString(request.body.address, 400),
+        city: formString(request.body.city, 80),
+        state: formString(request.body.state, 80),
+        pin_code: formString(request.body.pin_code, 20),
+        course_category: formString(request.body.course_category, 120),
+        selected_course: formString(request.body.selected_course, 160),
+        education_qualification: formString(request.body.education_qualification, 160),
+        preferred_learning_mode: formString(request.body.preferred_learning_mode, 80),
+        message: formString(request.body.message, 1200),
+        consent: Boolean(request.body.consent),
+        status: "new"
+    };
+    if (!payload.student_name || !isIndianMobile(payload.mobile) || !payload.selected_course || !payload.consent) {
+        response.status(400).json({ success: false, message: "Student name, valid mobile, selected course and consent are required." });
+        return;
+    }
+    if (!isValidEmail(payload.email)) {
+        response.status(400).json({ success: false, message: "Enter a valid email address." });
+        return;
+    }
+    if (!isValidDateInput(payload.date_of_birth)) {
+        response.status(400).json({ success: false, message: "Enter a valid date of birth." });
+        return;
+    }
+    try {
+        const client = getSupabaseClient();
+        const course = await resolvePublicCourse(client, payload.selected_course);
+        if (!course) {
+            response.status(400).json({ success: false, message: "Selected course is not available." });
+            return;
+        }
+        const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+        const duplicate = await client
+            .from("enquiries")
+            .select("id, enquiry_number")
+            .eq("phone", payload.mobile)
+            .eq("course_name_snapshot", course.title)
+            .eq("source", "apply_now")
+            .gte("created_at", since)
+            .limit(1);
+        if (duplicate.error) throw duplicate.error;
+        if (duplicate.data && duplicate.data.length) {
+            response.json({
+                success: true,
+                message: "Your application is already recorded.",
+                enquiry_number: duplicate.data[0].enquiry_number,
+                applicant_name: payload.student_name,
+                course: course.title
+            });
+            return;
+        }
+        const enquiryNumber = await generateEnquiryNumber(client);
+        const insertPayload = {
+            enquiry_number: enquiryNumber,
+            enquiry_type: "admission_application",
+            source: "apply_now",
+            name: payload.student_name,
+            father_guardian_name: payload.guardian_name || null,
+            phone: payload.mobile,
+            alternate_phone: payload.alternate_mobile || null,
+            email: payload.email || null,
+            date_of_birth: payload.date_of_birth || null,
+            gender: payload.gender || null,
+            address: payload.address || null,
+            city: payload.city || null,
+            state: payload.state || null,
+            pin_code: payload.pin_code || null,
+            course_category: course.category || payload.course_category || null,
+            course_id: /^[0-9a-f-]{36}$/i.test(String(course.id || "")) ? course.id : null,
+            course_name_snapshot: course.title,
+            qualification: payload.education_qualification || null,
+            preferred_learning_mode: payload.preferred_learning_mode || null,
+            message: payload.message || null,
+            status: "new",
+            priority: "normal",
+            consent_given: true,
+            ip_address: formString((request.ip || request.get("x-forwarded-for") || "").split(",")[0], 80),
+            user_agent: formString(request.get("user-agent") || "", 300)
+        };
+        const result = await client.from("enquiries").insert([insertPayload]).select("id, enquiry_number").single();
+        if (result.error) throw result.error;
+        response.json({
+            success: true,
+            message: "Application submitted successfully.",
+            enquiry_number: result.data.enquiry_number,
+            applicant_name: payload.student_name,
+            course: course.title,
+            contact: "+91-9950756514"
+        });
+    } catch (error) {
+        sendApiError(response, 503, "Application could not be submitted right now. Please call the academy.", error);
+    }
+});
+
+app.post("/apply-now", function (request, response) {
+    response.redirect(307, "/api/public/apply-now");
+});
+
+app.get("/api/admin/enquiries", async function (request, response) {
+    try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
+        const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 25, max: 100 });
+        let query = client.from("enquiries").select(ENQUIRY_SELECT_COLUMNS, { count: "exact" });
+        const search = formString(request.query.search, 120);
+        if (search) {
+            query = query.or(["name", "phone", "email", "enquiry_number", "course_name_snapshot"].map(function (column) {
+                return column + ".ilike.%" + search.replace(/[%(),]/g, " ") + "%";
+            }).join(","));
+        }
+        if (request.query.status) query = query.eq("status", formString(request.query.status, 40));
+        if (request.query.source) query = query.eq("source", formString(request.query.source, 60));
+        if (request.query.enquiry_type) query = query.eq("enquiry_type", formString(request.query.enquiry_type, 80));
+        if (request.query.course) query = query.ilike("course_name_snapshot", "%" + formString(request.query.course, 120) + "%");
+        if (request.query.date_from) query = query.gte("created_at", formString(request.query.date_from, 30));
+        if (request.query.date_to) query = query.lte("created_at", formString(request.query.date_to, 30) + "T23:59:59");
+        const sort = String(request.query.sort || "newest");
+        if (sort === "oldest") query = query.order("created_at", { ascending: true });
+        else if (sort === "name") query = query.order("name", { ascending: true });
+        else if (sort === "status") query = query.order("status", { ascending: true });
+        else if (sort === "course") query = query.order("course_name_snapshot", { ascending: true });
+        else query = query.order("created_at", { ascending: false });
+        const result = await query.range(pageSettings.from, pageSettings.to);
+        if (result.error) throw result.error;
+        sendPaged(response, result.data || [], result.count, pageSettings);
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load enquiries.", error);
+    }
+});
+
+app.get("/api/admin/enquiries/:id", async function (request, response) {
+    try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
+        const id = formString(request.params.id, 80);
+        if (!/^[0-9a-f-]{36}$/i.test(id)) {
+            response.status(400).json({ success: false, message: "Invalid enquiry id." });
+            return;
+        }
+        const result = await getSupabaseClient().from("enquiries").select(ENQUIRY_SELECT_COLUMNS).eq("id", id).single();
+        if (result.error) throw result.error;
+        response.json({ success: true, enquiry: result.data });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load enquiry.", error);
+    }
+});
+
+app.patch("/api/admin/enquiries/:id", async function (request, response) {
+    try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
+        const id = formString(request.params.id, 80);
+        if (!/^[0-9a-f-]{36}$/i.test(id)) {
+            response.status(400).json({ success: false, message: "Invalid enquiry id." });
+            return;
+        }
+        const updates = { updated_at: new Date().toISOString() };
+        if (request.body.status) {
+            const status = formString(request.body.status, 40);
+            if (!ENQUIRY_STATUSES.includes(status)) {
+                response.status(400).json({ success: false, message: "Invalid enquiry status." });
+                return;
+            }
+            updates.status = status;
+            if (status === "contacted") updates.contacted_at = new Date().toISOString();
+            if (status === "closed" || status === "converted" || status === "rejected") updates.closed_at = new Date().toISOString();
+        }
+        if (request.body.priority) updates.priority = formString(request.body.priority, 40);
+        if (request.body.assigned_to !== undefined) updates.assigned_to = formString(request.body.assigned_to, 120) || null;
+        if (request.body.admin_notes !== undefined) updates.admin_notes = formString(request.body.admin_notes, 2000) || null;
+        if (request.body.follow_up_date !== undefined) updates.follow_up_date = formString(request.body.follow_up_date, 40) || null;
+        const result = await getSupabaseClient().from("enquiries").update(updates).eq("id", id).select(ENQUIRY_SELECT_COLUMNS).single();
+        if (result.error) throw result.error;
+        response.json({ success: true, message: "Enquiry updated.", enquiry: result.data });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not update enquiry.", error);
+    }
+});
 
 app.use(express.static(__dirname, {
     etag: true,

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Detail | Vinayak Academy & IT Solution</title>
+    <meta name="description" content="Course details, curriculum, fees and admission information from Vinayak Academy & IT Solution.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/public.css">
+    <link rel="stylesheet" href="/assets/css/course-detail.css">
+</head>
+<body class="public-page course-detail-page">
+    <div data-public-header></div>
+
+    <main id="mainContent">
+        <section class="course-breadcrumb" aria-label="Breadcrumb">
+            <div class="public-container">
+                <a href="/index.html">Home</a>
+                <span data-breadcrumb-current></span>
+            </div>
+        </section>
+
+        <section class="course-loading" data-course-loading>
+            <div class="public-container">
+                <div class="course-skeleton course-skeleton-hero"></div>
+                <div class="course-skeleton course-skeleton-line"></div>
+                <div class="course-skeleton course-skeleton-line short"></div>
+            </div>
+        </section>
+
+        <section class="course-error" data-course-error hidden>
+            <div class="public-container">
+                <h1>Course Not Found</h1>
+                <p>The course link is invalid or this course is not published yet.</p>
+                <a class="course-action-btn" href="/index.html">Back to Home</a>
+            </div>
+        </section>
+
+        <div data-course-shell hidden>
+            <section class="course-hero">
+                <div class="public-container course-hero-grid">
+                    <div class="course-hero-content">
+                        <div class="course-teacher-row">
+                            <div class="course-avatar" data-course-avatar>A</div>
+                            <div>
+                                <span>Instructor</span>
+                                <strong data-course-instructor>Admin</strong>
+                            </div>
+                            <div>
+                                <span>Category</span>
+                                <strong data-course-category>Course</strong>
+                            </div>
+                            <div>
+                                <span>Review</span>
+                                <strong class="course-stars" data-course-rating>Not rated</strong>
+                            </div>
+                        </div>
+                        <h1 data-course-title></h1>
+                        <p data-course-summary></p>
+                        <div class="course-meta-row">
+                            <span><i data-lucide="clock-3"></i><b data-course-duration></b></span>
+                            <span><i data-lucide="bar-chart-3"></i><b data-course-level></b></span>
+                            <span><i data-lucide="book-open"></i><b data-course-lessons></b></span>
+                            <span><i data-lucide="badge-help"></i><b data-course-quizzes></b></span>
+                            <span><i data-lucide="users"></i><b data-course-students></b></span>
+                        </div>
+                    </div>
+                    <aside class="course-purchase-card" aria-label="Course admission">
+                        <div class="course-preview" data-course-preview>
+                            <img src="/assets/images/banners/academy-computer-lab-1.png" alt="">
+                        </div>
+                        <div class="course-price" data-course-price></div>
+                        <button class="course-buy-btn" type="button" data-course-action>Apply for Course</button>
+                        <p data-course-action-note></p>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="course-body">
+                <div class="public-container course-body-grid">
+                    <article class="course-main">
+                        <nav class="course-tabs" aria-label="Course sections">
+                            <button type="button" class="is-active" data-tab-target="overview">Overview</button>
+                            <button type="button" data-tab-target="curriculum">Curriculum</button>
+                            <button type="button" data-tab-target="instructor">Instructor</button>
+                            <button type="button" data-tab-target="faqs">FAQs</button>
+                            <button type="button" data-tab-target="reviews">Reviews</button>
+                        </nav>
+
+                        <section class="course-panel is-active" data-tab-panel="overview">
+                            <h2>Course Overview</h2>
+                            <div data-course-overview></div>
+                            <div data-course-highlights></div>
+                            <div data-course-requirements></div>
+                        </section>
+
+                        <section class="course-panel" data-tab-panel="curriculum">
+                            <h2>Curriculum</h2>
+                            <div class="course-accordion" data-course-curriculum></div>
+                        </section>
+
+                        <section class="course-panel" data-tab-panel="instructor">
+                            <h2>Instructor</h2>
+                            <div class="course-instructor-card">
+                                <div class="course-avatar large" data-course-instructor-avatar>A</div>
+                                <div>
+                                    <h3 data-course-instructor-name>Admin</h3>
+                                    <p>Course guidance and support is managed by Vinayak Academy & IT Solution.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="course-panel" data-tab-panel="faqs">
+                            <h2>FAQs</h2>
+                            <div class="course-accordion" data-course-faqs></div>
+                        </section>
+
+                        <section class="course-panel" data-tab-panel="reviews">
+                            <h2>Reviews</h2>
+                            <div data-course-reviews></div>
+                        </section>
+                    </article>
+
+                    <aside class="course-sidebar">
+                        <form class="course-search" data-course-search>
+                            <input type="search" placeholder="Search ..." aria-label="Search courses">
+                            <button type="submit">Search</button>
+                        </form>
+                        <section>
+                            <h2>Categories</h2>
+                            <div class="course-category-list" data-course-categories></div>
+                        </section>
+                        <section>
+                            <h2>Related Courses</h2>
+                            <div class="course-related-list" data-course-related></div>
+                        </section>
+                    </aside>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div data-public-footer></div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="/JS/supabase-config.js"></script>
+    <script src="/JS/api-config.js"></script>
+    <script src="/JS/auth.js"></script>
+    <script src="/assets/js/public-layout.js"></script>
+    <script src="/assets/js/course-detail.js"></script>
+</body>
+</html>

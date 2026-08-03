@@ -12,6 +12,7 @@
     let notesCache = [];
     let materialCoursesCache = [];
     let announcementsCache = [];
+    let enquiriesCache = [];
     let attendanceReportCache = null;
     let dashboardStatsCache = null;
     let globalStatsCache = null;
@@ -27,9 +28,11 @@
     const activeMaterialUploads = {};
     let bulkRows = [];
     let emiMode = "auto";
+    let addEditEmiInFlight = false;
+    let editStudentContextId = "";
     let currentAdmissionStep = 1;
-    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, payments: 1, reports: 1, attendanceReport: 1 };
-    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, payments: 25, reports: 25, attendanceReport: 50 };
+    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, enquiries: 1, payments: 1, reports: 1, attendanceReport: 1 };
+    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, enquiries: 25, payments: 25, reports: 25, attendanceReport: 50 };
     const TABLE_COLUMNS = {
         student_fees: "id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount, institute_id",
         emis: "id, student_id, emi_number, amount, due_date, paid_date, status, payment_id, institute_id",
@@ -109,7 +112,19 @@
     }
 
     function apiFetch(path, options) {
-        return window.VinayakApi ? window.VinayakApi.fetch(path, options) : fetch(apiUrl(path), options);
+        const nextOptions = Object.assign({}, options || {});
+        const headers = Object.assign({}, nextOptions.headers || {});
+        try {
+            const session = JSON.parse(window.localStorage.getItem("admin_session") || "{}");
+            if (session && session.role === "admin") {
+                headers["X-Admin-Id"] = session.adminId || "";
+                headers["X-Admin-Password"] = session.password || "";
+            }
+        } catch (error) {
+            console.warn("Admin auth headers unavailable", error);
+        }
+        nextOptions.headers = headers;
+        return window.VinayakApi ? window.VinayakApi.fetch(path, nextOptions) : fetch(apiUrl(path), nextOptions);
     }
 
     function getCourseId(course) {
@@ -344,6 +359,7 @@
         if (sectionName === "courses") ensureMaterialLoaded();
         if (sectionName === "material") ensureMaterialLoaded();
         if (sectionName === "notifications") ensureAnnouncementsLoaded();
+        if (sectionName === "enquiries") loadEnquiries(false);
         if (sectionName === "batches") {
             ensureBatchesLoaded(true);
         }
@@ -453,6 +469,138 @@
             throw new Error(payload.message || payload.error || "Could not load records.");
         }
         return payload.rows || payload.data || [];
+    }
+
+    function enquiryBadge(enquiry) {
+        return String(enquiry.enquiry_type || "").toLowerCase() === "admission_application"
+            ? '<span class="status-badge status-new">Admission Application</span>'
+            : '<span class="status-badge">Contact Enquiry</span>';
+    }
+
+    function enquiryStatusBadge(status) {
+        const clean = String(status || "new");
+        return '<span class="status-badge status-' + escapeHtml(clean.replace(/_/g, "-")) + '">' + escapeHtml(clean.replace(/_/g, " ")) + '</span>';
+    }
+
+    function getEnquiryFilters() {
+        return {
+            search: getValue("enquirySearchInput"),
+            status: getValue("enquiryStatusFilter"),
+            enquiry_type: getValue("enquiryTypeFilter"),
+            sort: getValue("enquirySortFilter") || "newest"
+        };
+    }
+
+    async function loadEnquiries(resetPage) {
+        if (resetPage !== false) paginationState.enquiries = 1;
+        try {
+            enquiriesCache = await fetchAdminPage("/api/admin/enquiries", "enquiries", getEnquiryFilters());
+            renderEnquiries(enquiriesCache);
+        } catch (error) {
+            const tbody = document.getElementById("enquiriesTableBody");
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">' + escapeHtml(error.message || "Could not load enquiries.") + '</td></tr>';
+            renderServerPagination("enquiriesPagination", "enquiries");
+        }
+    }
+
+    function renderEnquiries(rows) {
+        const tbody = document.getElementById("enquiriesTableBody");
+        if (!tbody) return;
+        if (!rows || !rows.length) {
+            tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">No enquiries found.</td></tr>';
+            renderServerPagination("enquiriesPagination", "enquiries");
+            return;
+        }
+        tbody.innerHTML = rows.map(function (enquiry) {
+            const phone = String(enquiry.phone || "");
+            return [
+                '<tr><td data-label="Enquiry No.">', escapeHtml(enquiry.enquiry_number || "-"), '</td><td data-label="Applicant"><strong>', escapeHtml(enquiry.name || "-"), "</strong><small>", escapeHtml(enquiry.email || ""), '</small></td><td data-label="Phone">',
+                phone ? '<a href="tel:' + escapeHtml(phone) + '">' + escapeHtml(phone) + '</a>' : "-",
+                '</td><td data-label="Course">', escapeHtml(enquiry.course_name_snapshot || enquiry.course_category || "-"), '</td><td data-label="Type">', enquiryBadge(enquiry), '</td><td data-label="Source">',
+                escapeHtml(enquiry.source || "-"), '</td><td data-label="Status">', enquiryStatusBadge(enquiry.status), '</td><td data-label="Date">', escapeHtml(formatDateTime(enquiry.created_at)), '</td><td data-label="Actions">',
+                '<button type="button" class="table-action-btn" data-view-enquiry="' + escapeHtml(enquiry.id) + '">Open</button>',
+                "</td></tr>"
+            ].join("");
+        }).join("");
+        renderServerPagination("enquiriesPagination", "enquiries");
+    }
+
+    function detailRow(label, value) {
+        return '<div><strong>' + escapeHtml(label) + '</strong><span>' + escapeHtml(value || "-") + '</span></div>';
+    }
+
+    async function openEnquiryDetails(id) {
+        try {
+            const response = await apiFetch("/api/admin/enquiries/" + encodeURIComponent(id), { headers: { "Accept": "application/json" } });
+            const payload = await response.json().catch(function () { return {}; });
+            if (!response.ok || payload.success === false) throw new Error(payload.message || "Could not load enquiry.");
+            const enquiry = payload.enquiry || {};
+            setValue("activeEnquiryId", enquiry.id || "");
+            setValue("enquiryDetailStatus", enquiry.status || "new");
+            setValue("enquiryDetailPriority", enquiry.priority || "normal");
+            setValue("enquiryFollowUpDate", enquiry.follow_up_date || "");
+            setValue("enquiryAssignedTo", enquiry.assigned_to || "");
+            setValue("enquiryAdminNotes", enquiry.admin_notes || "");
+            const phone = String(enquiry.phone || "").replace(/\D/g, "");
+            const wa = phone ? "https://wa.me/91" + phone.slice(-10) : "";
+            const body = document.getElementById("enquiryDetailsBody");
+            if (body) {
+                body.innerHTML = [
+                    detailRow("Enquiry Number", enquiry.enquiry_number),
+                    detailRow("Student Name", enquiry.name),
+                    detailRow("Father / Guardian", enquiry.father_guardian_name),
+                    detailRow("Mobile", enquiry.phone),
+                    detailRow("Alternate Number", enquiry.alternate_phone),
+                    detailRow("Email", enquiry.email),
+                    detailRow("Date of Birth", enquiry.date_of_birth),
+                    detailRow("Gender", enquiry.gender),
+                    detailRow("Address", [enquiry.address, enquiry.city, enquiry.state, enquiry.pin_code].filter(Boolean).join(", ")),
+                    detailRow("Course Category", enquiry.course_category),
+                    detailRow("Selected Course", enquiry.course_name_snapshot),
+                    detailRow("Qualification", enquiry.qualification),
+                    detailRow("Learning Mode", enquiry.preferred_learning_mode),
+                    detailRow("Message", enquiry.message),
+                    detailRow("Consent", enquiry.consent_given ? "Yes" : "No"),
+                    detailRow("Source", enquiry.source),
+                    detailRow("Created", formatDateTime(enquiry.created_at)),
+                    detailRow("Updated", formatDateTime(enquiry.updated_at)),
+                    '<div><strong>Contact Actions</strong><span>' + (enquiry.phone ? '<a class="table-action-btn" href="tel:' + escapeHtml(enquiry.phone) + '">Call</a> ' : "") + (enquiry.email ? '<a class="table-action-btn" href="mailto:' + escapeHtml(enquiry.email) + '">Email</a> ' : "") + (wa ? '<a class="table-action-btn" href="' + escapeHtml(wa) + '" target="_blank" rel="noopener">WhatsApp</a>' : "") + '</span></div>'
+                ].join("");
+            }
+            const card = document.getElementById("enquiryDetailsCard");
+            if (card) {
+                card.hidden = false;
+                card.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        } catch (error) {
+            setPanelMessage(error.message || "Could not open enquiry.", "error");
+        }
+    }
+
+    async function saveEnquiryUpdate(event) {
+        event.preventDefault();
+        const id = getValue("activeEnquiryId");
+        if (!id) return;
+        try {
+            const response = await apiFetch("/api/admin/enquiries/" + encodeURIComponent(id), {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({
+                    status: getValue("enquiryDetailStatus"),
+                    priority: getValue("enquiryDetailPriority"),
+                    follow_up_date: getValue("enquiryFollowUpDate"),
+                    assigned_to: getValue("enquiryAssignedTo"),
+                    admin_notes: getValue("enquiryAdminNotes")
+                })
+            });
+            const payload = await response.json().catch(function () { return {}; });
+            if (!response.ok || payload.success === false) throw new Error(payload.message || "Could not update enquiry.");
+            setPanelMessage("Enquiry updated.", "success");
+            loadEnquiries(false);
+            openEnquiryDetails(id);
+        } catch (error) {
+            setPanelMessage(error.message || "Could not update enquiry.", "error");
+        }
     }
 
     async function fetchDashboardStats(useDashboardFilter) {
@@ -652,6 +800,18 @@
             .sort(function (a, b) {
                 return Number(a.emi_number || 0) - Number(b.emi_number || 0);
             });
+    }
+
+    function replaceStudentEmisInCache(studentId, rows) {
+        emisCache = emisCache.filter(function (emi) {
+            return String(emi.student_id || emi.studentId || "") !== String(studentId);
+        }).concat(rows || []);
+    }
+
+    function replaceStudentPaymentsInCache(studentId, rows) {
+        paymentsCache = paymentsCache.filter(function (payment) {
+            return String(payment.student_id || payment.studentId || "") !== String(studentId);
+        }).concat(rows || []);
     }
 
     function getStudentPayments(studentId) {
@@ -972,11 +1132,11 @@
         }
         const studentId = getIdentifier(student);
         const fees = getStudentFees(studentId);
-        const emis = getStudentEmis(studentId);
-        const upcoming = emis.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid"; })[0];
+        editStudentContextId = studentId;
         const form = document.getElementById("editStudentForm");
         if (form) {
             form.dataset.originalStudentId = studentId;
+            form.dataset.editStudentContextId = studentId;
         }
         setValue("editStudentId", getIdentifier(student));
         setValue("editStudentName", student.name || "");
@@ -994,10 +1154,10 @@
         setValue("editTotalFee", fees.total_fee || "");
         setValue("editAdvanceFee", fees.admission_fee || fees.paid_amount || "");
         setValue("editRemainingFee", fees.remaining_fee || "");
-        setValue("editDueDate", student.due_date || (upcoming && upcoming.due_date) || "");
+        setValue("editDueDate", student.due_date || "");
         setValue("editAddress", student.address || "");
         setValue("editPaymentNote", student.payment_note || "");
-        renderEditEmis(studentId);
+        loadStudentFinanceForEdit(studentId);
     }
 
     function clearEditForm() {
@@ -1005,14 +1165,16 @@
         if (form) {
             form.reset();
             delete form.dataset.originalStudentId;
+            delete form.dataset.editStudentContextId;
         }
+        editStudentContextId = "";
         setBatchSelectOptions("editBatch", "", "Select course first", false);
         setValue("editAccountStatus", "active");
         setValue("editFeesStatus", "pending");
         renderEditEmis("");
     }
 
-    function renderEditEmis(studentId) {
+    function renderEditEmisRows(studentId, rows) {
         const tbody = document.getElementById("editEmiTableBody");
         if (!tbody) {
             return;
@@ -1021,11 +1183,11 @@
             tbody.innerHTML = '<tr><td colspan="6" class="admin-empty">Select a student to edit EMI schedule.</td></tr>';
             return;
         }
-        const rows = getStudentEmis(studentId);
         tbody.innerHTML = rows.length ? rows.map(function (emi) {
-            const key = escapeHtml(emi.id || emi.emi_number);
+            const emiId = String(emi.id || "");
+            const key = escapeHtml(emiId || emi.emi_number);
             return [
-                '<tr data-edit-emi-row data-emi-key="', key, '" data-student-id="', escapeHtml(studentId), '">',
+                '<tr data-edit-emi-row data-emi-key="', key, '" data-emi-id="', escapeHtml(emiId), '" data-student-id="', escapeHtml(studentId), '">',
                 '<td><input type="number" min="1" data-edit-emi-number value="', escapeHtml(emi.emi_number), '"></td>',
                 '<td><input type="number" min="0" step="0.01" data-edit-emi-amount value="', escapeHtml(emi.amount), '"></td>',
                 '<td><input type="date" data-edit-emi-due value="', escapeHtml(emi.due_date || ""), '"></td>',
@@ -1037,28 +1199,67 @@
         }).join("") : '<tr><td colspan="6" class="admin-empty">No EMI records. Use Add EMI to create one.</td></tr>';
     }
 
+    function renderEditEmis(studentId) {
+        renderEditEmisRows(studentId, studentId ? getStudentEmis(studentId) : []);
+    }
+
+    async function loadStudentFinanceForEdit(studentId) {
+        const tbody = document.getElementById("editEmiTableBody");
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="admin-empty">Loading EMI records...</td></tr>';
+        try {
+            const results = await Promise.all([
+                fetchAdminRows("/api/admin/fees", { student_id: studentId, page: 1, limit: 1 }),
+                fetchAdminRows("/api/admin/emis", { student_id: studentId, page: 1, limit: 200 }),
+                fetchAdminRows("/api/admin/payments", { student_id: studentId, page: 1, limit: 200 })
+            ]);
+            const fee = results[0][0] || {};
+            const rows = results[1] || [];
+            const payments = results[2] || [];
+            feesCache = feesCache.filter(function (item) {
+                return String(item.student_id || item.studentId || "") !== String(studentId);
+            }).concat(fee.student_id ? [fee] : []);
+            replaceStudentEmisInCache(studentId, rows);
+            replaceStudentPaymentsInCache(studentId, payments);
+            const upcoming = rows.filter(function (emi) { return normalizeEmiStatus(emi.status) !== "paid"; })[0];
+            setValue("editFeesStatus", fee.status || getValue("editFeesStatus") || "pending");
+            setValue("editTotalFee", fee.total_fee || "");
+            setValue("editAdvanceFee", fee.admission_fee || fee.paid_amount || "");
+            setValue("editRemainingFee", fee.remaining_fee || "");
+            setValue("editDueDate", getValue("editDueDate") || (upcoming && upcoming.due_date) || "");
+            renderEditEmisRows(studentId, rows);
+        } catch (error) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="admin-empty">' + escapeHtml(error.message || "Could not load EMI records.") + '</td></tr>';
+        }
+    }
+
     function getCurrentEditStudentId() {
         const form = document.getElementById("editStudentForm");
-        return getValue("editStudentId") || (form && form.dataset.originalStudentId) || "";
+        return editStudentContextId || (form && (form.dataset.editStudentContextId || form.dataset.originalStudentId)) || "";
     }
 
     async function addEditEmi() {
+        if (addEditEmiInFlight) {
+            return;
+        }
         const studentId = getCurrentEditStudentId();
         if (!studentId) {
             setPanelMessage("Select a student before adding EMI.", "error");
             return;
         }
-        const rows = await fetchAdminRows("/api/admin/emis", { student_id: studentId, page: 1, limit: 200 });
-        const payload = {
-            student_id: studentId,
-            emi_number: rows.length ? Math.max.apply(null, rows.map(function (emi) { return Number(emi.emi_number || 0); })) + 1 : 1,
-            amount: 0,
-            due_date: getTodayDateString(),
-            status: "pending",
-            paid_date: null
-        };
+        addEditEmiInFlight = true;
+        const button = document.getElementById("addEditEmiBtn");
+        if (button) button.disabled = true;
         try {
-            const response = await fetch(apiUrl("/api/admin/emis"), {
+            const rows = await fetchAdminRows("/api/admin/emis", { student_id: studentId, page: 1, limit: 200 });
+            const payload = {
+                student_id: studentId,
+                emi_number: rows.length ? Math.max.apply(null, rows.map(function (emi) { return Number(emi.emi_number || 0); })) + 1 : 1,
+                amount: 0,
+                due_date: getTodayDateString(),
+                status: "pending",
+                paid_date: null
+            };
+            const response = await apiFetch("/api/admin/emis", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1070,16 +1271,15 @@
             if (!response.ok || result.success === false || !result.emi || !result.emi.id) {
                 throw new Error(result.message || result.error || "EMI insert was not confirmed.");
             }
-            const updatedRows = await fetchAdminRows("/api/admin/emis", { student_id: studentId, page: 1, limit: 200 });
-            emisCache = emisCache.filter(function (emi) {
-                return String(emi.student_id || "") !== String(studentId);
-            }).concat(updatedRows);
             setPanelMessage("EMI added.", "success");
-            renderEditEmis(studentId);
             await loadEmiPage(false);
+            await loadStudentFinanceForEdit(studentId);
         } catch (error) {
             console.error("Add EMI failed", error);
             setPanelMessage(error.message || "Could not add EMI.", "error");
+        } finally {
+            addEditEmiInFlight = false;
+            if (button) button.disabled = false;
         }
     }
 
@@ -1096,48 +1296,52 @@
 
     async function updateEditEmi(row) {
         const studentId = row.getAttribute("data-student-id");
-        const key = row.getAttribute("data-emi-key");
-        const emi = emisCache.find(function (item) {
-            return String(item.student_id) === String(studentId) && (String(item.id || "") === String(key) || String(item.emi_number) === String(key));
-        });
-        if (!emi) {
-            setPanelMessage("EMI record not found.", "error");
+        const emiId = row.getAttribute("data-emi-id") || "";
+        const payload = getEditedEmiPayload(row);
+        if (!studentId || !emiId) {
+            setPanelMessage("This EMI record is missing its database id. Reload and try again.", "error");
             return;
         }
-        const payload = getEditedEmiPayload(row);
-        const query = window.VinayakAuth.getClient().from("emis").update(payload);
-        const result = emi.id ? await query.eq("id", emi.id) : await query.eq("student_id", studentId).eq("emi_number", emi.emi_number);
-        if (result.error) {
-            setPanelMessage(result.error.message || "Could not update EMI.", "error");
+        payload.student_id = studentId;
+        payload.emi_id = emiId;
+        const response = await apiFetch("/api/admin/emis/" + encodeURIComponent(emiId), {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(function () { return {}; });
+        if (!response.ok || result.success === false) {
+            setPanelMessage(result.message || "Could not update EMI.", "error");
             return;
         }
         await syncStudentLock(studentId);
         setPanelMessage("EMI updated.", "success");
-        await refreshAll();
-        renderEditEmis(studentId);
+        await loadEmiPage(false);
+        await loadStudentFinanceForEdit(studentId);
     }
 
     async function deleteEditEmi(studentId, emiKey) {
         if (!window.confirm("Delete this EMI record?")) {
             return;
         }
-        const emi = emisCache.find(function (item) {
-            return String(item.student_id) === String(studentId) && (String(item.id || "") === String(emiKey) || String(item.emi_number) === String(emiKey));
-        });
-        if (!emi) {
-            setPanelMessage("EMI record not found.", "error");
+        if (!studentId || !emiKey) {
+            setPanelMessage("This EMI record is missing its database id. Reload and try again.", "error");
             return;
         }
-        const query = window.VinayakAuth.getClient().from("emis").delete();
-        const result = emi.id ? await query.eq("id", emi.id) : await query.eq("student_id", studentId).eq("emi_number", emi.emi_number);
-        if (result.error) {
-            setPanelMessage(result.error.message || "Could not delete EMI.", "error");
+        const response = await apiFetch("/api/admin/emis/" + encodeURIComponent(emiKey), {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify({ student_id: studentId, emi_id: emiKey })
+        });
+        const result = await response.json().catch(function () { return {}; });
+        if (!response.ok || result.success === false) {
+            setPanelMessage(result.message || "Could not delete EMI.", "error");
             return;
         }
         await syncStudentLock(studentId);
         setPanelMessage("EMI deleted.", "success");
-        await refreshAll();
-        renderEditEmis(studentId);
+        await loadEmiPage(false);
+        await loadStudentFinanceForEdit(studentId);
     }
 
     async function updateStudent(event) {
@@ -1208,10 +1412,12 @@
             }
             if (form) {
                 form.dataset.originalStudentId = studentId;
+                form.dataset.editStudentContextId = studentId;
             }
+            editStudentContextId = studentId;
             setPanelMessage("Student details updated.", "success");
             await refreshAll();
-            renderEditEmis(studentId);
+            await loadStudentFinanceForEdit(studentId);
         } catch (error) {
             console.error("Student update failed", error);
             setPanelMessage(error.message || "Could not update student.", "error");
@@ -1238,24 +1444,28 @@
         event.preventDefault();
         clearPanelMessage();
         const studentId = getValue("deleteStudentId");
-        if (!studentId || !window.confirm("Delete student and related fee/EMI records permanently?")) {
+        if (!studentId || !window.confirm("Archive this student account? Fee, EMI, payment and attendance history will be preserved.")) {
             return;
         }
         try {
             const client = window.VinayakAuth.getClient();
-            await client.from("emis").delete().eq("student_id", studentId);
-            await client.from("student_fees").delete().eq("student_id", studentId);
-            const { error } = await client.from(window.VinayakAuth.getStudentsTableName()).delete().eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId);
+            const { error } = await client
+                .from(window.VinayakAuth.getStudentsTableName())
+                .update({
+                    account_status: "disabled",
+                    payment_note: "Account archived by admin. Historical fee, EMI, payment and attendance records preserved."
+                })
+                .eq(window.VinayakAuth.getStudentIdentifierColumn(), studentId);
             if (error) {
                 throw error;
             }
             document.getElementById("deleteStudentForm").reset();
             clearEditForm();
-            setPanelMessage("Student deleted.", "success");
+            setPanelMessage("Student archived. Related ERP history was preserved.", "success");
             await refreshAll();
         } catch (error) {
-            console.error("Delete student failed", error);
-            setPanelMessage(error.message || "Could not delete student.", "error");
+            console.error("Archive student failed", error);
+            setPanelMessage(error.message || "Could not archive student.", "error");
         }
     }
 
@@ -1326,10 +1536,26 @@
         if (!emi) {
             return;
         }
-        const query = window.VinayakAuth.getClient().from("emis").update({ status: "paid", paid_date: getTodayDateString() });
-        const result = emi.id ? await query.eq("id", emi.id) : await query.eq("student_id", studentId).eq("emi_number", emi.emi_number);
-        if (result.error) {
-            setPanelMessage(result.error.message || "Could not update EMI.", "error");
+        if (!emi.id) {
+            setPanelMessage("This EMI record is missing its database id. Reload and try again.", "error");
+            return;
+        }
+        const response = await apiFetch("/api/admin/emis/" + encodeURIComponent(emi.id), {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify({
+                student_id: studentId,
+                emi_id: emi.id,
+                emi_number: emi.emi_number,
+                amount: emi.amount,
+                due_date: emi.due_date || null,
+                status: "paid",
+                paid_date: getTodayDateString()
+            })
+        });
+        const result = await response.json().catch(function () { return {}; });
+        if (!response.ok || result.success === false) {
+            setPanelMessage(result.message || "Could not update EMI.", "error");
             return;
         }
         emi.status = "paid";
@@ -1340,7 +1566,13 @@
     }
 
     async function syncStudentLock(studentId) {
-        const emis = getStudentEmis(studentId);
+        let emis = getStudentEmis(studentId);
+        try {
+            emis = await fetchAdminRows("/api/admin/emis", { student_id: studentId, page: 1, limit: 200 });
+            replaceStudentEmisInCache(studentId, emis);
+        } catch (error) {
+            console.warn("Could not reload EMI rows before student lock sync", error);
+        }
         const hasOverdue = emis.some(function (emi) {
             return normalizeEmiStatus(emi.status) === "overdue";
         });
@@ -3496,6 +3728,7 @@
                 if (pageButton.getAttribute("data-pagination-key") === "bulk") renderBulkRows();
                 if (pageButton.getAttribute("data-pagination-key") === "material") renderMaterials();
                 if (pageButton.getAttribute("data-pagination-key") === "announcements") ensureAnnouncementsLoaded(true);
+                if (pageButton.getAttribute("data-pagination-key") === "enquiries") loadEnquiries(false);
                 if (pageButton.getAttribute("data-pagination-key") === "reports") renderReports();
                 if (pageButton.getAttribute("data-pagination-key") === "attendanceReport") loadAttendanceReport();
                 return;
@@ -3508,6 +3741,7 @@
                 if (key === "students") applyStudentFilter(false);
                 if (key === "emi") loadEmiPage(false);
                 if (key === "announcements") ensureAnnouncementsLoaded(true);
+                if (key === "enquiries") loadEnquiries(false);
                 if (key === "reports") renderReports();
                 if (key === "attendanceReport") loadAttendanceReport();
                 if (key === "material") renderMaterials();
@@ -3538,6 +3772,8 @@
             if (toggleAnnouncementButton) toggleAnnouncementPin(toggleAnnouncementButton.getAttribute("data-toggle-announcement-pin"));
             const deleteAnnouncementButton = event.target.closest("[data-delete-announcement]");
             if (deleteAnnouncementButton) deleteAnnouncement(deleteAnnouncementButton.getAttribute("data-delete-announcement"));
+            const viewEnquiryButton = event.target.closest("[data-view-enquiry]");
+            if (viewEnquiryButton) openEnquiryDetails(viewEnquiryButton.getAttribute("data-view-enquiry"));
             const viewBatchButton = event.target.closest("[data-view-batch]");
             if (viewBatchButton) openBatchDetails(viewBatchButton.getAttribute("data-view-batch"));
             const editBatchButton = event.target.closest("[data-edit-batch]");
@@ -3566,6 +3802,7 @@
             if (key === "students") applyStudentFilter(false);
             if (key === "emi") loadEmiPage(false);
             if (key === "announcements") ensureAnnouncementsLoaded(true);
+            if (key === "enquiries") loadEnquiries(false);
             if (key === "reports") renderReports();
             if (key === "attendanceReport") loadAttendanceReport();
             if (key === "material") renderMaterials();
@@ -3589,6 +3826,19 @@
         document.getElementById("clearEditStudentBtn").addEventListener("click", clearEditForm);
         document.getElementById("closeProfileBtn").addEventListener("click", function () {
             document.getElementById("studentProfileCard").hidden = true;
+        });
+        const closeEnquiry = document.getElementById("closeEnquiryDetailsBtn");
+        if (closeEnquiry) closeEnquiry.addEventListener("click", function () {
+            document.getElementById("enquiryDetailsCard").hidden = true;
+        });
+        const enquiryUpdateForm = document.getElementById("enquiryUpdateForm");
+        if (enquiryUpdateForm) enquiryUpdateForm.addEventListener("submit", saveEnquiryUpdate);
+        ["enquirySearchInput", "enquiryStatusFilter", "enquiryTypeFilter", "enquirySortFilter"].forEach(function (id) {
+            const field = document.getElementById(id);
+            if (field) {
+                field.addEventListener("input", function () { loadEnquiries(true); });
+                field.addEventListener("change", function () { loadEnquiries(true); });
+            }
         });
         ["studentSearchInput", "studentCourseFilter", "studentBatchFilter", "studentStatusFilter"].forEach(function (id) {
             document.getElementById(id).addEventListener("input", applyStudentFilter);
