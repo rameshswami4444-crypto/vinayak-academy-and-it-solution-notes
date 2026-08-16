@@ -249,6 +249,14 @@
     background: #273142;
 }
 
+.public-link-btn.public-link-btn-red {
+    background: var(--public-red);
+}
+
+.public-link-btn.public-link-btn-red:hover {
+    background: var(--public-red-dark);
+}
+
 .public-service-card {
     padding: 22px;
 }
@@ -289,6 +297,18 @@
     gap: 16px;
 }
 
+.public-apply-container {
+    max-width: 980px;
+}
+
+.public-enquiry-card {
+    box-shadow: 0 16px 36px rgba(9, 27, 61, 0.1);
+}
+
+.public-field-wide {
+    grid-column: 1 / -1;
+}
+
 .public-field label {
     display: block;
     margin-bottom: 7px;
@@ -297,11 +317,119 @@
     font-weight: 700;
 }
 
+.public-inline-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.public-form-btn.secondary {
+    background: #263142;
+}
+
+.public-submit-btn {
+    justify-self: center;
+    min-width: 190px;
+}
+
+.public-verified-state {
+    padding: 10px 13px;
+    border: 1px solid #b9e4c9;
+    border-radius: 7px;
+    background: #effaf3;
+    color: #137333;
+    font-weight: 700;
+}
+
+.public-consent {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    color: #263142;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.public-consent input {
+    margin-top: 3px;
+}
+
+.public-form-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.public-admission-steps {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.public-admission-steps span {
+    display: grid;
+    min-height: 34px;
+    place-items: center;
+    border: 1px solid #ccd5e4;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #4b5563;
+    font-weight: 800;
+}
+
+.public-admission-steps span.active,
+.public-admission-steps span.complete {
+    border-color: var(--public-blue);
+    background: var(--public-blue);
+    color: #ffffff;
+}
+
+.public-admission-form h3 {
+    margin: 4px 0 16px;
+}
+
+.public-fee-summary,
+.public-admission-summary {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.public-fee-summary div,
+.public-admission-summary div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 13px;
+    border: 1px solid #e4e9f3;
+    border-radius: 7px;
+    background: #f8fafc;
+}
+
+.public-fee-summary span,
+.public-admission-summary span {
+    text-align: right;
+}
+
+.public-turnstile:empty {
+    display: none;
+}
+
 .public-form-status {
     min-height: 20px;
     color: #3158d4;
     font-size: 14px;
     font-weight: 600;
+}
+
+.public-form-status[data-status-type="error"] {
+    color: #b42318;
+}
+
+.public-form-status[data-status-type="success"] {
+    color: #137333;
 }
 
 .public-gallery-grid {
@@ -419,6 +547,23 @@
     .public-gallery-grid,
     .public-form-grid {
         grid-template-columns: 1fr;
+    }
+
+    .public-inline-control {
+        grid-template-columns: 1fr;
+    }
+
+    .public-submit-btn {
+        width: 100%;
+    }
+
+    .public-form-actions {
+        display: grid;
+    }
+
+    .public-admission-steps {
+        grid-template-columns: repeat(7, minmax(30px, 1fr));
+        gap: 4px;
     }
 
     .public-cta-inner {

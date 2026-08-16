@@ -33,6 +33,7 @@
     let protectedPageInitPromise = null;
     let blockedPageInitPromise = null;
     let redirectInProgress = false;
+    let loginSubmitInProgress = false;
     const SILENT_SESSION_VALIDATION_MS = 20 * 1000;
 
     function getConfig() {
@@ -72,6 +73,18 @@
         }
 
         return window.__vinayakSupabaseClient;
+    }
+
+    async function apiJson(path, options) {
+        if (window.VinayakApi && window.VinayakApi.json) {
+            return window.VinayakApi.json(path, options || {});
+        }
+        const response = await window.fetch(path, options || {});
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.message || payload.error || "API request failed.");
+        }
+        return payload;
     }
 
     function getStudentsTableName() {
@@ -491,23 +504,22 @@
         };
     }
 
-    function startAdminSession(adminId, password) {
+    function startAdminSession(adminId, token) {
         persistAdminSessionPayload({
             role: "admin",
             adminId: adminId,
-            password: password,
+            adminToken: token,
             createdAt: now(),
             expiresAt: now() + SESSION_DURATION_MS
         });
     }
 
-    function buildStudentSession(student, password, sessionId, createdAt) {
+    function buildStudentSession(student, sessionId, createdAt) {
         const session = createBaseSession("student");
         const course = normalizeSingleCourse(student.course);
         session.studentId = getStudentIdentifierValue(student);
         session.course = course;
         session.courses = course ? [course] : [];
-        session.password = password;
         session.sessionId = String(sessionId || student.session_token || student.session_id || "");
         session.session_token = session.sessionId;
         session.feesStatus = normalizeFeesStatus(student.fees_status);
@@ -524,8 +536,8 @@
         return session;
     }
 
-    function startStudentSession(student, password, sessionId) {
-        const session = buildStudentSession(student, password, sessionId);
+    function startStudentSession(student, sessionId) {
+        const session = buildStudentSession(student, sessionId);
         persistStudentSessionPayload(session);
         persistCourses(session.course);
         persistStudentSession(session.sessionId, session.studentId);
@@ -585,6 +597,9 @@
     }
 
     function toPageUrl(path) {
+        if (String(path || "").charAt(0) === "/") {
+            return path;
+        }
         return getProjectRootPrefix() + normalizePagePath(path);
     }
 
@@ -599,6 +614,18 @@
 
     function redirectTo(url, replace) {
         if (!url || redirectInProgress) {
+            return;
+        }
+        redirectInProgress = true;
+        if (replace && window.location.replace) {
+            window.location.replace(url);
+            return;
+        }
+        window.location.href = url;
+    }
+
+    function forceRedirectTo(url, replace) {
+        if (!url) {
             return;
         }
         redirectInProgress = true;
@@ -819,6 +846,10 @@
     function setLoginTab(tabName) {
         const tabs = document.querySelectorAll("[data-auth-tab]");
         const panels = document.querySelectorAll("[data-auth-panel]");
+        const actionRow = document.querySelector(".prototype-login-actions");
+        if (actionRow) {
+            actionRow.hidden = tabName === "admin";
+        }
 
         tabs.forEach(function (tab) {
             const isActive = tab.getAttribute("data-auth-tab") === tabName;
@@ -845,8 +876,27 @@
         });
     }
 
+    function bindLoginForms() {
+        const studentForm = document.getElementById("studentLoginForm");
+        const adminForm = document.getElementById("adminLoginForm");
+
+        if (studentForm && !studentForm.dataset.authBound) {
+            studentForm.dataset.authBound = "true";
+            studentForm.addEventListener("submit", handleStudentLogin);
+        }
+
+        if (adminForm && !adminForm.dataset.authBound) {
+            adminForm.dataset.authBound = "true";
+            adminForm.addEventListener("submit", handleAdminLogin);
+        }
+    }
+
     function getRequestedLoginTab() {
         const params = new URLSearchParams(window.location.search || "");
+        const path = String(window.location.pathname || "").replace(/\/+$/, "").toLowerCase();
+        if (path === "/admin/login") {
+            return "admin";
+        }
         const requested = String(params.get("role") || params.get("tab") || window.location.hash.replace(/^#/, "") || "").trim().toLowerCase();
         return requested === "admin" ? "admin" : "student";
     }
@@ -855,68 +905,29 @@
         if (!session || session.role !== "admin" || isSessionExpired(session)) {
             return null;
         }
-
-        const admin = await findAdminRecord(session.adminId, session.password);
-        if (!admin) {
+        if (!session.adminId || !session.adminToken) {
             return null;
         }
-
-        return refreshSession(session);
+        try {
+            await apiJson("/api/auth/session?role=admin", {
+                headers: {
+                    "Accept": "application/json",
+                    "X-Admin-Id": session.adminId,
+                    "X-Admin-Token": session.adminToken
+                }
+            });
+            return refreshSession(session);
+        } catch (error) {
+            return null;
+        }
     }
 
     function getAdminIdentifier(admin) {
         return String((admin && admin.username) || "").trim();
     }
 
-    function getAdminPassword(admin) {
-        return String((admin && admin.password) || "");
-    }
-
-    async function findAdminRecord(adminId, password) {
-        const inputId = String(adminId || "").trim();
-        const inputPassword = String(password || "");
-        if (!inputId || !inputPassword) {
-            return null;
-        }
-        try {
-            const { data, error } = await getClient()
-                .from("admins")
-                .select(ADMIN_COLUMNS)
-                .eq("username", inputId)
-                .limit(1);
-            if (error) throw error;
-            const admin = data && data[0] ? data[0] : null;
-            return admin && getAdminPassword(admin) === inputPassword ? admin : null;
-        } catch (error) {
-            console.error("Admin table authentication failed", error);
-            throw error;
-        }
-    }
-
-    async function findAdminByUsername(adminId) {
-        const inputId = String(adminId || "").trim();
-        if (!inputId) return null;
-        const { data, error } = await getClient()
-            .from("admins")
-            .select(ADMIN_COLUMNS)
-            .eq("username", inputId)
-            .limit(1);
-        if (error) throw error;
-        return data && data[0] ? data[0] : null;
-    }
-
     async function hasAnyAccessibleAdminRows() {
-        try {
-            const { data, error } = await getClient()
-                .from("admins")
-                .select("username")
-                .limit(1);
-            if (error) throw error;
-            return Boolean(data && data.length);
-        } catch (error) {
-            console.error("Admin table access check failed", error);
-            return null;
-        }
+        return null;
     }
 
     async function validateStudentSession(session) {
@@ -931,7 +942,6 @@
         if (
             isLoggedIn !== "true" ||
             !session.studentId ||
-            !session.password ||
             !session.sessionId ||
             !localSessionId ||
             !localStudentId
@@ -939,27 +949,23 @@
             return null;
         }
 
-        const { data, error } = await getClient()
-            .from(getStudentsTableName())
-            .select(STUDENT_COLUMNS)
-            .eq(getStudentIdentifierColumn(), session.studentId)
-            .eq("password", session.password)
-            .limit(1);
-
-        if (error) {
-            console.error("Session validation failed", error);
+        let payload = null;
+        try {
+            payload = await apiJson("/api/auth/session?role=student", {
+                headers: {
+                    "Accept": "application/json",
+                    "X-Student-Id": session.studentId,
+                    "X-Session-Token": session.sessionId
+                }
+            });
+        } catch (error) {
             return null;
         }
 
-        if (!data || !data.length) {
-            return null;
-        }
-
-        let student = await syncStudentFeesStatus(data[0], getClient());
-        student = await syncStudentEmiStatus(student, getClient());
+        const student = payload.student || {};
         const dbStudentId = getStudentIdentifierValue(student);
 
-        const dbSessionTokens = getSessionTokenValues(student);
+        const dbSessionTokens = [payload.session_token || student.session_token || student.session_id || localSessionId].map(String).filter(Boolean);
         if (
             !dbSessionTokens.includes(String(localSessionId)) ||
             String(session.sessionId || session.session_token || "") !== String(localSessionId) ||
@@ -973,7 +979,6 @@
                 blocked: true,
                 session: refreshSession(buildStudentSession(
                     student,
-                    session.password,
                     student.session_token || student.session_id || localSessionId,
                     session.createdAt || now()
                 ))
@@ -982,7 +987,6 @@
 
         return refreshSession(buildStudentSession(
             student,
-            session.password,
             student.session_token || student.session_id || localSessionId,
             session.createdAt || now()
         ));
@@ -1097,61 +1101,32 @@
         }
 
         setLoginButtonState(submitButton, true, "Logging in...");
+        loginSubmitInProgress = true;
 
         try {
-            const client = getClient();
-            const sessionId = Date.now().toString();
-            const { data, error } = await client
-                .from(getStudentsTableName())
-                .select(STUDENT_COLUMNS)
-                .eq(getStudentIdentifierColumn(), studentId)
-                .limit(1);
-
-            if (error) {
-                console.error("Student login query failed", error);
-                showMessage("Invalid username or password.", "error", "studentAuthMessage");
-                return;
-            }
-
-            const studentRecord = data && data[0] ? data[0] : null;
-            if (studentRecord && isLoginLocked(studentRecord)) {
-                showMessage("Too many failed login attempts. Please try again after 1 hour.", "error", "studentAuthMessage");
-                return;
-            }
-
-            if (!studentRecord || String(studentRecord.password || "") !== password) {
-                await recordFailedLogin(getStudentsTableName(), getStudentIdentifierColumn(), studentRecord, "student");
-                showMessage("Invalid username or password.", "error", "studentAuthMessage");
-                return;
-            }
-
-            await resetLoginLimit(getStudentsTableName(), getStudentIdentifierColumn(), getStudentIdentifierValue(studentRecord));
-
-            let student = await syncStudentFeesStatus(studentRecord, client);
-            student = await syncStudentEmiStatus(student, client);
-
-            try {
-                await updateStudentSessionToken(client, studentId, sessionId);
-            } catch (sessionError) {
-                console.error("Session update failed", sessionError);
-                showMessage("Database error. Could not start student session.", "error", "studentAuthMessage");
-                return;
-            }
+            const payload = await apiJson("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({ role: "student", identifier: studentId, password: password })
+            });
+            const student = payload.student || {};
+            const sessionId = payload.session_token || "";
 
             clearSession();
-            startStudentSession(student, password, sessionId);
+            startStudentSession(student, sessionId);
 
             if (isStudentBlocked(student)) {
                 redirectTo(getBlockedRedirectUrl(getHomePath()));
                 return;
             }
 
-            redirectTo(toPageUrl(getHomePath()));
+            forceRedirectTo(toPageUrl(payload.redirect || getHomePath()));
         } catch (error) {
             console.error("Student login failed", error);
             showMessage("Invalid username or password.", "error", "studentAuthMessage");
         } finally {
             setLoginButtonState(submitButton, false);
+            loginSubmitInProgress = false;
         }
     }
 
@@ -1172,34 +1147,24 @@
         }
 
         setLoginButtonState(submitButton, true, "Checking...");
+        loginSubmitInProgress = true;
 
         try {
-            const admin = await findAdminByUsername(adminId);
-
-            if (admin && isLoginLocked(admin)) {
-                showMessage("Too many failed login attempts. Please try again after 1 hour.", "error", "adminAuthMessage");
-                return;
-            }
-
-            if (!admin || getAdminPassword(admin) !== password) {
-                await recordFailedLogin("admins", "username", admin, "admin");
-                const hasRows = await hasAnyAccessibleAdminRows();
-                if (hasRows === false) {
-                    console.error("No admin account is accessible from the admins table. Check admin row data or RLS policy.");
-                }
-                showMessage("Invalid username or password.", "error", "adminAuthMessage");
-                return;
-            }
-
-            await resetLoginLimit("admins", "username", getAdminIdentifier(admin) || adminId);
+            const payload = await apiJson("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({ role: "admin", identifier: adminId, password: password })
+            });
+            const admin = payload.admin || {};
             clearSession();
-            startAdminSession(getAdminIdentifier(admin) || adminId, password);
+            startAdminSession(getAdminIdentifier(admin) || adminId, payload.admin_token || "");
             redirectTo(toPageUrl(getAdminPath()), true);
         } catch (error) {
             console.error("Admin login failed", error);
             showMessage("Invalid username or password.", "error", "adminAuthMessage");
         } finally {
             setLoginButtonState(submitButton, false);
+            loginSubmitInProgress = false;
         }
     }
 
@@ -1369,6 +1334,10 @@
         }
 
         bindLoginTabs();
+        bindLoginForms();
+        setLoginTab(getRequestedLoginTab());
+        clearFallbackMessage();
+        showBody();
 
         const studentSession = await getValidatedSession("student");
         if (studentSession) {
@@ -1386,25 +1355,14 @@
             return;
         }
 
+        if (loginSubmitInProgress || redirectInProgress) {
+            return;
+        }
+
         clearStudentSessionOnly();
         clearAdminSessionOnly();
 
-        const studentForm = document.getElementById("studentLoginForm");
-        const adminForm = document.getElementById("adminLoginForm");
-
-        if (studentForm && !studentForm.dataset.authBound) {
-            studentForm.dataset.authBound = "true";
-            studentForm.addEventListener("submit", handleStudentLogin);
-        }
-
-        if (adminForm && !adminForm.dataset.authBound) {
-            adminForm.dataset.authBound = "true";
-            adminForm.addEventListener("submit", handleAdminLogin);
-        }
-
-        setLoginTab(getRequestedLoginTab());
-        clearFallbackMessage();
-        showBody();
+        bindLoginForms();
     }
 
     window.VinayakAuth = window.VinayakAuth || {};
@@ -1429,4 +1387,14 @@
         normalizeSingleCourse: normalizeSingleCourse,
         showMessage: showMessage
     });
+
+    function bindLoginFormsWhenReady() {
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", bindLoginForms, { once: true });
+            return;
+        }
+        bindLoginForms();
+    }
+
+    bindLoginFormsWhenReady();
 }());

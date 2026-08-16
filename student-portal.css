@@ -1677,8 +1677,7 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
 .student-pdf-modal-card {
     width: 100vw;
     height: 100vh;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    display: block;
     position: relative;
     overflow: hidden;
     border: 0;
@@ -1688,20 +1687,41 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
 }
 
 .student-pdf-modal-toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 4;
-    min-height: 66px;
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    right: 12px;
+    z-index: 8;
+    min-height: 54px;
     display: grid;
     grid-template-columns: auto minmax(180px, 1fr) auto;
     align-items: center;
-    gap: 14px;
-    padding: 10px 18px;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-    background: rgba(15, 23, 42, 0.9);
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.82);
     color: #ffffff;
     box-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
     backdrop-filter: blur(22px);
+    transform: translateY(0);
+    opacity: 1;
+    transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+.student-pdf-modal-card.toolbar-hidden .student-pdf-modal-toolbar {
+    transform: translateY(calc(-100% - 18px));
+    opacity: 0;
+    pointer-events: none;
+}
+
+.student-pdf-toolbar-reveal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 7;
+    height: 24px;
 }
 
 .student-pdf-doc-meta {
@@ -1739,8 +1759,8 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
 }
 
 .student-pdf-tool {
-    min-width: 38px;
-    height: 38px;
+    min-width: 36px;
+    height: 36px;
     border: 1px solid rgba(203, 213, 225, 0.18);
     border-radius: 12px;
     display: inline-flex;
@@ -1756,7 +1776,6 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
 
 .student-pdf-tool:hover {
     background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-1px);
 }
 
 .student-pdf-tool:active {
@@ -1782,9 +1801,8 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
     cursor: not-allowed;
 }
 
-.student-pdf-page,
+.student-pdf-page-control,
 .student-pdf-zoom {
-    min-width: 86px;
     color: #e5edf8;
     font-weight: 900;
     font-size: 0.82rem;
@@ -1792,32 +1810,68 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
     white-space: nowrap;
 }
 
+.student-pdf-page-control {
+    min-width: 88px;
+    height: 36px;
+    border: 1px solid rgba(203, 213, 225, 0.18);
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 8px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.student-pdf-page-control input {
+    width: 34px;
+    height: 26px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font: inherit;
+    font-weight: 900;
+    text-align: center;
+    outline: none;
+}
+
+.student-pdf-page-control input:focus {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.45);
+}
+
 .student-pdf-zoom {
     min-width: 50px;
 }
 
+.student-pdf-tool.active {
+    border-color: rgba(96, 165, 250, 0.7);
+    background: rgba(37, 99, 235, 0.35);
+}
+
 .student-pdf-modal-stage {
     position: relative;
+    width: 100%;
+    height: 100%;
     overflow: auto;
     display: block;
-    padding: 28px 18px 42px;
-    background:
-        radial-gradient(circle at top left, rgba(37, 99, 235, 0.15), transparent 28%),
-        radial-gradient(circle at top right, rgba(249, 115, 22, 0.12), transparent 30%),
-        #121826;
+    padding: 84px 18px 42px;
+    background: #1f232b;
     -webkit-user-select: none;
     user-select: none;
     touch-action: pan-x pan-y pinch-zoom;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
+    overscroll-behavior: contain;
 }
 
 .student-pdf-pages {
     width: min-content;
-    max-width: 100%;
+    min-width: min-content;
     margin: 0 auto;
     display: grid;
     justify-items: center;
-    gap: 28px;
+    gap: 18px;
     transition: opacity 0.18s ease;
 }
 
@@ -1825,11 +1879,12 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
     position: relative;
     display: grid;
     place-items: center;
-    border-radius: 18px;
+    border-radius: 4px;
     background: #ffffff;
-    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.38);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.48);
     overflow: hidden;
     isolation: isolate;
+    transition: width 0.12s ease, min-height 0.12s ease;
 }
 
 .student-pdf-page-shell canvas {
@@ -1837,9 +1892,10 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
     max-width: none;
     height: auto;
     background: #ffffff;
-    border-radius: inherit;
+    border-radius: 0;
     pointer-events: none;
     -webkit-user-drag: none;
+    will-change: transform;
 }
 
 .student-pdf-page-skeleton {
@@ -1859,6 +1915,19 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
 
 .student-pdf-page-shell.is-rendered .student-pdf-page-skeleton {
     display: none;
+}
+
+.student-pdf-page-shell.is-rendering::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    width: 22px;
+    height: 22px;
+    border: 3px solid rgba(15, 23, 42, 0.12);
+    border-top-color: rgba(37, 99, 235, 0.85);
+    border-radius: 999px;
+    animation: studentPdfSpin 0.8s linear infinite;
 }
 
 .student-pdf-page-skeleton span {
@@ -1905,14 +1974,13 @@ body.student-sidebar-collapsed .student-footer.student-common-footer {
 
 .student-pdf-modal-card:fullscreen .student-pdf-modal-toolbar,
 .student-pdf-fullscreen-active .student-pdf-modal-toolbar {
-    min-height: 52px;
-    padding: 7px 12px;
-    background: rgba(15, 23, 42, 0.5);
+    min-height: 48px;
+    background: rgba(15, 23, 42, 0.72);
 }
 
 .student-pdf-modal-card:fullscreen .student-pdf-modal-stage,
 .student-pdf-fullscreen-active .student-pdf-modal-stage {
-    padding: 20px 10px 30px;
+    padding: 72px 10px 30px;
 }
 
 .student-pdf-modal-loader,
@@ -2016,8 +2084,12 @@ button.student-assignment-row {
     }
 
     .student-pdf-modal-toolbar {
-        position: sticky;
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        right: 8px;
         border-radius: 0;
+        border-radius: 12px;
     }
 
     .student-pdf-tool {
@@ -2032,9 +2104,13 @@ button.student-assignment-row {
         font-size: 0.72rem;
     }
 
-    .student-pdf-page {
+    .student-pdf-page-control {
         min-width: 70px;
         font-size: 0.76rem;
+    }
+
+    .student-pdf-page-control input {
+        width: 30px;
     }
 
     .student-pdf-zoom {
@@ -2044,7 +2120,7 @@ button.student-assignment-row {
 
     .student-pdf-modal-stage {
         height: 100%;
-        padding: 16px 8px 28px;
+        padding: 108px 8px 28px;
     }
 
     .student-pdf-pages {

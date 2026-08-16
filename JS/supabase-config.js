@@ -9,8 +9,8 @@
         url: SUPABASE_URL,
         anonKey: SUPABASE_ANON_KEY,
         publishableKey: SUPABASE_ANON_KEY,
-        loginRedirect: "dashboard.html",
-        adminRedirect: "admin.html",
+        loginRedirect: "/dashboard.html",
+        adminRedirect: "/admin.html",
         apiBase: "https://www.vinayakacademy.online",
         studentsTable: "students",
         studentIdentifierColumn: "id"

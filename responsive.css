@@ -422,7 +422,7 @@ iframe {
         font-size: 0.86rem;
     }
 
-    .prototype-toggle button,
+    .prototype-action-link,
     .prototype-submit,
     .prototype-google {
         min-height: var(--touch-target);
@@ -572,7 +572,7 @@ iframe {
         gap: 0.3rem;
     }
 
-    .prototype-toggle {
+    .prototype-login-actions {
         gap: 8px;
         margin-top: 24px;
         margin-bottom: 18px;

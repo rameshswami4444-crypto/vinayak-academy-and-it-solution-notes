@@ -13,6 +13,7 @@
     let materialCoursesCache = [];
     let announcementsCache = [];
     let enquiriesCache = [];
+    let approvedStudentsCache = [];
     let attendanceReportCache = null;
     let dashboardStatsCache = null;
     let globalStatsCache = null;
@@ -31,8 +32,9 @@
     let addEditEmiInFlight = false;
     let editStudentContextId = "";
     let currentAdmissionStep = 1;
-    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, enquiries: 1, payments: 1, reports: 1, attendanceReport: 1 };
-    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, enquiries: 25, payments: 25, reports: 25, attendanceReport: 50 };
+    let approvalContext = null;
+    const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, enquiries: 1, approvedStudents: 1, payments: 1, reports: 1, attendanceReport: 1 };
+    const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, enquiries: 25, approvedStudents: 25, payments: 25, reports: 25, attendanceReport: 50 };
     const TABLE_COLUMNS = {
         student_fees: "id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount, institute_id",
         emis: "id, student_id, emi_number, amount, due_date, paid_date, status, payment_id, institute_id",
@@ -114,17 +116,38 @@
     function apiFetch(path, options) {
         const nextOptions = Object.assign({}, options || {});
         const headers = Object.assign({}, nextOptions.headers || {});
+        applyAdminAuthHeaders(headers);
+        nextOptions.headers = headers;
+        return window.VinayakApi ? window.VinayakApi.fetch(path, nextOptions) : fetch(apiUrl(path), nextOptions);
+    }
+
+    function applyAdminAuthHeaders(headers) {
         try {
             const session = JSON.parse(window.localStorage.getItem("admin_session") || "{}");
             if (session && session.role === "admin") {
                 headers["X-Admin-Id"] = session.adminId || "";
-                headers["X-Admin-Password"] = session.password || "";
+                headers["X-Admin-Token"] = session.adminToken || "";
             }
         } catch (error) {
             console.warn("Admin auth headers unavailable", error);
         }
-        nextOptions.headers = headers;
-        return window.VinayakApi ? window.VinayakApi.fetch(path, nextOptions) : fetch(apiUrl(path), nextOptions);
+        return headers;
+    }
+
+    async function hashPasswordForStorage(password) {
+        const value = String(password || "");
+        if (!value) return "";
+        if (value.indexOf("scrypt$") === 0) return value;
+        const response = await apiFetch("/api/admin/password/hash", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify({ password: value })
+        });
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || payload.success === false || !payload.password_hash) {
+            throw new Error(payload.message || "Could not prepare password securely.");
+        }
+        return payload.password_hash;
     }
 
     function getCourseId(course) {
@@ -353,13 +376,14 @@
             button.classList.toggle("active", button.getAttribute("data-admin-section-target") === sectionName);
         });
         document.body.classList.remove("admin-sidebar-open");
-        const courseBackedSections = ["admissions", "courses", "material", "batches", "notifications"];
+        const courseBackedSections = ["admissions", "courses", "material", "batches", "notifications", "approved-students"];
         if (courseBackedSections.includes(sectionName) || sectionName === "attendance") loadCourses();
         if (["admissions", "students", "reports", "attendance"].includes(sectionName)) ensureBatchesLoaded();
         if (sectionName === "courses") ensureMaterialLoaded();
         if (sectionName === "material") ensureMaterialLoaded();
         if (sectionName === "notifications") ensureAnnouncementsLoaded();
         if (sectionName === "enquiries") loadEnquiries(false);
+        if (sectionName === "approved-students") loadApprovedStudents(false);
         if (sectionName === "batches") {
             ensureBatchesLoaded(true);
         }
@@ -472,9 +496,64 @@
     }
 
     function enquiryBadge(enquiry) {
-        return String(enquiry.enquiry_type || "").toLowerCase() === "admission_application"
-            ? '<span class="status-badge status-new">Admission Application</span>'
-            : '<span class="status-badge">Contact Enquiry</span>';
+        const type = String(enquiry.enquiry_type || "").toLowerCase();
+        if (type === "course_admission") return '<span class="status-badge status-interested">GET STARTED</span>';
+        if (type === "general_enquiry") return '<span class="status-badge">GENERAL ENQUIRY</span>';
+        if (type === "course_enquiry") return '<span class="status-badge status-interested">Course Enquiry</span>';
+        if (type === "admission_application") return '<span class="status-badge status-new">Old Application</span>';
+        return '<span class="status-badge">Contact Enquiry</span>';
+    }
+
+    function normalizeWhatsAppNumber(phone) {
+        const digits = String(phone || "").replace(/\D/g, "");
+        const lastTen = digits.slice(-10);
+        return /^[6-9]\d{9}$/.test(lastTen) ? "91" + lastTen : "";
+    }
+
+    function whatsappUrl(phone, message) {
+        const number = normalizeWhatsAppNumber(phone);
+        return number ? "https://wa.me/" + number + "?text=" + encodeURIComponent(message || "") : "";
+    }
+
+    function defaultEnquiryMessage(enquiry) {
+        const type = String(enquiry.enquiry_type || "").toLowerCase();
+        if (type === "course_admission") {
+            return [
+                "Hello " + (enquiry.name || "Student") + ",",
+                "",
+                "We have received your application for " + (enquiry.course_name_snapshot || "your selected course") + ".",
+                "",
+                "Your application is currently under review.",
+                "",
+                "Vinayak Academy & IT Solution"
+            ].join("\n");
+        }
+        return [
+            "Hello " + (enquiry.name || "Student") + ",",
+            "",
+            "Thank you for contacting Vinayak Academy & IT Solution.",
+            "",
+            "We have received your enquiry.",
+            "",
+            "How may we assist you further?"
+        ].join("\n");
+    }
+
+    function rejectionMessage(enquiry) {
+        return [
+            "Hello " + (enquiry.name || "Student") + ",",
+            "",
+            "Your application for " + (enquiry.course_name_snapshot || "your selected course") + " at Vinayak Academy & IT Solution has been reviewed.",
+            "",
+            "Unfortunately, your application could not be approved at this time.",
+            "",
+            "Reason:",
+            enquiry.rejection_reason || "Please contact our team for further information.",
+            "",
+            "For further information, you may contact our team.",
+            "",
+            "Vinayak Academy & IT Solution"
+        ].join("\n");
     }
 
     function enquiryStatusBadge(status) {
@@ -487,6 +566,9 @@
             search: getValue("enquirySearchInput"),
             status: getValue("enquiryStatusFilter"),
             enquiry_type: getValue("enquiryTypeFilter"),
+            course: getValue("enquiryCourseFilter"),
+            date_from: getValue("enquiryDateFromFilter"),
+            date_to: getValue("enquiryDateToFilter"),
             sort: getValue("enquirySortFilter") || "newest"
         };
     }
@@ -513,20 +595,273 @@
         }
         tbody.innerHTML = rows.map(function (enquiry) {
             const phone = String(enquiry.phone || "");
+            const type = String(enquiry.enquiry_type || "").toLowerCase();
+            const status = String(enquiry.status || "new").toLowerCase();
+            const wa = whatsappUrl(phone, type === "course_admission" && status === "rejected" ? rejectionMessage(enquiry) : defaultEnquiryMessage(enquiry));
+            const actions = [
+                '<button type="button" class="table-action-btn" data-view-enquiry="' + escapeHtml(enquiry.id) + '">VIEW</button>',
+                wa ? '<a class="table-action-btn" href="' + escapeHtml(wa) + '" target="_blank" rel="noopener noreferrer" data-whatsapp-open="' + escapeHtml(enquiry.id) + '">WHATSAPP</a>' : "",
+                phone ? '<a class="table-action-btn" href="tel:' + escapeHtml(phone) + '">Call</a>' : "",
+                type === "course_admission" && ["pending", "new"].includes(status) ? '<button type="button" class="table-action-btn success-btn" data-accept-application="' + escapeHtml(enquiry.id) + '">APPROVE</button>' : "",
+                type === "course_admission" && ["pending", "new"].includes(status) ? '<button type="button" class="table-action-btn danger-btn" data-reject-application="' + escapeHtml(enquiry.id) + '">REJECT</button>' : "",
+                type === "course_admission" && enquiry.student_id ? '<button type="button" class="table-action-btn" data-view-student="' + escapeHtml(enquiry.student_id) + '">Student</button>' : ""
+            ].filter(Boolean).join("");
             return [
                 '<tr><td data-label="Enquiry No.">', escapeHtml(enquiry.enquiry_number || "-"), '</td><td data-label="Applicant"><strong>', escapeHtml(enquiry.name || "-"), "</strong><small>", escapeHtml(enquiry.email || ""), '</small></td><td data-label="Phone">',
                 phone ? '<a href="tel:' + escapeHtml(phone) + '">' + escapeHtml(phone) + '</a>' : "-",
                 '</td><td data-label="Course">', escapeHtml(enquiry.course_name_snapshot || enquiry.course_category || "-"), '</td><td data-label="Type">', enquiryBadge(enquiry), '</td><td data-label="Source">',
                 escapeHtml(enquiry.source || "-"), '</td><td data-label="Status">', enquiryStatusBadge(enquiry.status), '</td><td data-label="Date">', escapeHtml(formatDateTime(enquiry.created_at)), '</td><td data-label="Actions">',
-                '<button type="button" class="table-action-btn" data-view-enquiry="' + escapeHtml(enquiry.id) + '">Open</button>',
+                actions,
                 "</td></tr>"
             ].join("");
         }).join("");
         renderServerPagination("enquiriesPagination", "enquiries");
     }
 
+    function getApprovedStudentFilters() {
+        return {
+            search: getValue("approvedStudentSearchInput"),
+            course: getValue("approvedStudentCourseFilter"),
+            status: getValue("approvedStudentStatusFilter"),
+            date_from: getValue("approvedStudentDateFromFilter"),
+            date_to: getValue("approvedStudentDateToFilter"),
+            sort: getValue("approvedStudentSortFilter") || "newest"
+        };
+    }
+
+    async function loadApprovedStudents(resetPage) {
+        if (resetPage !== false) paginationState.approvedStudents = 1;
+        try {
+            approvedStudentsCache = await fetchAdminPage("/api/admin/approved-students", "approvedStudents", getApprovedStudentFilters());
+            renderApprovedStudents(approvedStudentsCache);
+        } catch (error) {
+            const tbody = document.getElementById("approvedStudentsTableBody");
+            if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="admin-empty">' + escapeHtml(error.message || "Could not load approved students.") + '</td></tr>';
+            renderServerPagination("approvedStudentsPagination", "approvedStudents");
+        }
+    }
+
+    function renderApprovedStudents(rows) {
+        const tbody = document.getElementById("approvedStudentsTableBody");
+        if (!tbody) return;
+        if (!rows || !rows.length) {
+            tbody.innerHTML = '<tr><td colspan="11" class="admin-empty">No approved students found.</td></tr>';
+            renderServerPagination("approvedStudentsPagination", "approvedStudents");
+            return;
+        }
+        tbody.innerHTML = rows.map(function (row) {
+            const wa = whatsappUrl(row.mobile, "Hello " + (row.student_name || "Student") + ",\n\nYour course access is active at Vinayak Academy & IT Solution.");
+            const actions = [
+                '<button type="button" class="table-action-btn" data-view-approved-student="' + escapeHtml(row.student_id) + '">View Student</button>',
+                wa ? '<a class="table-action-btn" href="' + escapeHtml(wa) + '" target="_blank" rel="noopener noreferrer">WhatsApp</a>' : "",
+                row.mobile ? '<a class="table-action-btn" href="tel:' + escapeHtml(row.mobile) + '">Call</a>' : "",
+                row.course_id ? '<button type="button" class="table-action-btn" data-view-course="' + escapeHtml(row.course_id) + '">View Course</button>' : "",
+                '<button type="button" class="table-action-btn" data-edit-student="' + escapeHtml(row.student_id) + '">Manage Course Access</button>',
+                '<button type="button" class="table-action-btn" data-edit-student="' + escapeHtml(row.student_id) + '">Reset Password</button>',
+                row.account_status === "active" ? '<button type="button" class="table-action-btn danger-btn" data-disable-student="' + escapeHtml(row.student_id) + '">Disable Account</button>' : '<button type="button" class="table-action-btn" data-edit-student="' + escapeHtml(row.student_id) + '">Enable Account</button>'
+            ].filter(Boolean).join("");
+            return [
+                '<tr><td data-label="Student ID">', escapeHtml(row.student_id || "-"), '</td><td data-label="Name"><strong>', escapeHtml(row.student_name || "-"), "</strong></td><td data-label=\"Mobile\">",
+                row.mobile ? '<a href="tel:' + escapeHtml(row.mobile) + '">' + escapeHtml(row.mobile) + '</a>' : "-",
+                '</td><td data-label="Email">', escapeHtml(row.email || "-"), '</td><td data-label="Course">', escapeHtml(row.course || "-"), '</td><td data-label="Application No.">',
+                escapeHtml(row.application_number || "-"), '</td><td data-label="Approval Date">', escapeHtml(formatDateTime(row.approval_date)), '</td><td data-label="Course Start">',
+                escapeHtml(row.course_start_date || "-"), '</td><td data-label="Account">', enquiryStatusBadge(row.account_status || "active"), '</td><td data-label="Access">',
+                enquiryStatusBadge(row.course_access_status || "inactive"), '</td><td data-label="Actions">', actions, "</td></tr>"
+            ].join("");
+        }).join("");
+        renderServerPagination("approvedStudentsPagination", "approvedStudents");
+    }
+
     function detailRow(label, value) {
+        if (value === null || value === undefined || String(value).trim() === "") return "";
         return '<div><strong>' + escapeHtml(label) + '</strong><span>' + escapeHtml(value || "-") + '</span></div>';
+    }
+
+    function prefillAdmissionFromEnquiry(enquiry) {
+        setupAdmissionDefaults();
+        setValue("newStudentName", enquiry.name || "");
+        setValue("newFatherName", enquiry.father_guardian_name || "");
+        setValue("newMobile", String(enquiry.phone || "").replace(/\D/g, "").slice(-10));
+        setValue("newAlternateMobile", String(enquiry.alternate_phone || "").replace(/\D/g, "").slice(-10));
+        setValue("newEmail", enquiry.email || "");
+        setValue("newAddress", [enquiry.address, enquiry.city, enquiry.state, enquiry.pin_code].filter(Boolean).join(", "));
+        if (enquiry.course_name_snapshot) setValue("newStudentCourse", enquiry.course_name_snapshot);
+        const courseSelect = document.getElementById("newStudentCourse");
+        if (courseSelect) courseSelect.dispatchEvent(new Event("change"));
+        setAdmissionStep(1);
+        showAdminSection("admissions");
+        setPanelMessage("Enquiry details prefilled. Complete course, batch, fees and EMI before saving admission.", "success");
+    }
+
+    function generateTemporaryPassword() {
+        const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const lower = "abcdefghijkmnopqrstuvwxyz";
+        const digits = "23456789";
+        const safe = "@#$";
+        const all = upper + lower + digits + safe;
+        function pick(chars) {
+            return chars[Math.floor(Math.random() * chars.length)];
+        }
+        const chars = [pick(upper), pick(lower), pick(digits), pick(safe)];
+        while (chars.length < 12) chars.push(pick(all));
+        return chars.sort(function () { return Math.random() - 0.5; }).join("");
+    }
+
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) modal.hidden = true;
+    }
+
+    function openApprovalModal(id, existingStudentId) {
+        const enquiry = enquiriesCache.find(function (item) { return String(item.id) === String(id); }) || {};
+        approvalContext = { enquiry: enquiry, existingStudentId: existingStudentId || "" };
+        setValue("approvalApplicationId", id);
+        setValue("approvalStudentId", existingStudentId || generateStudentId());
+        setValue("approvalTemporaryPassword", existingStudentId ? "" : generateTemporaryPassword());
+        setValue("approvalCourse", enquiry.course_name_snapshot || enquiry.course_id || "");
+        setValue("approvalStartDate", getTodayDateString());
+        setValue("approvalEndDate", "");
+        setValue("approvalBatchId", "");
+        setValue("approvalLearningMode", enquiry.preferred_learning_mode || "");
+        setValue("approvalAccountStatus", "active");
+        const passwordField = document.getElementById("approvalTemporaryPassword");
+        if (passwordField) passwordField.required = !existingStudentId;
+        const summary = document.getElementById("approvalSummary");
+        if (summary) {
+            summary.innerHTML = [
+                detailRow("Student", enquiry.name),
+                detailRow("Mobile", enquiry.phone),
+                detailRow("Email", enquiry.email),
+                detailRow("Course", enquiry.course_name_snapshot),
+                detailRow("Application Number", enquiry.enquiry_number),
+                existingStudentId ? detailRow("Existing Student", existingStudentId) : ""
+            ].join("");
+        }
+        const modal = document.getElementById("approvalModal");
+        if (modal) modal.hidden = false;
+    }
+
+    function openRejectionModal(id) {
+        setValue("rejectionApplicationId", id);
+        setValue("rejectionReasonSelect", "");
+        setValue("rejectionOtherReason", "");
+        const wrap = document.getElementById("rejectionOtherWrap");
+        if (wrap) wrap.hidden = true;
+        const modal = document.getElementById("rejectionModal");
+        if (modal) modal.hidden = false;
+    }
+
+    function showCredentialResult(payload) {
+        const student = payload.student || {};
+        const password = payload.temporary_password || "";
+        const message = payload.credential_message || "";
+        const whatsapp = payload.whatsapp_url || "";
+        const lines = [
+            "APPLICATION ACCEPTED",
+            "",
+            "Student Name: " + (student.name || "-"),
+            "Student ID: " + (student.id || "-"),
+            password ? "Temporary Password: " + password : "Existing student account used. No new password generated.",
+            "Course: " + (student.course || "-")
+        ];
+        window.alert(lines.join("\n"));
+        if (message && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(message).catch(function () {});
+        }
+        if (whatsapp && window.confirm("Open WhatsApp credential message?")) {
+            window.open(whatsapp, "_blank", "noopener,noreferrer");
+        }
+    }
+
+    async function submitApprovalForm(event) {
+        event.preventDefault();
+        const id = getValue("approvalApplicationId");
+        const existingStudentId = approvalContext && approvalContext.existingStudentId;
+        const enquiry = approvalContext && approvalContext.enquiry ? approvalContext.enquiry : (enquiriesCache.find(function (item) { return String(item.id) === String(id); }) || {});
+        const studentId = getValue("approvalStudentId");
+        const temporaryPassword = getValue("approvalTemporaryPassword");
+        if (!existingStudentId && (!studentId || !temporaryPassword)) {
+            setPanelMessage("Student ID and temporary password are required.", "error");
+            return;
+        }
+        const body = {
+            student_id: studentId,
+            temporary_password: temporaryPassword,
+            course: enquiry.course_id || enquiry.course_name_snapshot || "",
+            batch_id: getValue("approvalBatchId"),
+            start_date: getValue("approvalStartDate"),
+            end_date: getValue("approvalEndDate"),
+            preferred_learning_mode: getValue("approvalLearningMode") || enquiry.preferred_learning_mode || "",
+            account_status: getValue("approvalAccountStatus") || "active"
+        };
+        if (existingStudentId) {
+            body.existing_student_id = existingStudentId;
+            delete body.student_id;
+            delete body.temporary_password;
+        }
+        try {
+            const response = await apiFetch("/api/admin/enquiries/" + encodeURIComponent(id) + "/accept", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify(body)
+            });
+            const payload = await response.json().catch(function () { return {}; });
+            if (response.status === 409 && payload.can_assign_existing && payload.existing_student) {
+                const existing = payload.existing_student;
+                const assign = window.confirm("Existing student account found: " + existing.id + " - " + (existing.name || "") + ". Assign this course to existing student?");
+                if (assign) {
+                    openApprovalModal(id, existing.id);
+                }
+                return;
+            }
+            if (!response.ok || payload.success === false) throw new Error(payload.message || payload.error || "Could not accept application.");
+            closeModal("approvalModal");
+            showCredentialResult(payload);
+            await loadEnquiries(false);
+            await loadApprovedStudents(false);
+            await applyStudentFilter(false);
+        } catch (error) {
+            setPanelMessage(error.message || "Could not accept application.", "error");
+        }
+    }
+
+    async function submitRejectionForm(event) {
+        event.preventDefault();
+        const id = getValue("rejectionApplicationId");
+        const selected = getValue("rejectionReasonSelect");
+        const reason = selected === "Other" ? getValue("rejectionOtherReason") : selected;
+        if (!reason) {
+            setPanelMessage("Rejection reason is required.", "error");
+            return;
+        }
+        try {
+            const response = await apiFetch("/api/admin/enquiries/" + encodeURIComponent(id) + "/reject", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({ rejection_reason: reason })
+            });
+            const payload = await response.json().catch(function () { return {}; });
+            if (!response.ok || payload.success === false) throw new Error(payload.message || payload.error || "Could not reject application.");
+            closeModal("rejectionModal");
+            window.alert("APPLICATION REJECTED\n\nReason: " + reason);
+            if (payload.whatsapp_url && window.confirm("Open WhatsApp rejection message?")) {
+                window.open(payload.whatsapp_url, "_blank", "noopener,noreferrer");
+            }
+            await loadEnquiries(false);
+        } catch (error) {
+            setPanelMessage(error.message || "Could not reject application.", "error");
+        }
+    }
+
+    function openApprovedStudentDetails(studentId) {
+        const row = approvedStudentsCache.find(function (item) { return String(item.student_id) === String(studentId); });
+        if (!row) {
+            renderProfile(studentId);
+            return;
+        }
+        showAdminSection("students");
+        renderProfile(studentId);
+        setPanelMessage("Approved application " + (row.application_number || "-") + " | Approved: " + (formatDateTime(row.approval_date) || "-") + " | Course access: " + (row.course_access_status || "-"), "success");
     }
 
     async function openEnquiryDetails(id) {
@@ -545,11 +880,22 @@
             const wa = phone ? "https://wa.me/91" + phone.slice(-10) : "";
             const body = document.getElementById("enquiryDetailsBody");
             if (body) {
+                const type = String(enquiry.enquiry_type || "").toLowerCase();
+                const status = String(enquiry.status || "new").toLowerCase();
+                const detailWa = whatsappUrl(enquiry.phone, type === "course_admission" && status === "rejected" ? rejectionMessage(enquiry) : defaultEnquiryMessage(enquiry));
+                const applicationActions = type === "course_admission" && ["pending", "new"].includes(status)
+                    ? '<div><strong>Application Actions</strong><span><button type="button" class="table-action-btn success-btn" data-accept-application="' + escapeHtml(enquiry.id) + '">APPROVE</button> <button type="button" class="table-action-btn danger-btn" data-reject-application="' + escapeHtml(enquiry.id) + '">REJECT</button></span></div>'
+                    : "";
+                const convertButton = type === "course_enquiry"
+                    ? '<div><strong>Admission</strong><span><button type="button" class="table-action-btn" data-convert-enquiry="' + escapeHtml(enquiry.id) + '">Convert to Admission</button></span></div>'
+                    : "";
                 body.innerHTML = [
+                    applicationActions,
                     detailRow("Enquiry Number", enquiry.enquiry_number),
                     detailRow("Student Name", enquiry.name),
                     detailRow("Father / Guardian", enquiry.father_guardian_name),
                     detailRow("Mobile", enquiry.phone),
+                    detailRow("Mobile Verified", enquiry.mobile_verified ? "Yes" : "No"),
                     detailRow("Alternate Number", enquiry.alternate_phone),
                     detailRow("Email", enquiry.email),
                     detailRow("Date of Birth", enquiry.date_of_birth),
@@ -557,14 +903,25 @@
                     detailRow("Address", [enquiry.address, enquiry.city, enquiry.state, enquiry.pin_code].filter(Boolean).join(", ")),
                     detailRow("Course Category", enquiry.course_category),
                     detailRow("Selected Course", enquiry.course_name_snapshot),
+                    detailRow("Preferred Contact Time", enquiry.preferred_contact_time),
                     detailRow("Qualification", enquiry.qualification),
                     detailRow("Learning Mode", enquiry.preferred_learning_mode),
+                    detailRow("Approved By", enquiry.approved_by || enquiry.accepted_by),
+                    detailRow("Approved At", formatDateTime(enquiry.approved_at || enquiry.accepted_at)),
+                    detailRow("Accepted By", enquiry.accepted_by),
+                    detailRow("Accepted At", formatDateTime(enquiry.accepted_at)),
+                    detailRow("Rejected By", enquiry.rejected_by),
+                    detailRow("Rejected At", formatDateTime(enquiry.rejected_at)),
+                    detailRow("Rejection Reason", enquiry.rejection_reason),
+                    detailRow("Student ID", enquiry.student_id),
+                    detailRow("Credentials Status", enquiry.credentials_status),
                     detailRow("Message", enquiry.message),
                     detailRow("Consent", enquiry.consent_given ? "Yes" : "No"),
                     detailRow("Source", enquiry.source),
                     detailRow("Created", formatDateTime(enquiry.created_at)),
                     detailRow("Updated", formatDateTime(enquiry.updated_at)),
-                    '<div><strong>Contact Actions</strong><span>' + (enquiry.phone ? '<a class="table-action-btn" href="tel:' + escapeHtml(enquiry.phone) + '">Call</a> ' : "") + (enquiry.email ? '<a class="table-action-btn" href="mailto:' + escapeHtml(enquiry.email) + '">Email</a> ' : "") + (wa ? '<a class="table-action-btn" href="' + escapeHtml(wa) + '" target="_blank" rel="noopener">WhatsApp</a>' : "") + '</span></div>'
+                    convertButton,
+                    '<div><strong>Contact Actions</strong><span>' + (enquiry.phone ? '<a class="table-action-btn" href="tel:' + escapeHtml(enquiry.phone) + '">Call</a> ' : "") + (enquiry.email ? '<a class="table-action-btn" href="mailto:' + escapeHtml(enquiry.email) + '">Email</a> ' : "") + (detailWa ? '<a class="table-action-btn" href="' + escapeHtml(detailWa) + '" target="_blank" rel="noopener noreferrer">WhatsApp</a>' : "") + '</span></div>'
                 ].join("");
             }
             const card = document.getElementById("enquiryDetailsCard");
@@ -966,9 +1323,10 @@
             }
 
             const firstDue = emis.length ? emis[0].due_date : null;
+            const passwordHash = await hashPasswordForStorage(getValue("newStudentPassword"));
             const studentPayload = {
                 id: studentId,
-                password: getValue("newStudentPassword"),
+                password: passwordHash,
                 name: getValue("newStudentName"),
                 father_name: getValue("newFatherName"),
                 mobile: getValue("newMobile"),
@@ -1110,6 +1468,10 @@
         setText("statPendingEmi", stats.pending_emi ?? 0);
         setText("statPaidEmi", stats.paid_emi ?? 0);
         setText("statTodayDue", stats.today_due_emi ?? 0);
+        setText("statNewEnquiries", stats.new_enquiries ?? 0);
+        setText("statPendingAdmissions", stats.pending_admissions ?? 0);
+        setText("statApprovedStudents", stats.approved_students ?? 0);
+        setText("statRejectedApplications", stats.rejected_applications ?? 0);
 
         renderList("recentStudentsList", recentAdmissions, "No admissions yet.", function (student) {
             return '<div class="erp-list-item"><span><strong>' + escapeHtml(student.name || getIdentifier(student)) + '</strong><small>' + escapeHtml(student.admission_date || student.course || "-") + '</small></span><span>' + escapeHtml(student.course || "-") + "</span></div>";
@@ -1144,7 +1506,7 @@
         setValue("editMobile", student.mobile || "");
         setValue("editAlternateMobile", student.alternate_mobile || "");
         setValue("editEmail", student.email || "");
-        setValue("editStudentPassword", student.password || "");
+        setValue("editStudentPassword", "");
         setValue("editStudentCourse", student.course || "");
         setBatchSelectOptions("editBatch", getSelectedCourseIdFromStudentSelect("editStudentCourse"), "Select batch", false, getStudentBatchId(student), false);
         setValue("editAdmissionDate", student.admission_date || "");
@@ -1367,7 +1729,6 @@
                 mobile: getValue("editMobile"),
                 alternate_mobile: getValue("editAlternateMobile") || null,
                 email: getValue("editEmail") || null,
-                password: getValue("editStudentPassword"),
                 course: window.VinayakAuth.normalizeSingleCourse(getValue("editStudentCourse")),
                 course_id: selectedCourseId || null,
                 batch_id: getValue("editBatch") || null,
@@ -1380,6 +1741,7 @@
                 address: getValue("editAddress") || null,
                 payment_note: getValue("editPaymentNote") || null
             };
+            if (getValue("editStudentPassword")) payload.password = await hashPasswordForStorage(getValue("editStudentPassword"));
             const { error } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .update(payload)
@@ -1861,6 +2223,7 @@
         for (const item of validRows) {
             try {
                 const payload = buildBulkPayload(item);
+                payload.student.password = await hashPasswordForStorage(payload.student.password);
                 const studentResult = await client.from(window.VinayakAuth.getStudentsTableName()).insert([payload.student]);
                 if (studentResult.error) throw studentResult.error;
                 const feeResult = await client.from("student_fees").insert([payload.fee]);
@@ -1919,7 +2282,7 @@
     function getExportRows() {
         return [BULK_COLUMNS.slice(0, 15)].concat(studentsCache.map(function (student) {
             const fee = getStudentFees(getIdentifier(student));
-            return [getIdentifier(student), student.password, student.name, student.father_name, student.mobile, student.alternate_mobile, student.email, student.address, student.course, student.batch, student.admission_date, student.course_duration, fee.total_fee, fee.admission_fee, fee.remaining_fee];
+            return [getIdentifier(student), "", student.name, student.father_name, student.mobile, student.alternate_mobile, student.email, student.address, student.course, student.batch, student.admission_date, student.course_duration, fee.total_fee, fee.admission_fee, fee.remaining_fee];
         }));
     }
 
@@ -1970,6 +2333,10 @@
             const xhr = new XMLHttpRequest();
             const url = apiUrl("/api/upload-material");
             xhr.open("POST", url);
+            const authHeaders = applyAdminAuthHeaders({});
+            Object.keys(authHeaders).forEach(function (name) {
+                if (authHeaders[name]) xhr.setRequestHeader(name, authHeaders[name]);
+            });
             if (settings.uploadId) {
                 activeMaterialUploads[settings.uploadId] = xhr;
             }
@@ -2181,6 +2548,8 @@
         setSelectOptions("newStudentCourse", nameOptions, "Select course", emptyText);
         setSelectOptions("editStudentCourse", nameOptions, "Select course", emptyText);
         setFilterOptions("studentCourseFilter", nameOptions, "All");
+        setFilterOptions("enquiryCourseFilter", nameOptions, "All Courses");
+        setFilterOptions("approvedStudentCourseFilter", nameOptions, "All Courses");
         setFilterOptions("dashboardCourseFilter", nameOptions, "All Courses");
         setSelectOptions("batchCourseInput", uuidOptions, "Select course", emptyText);
         setFilterOptions("batchCourseFilter", uuidOptions, "All Courses");
@@ -3197,12 +3566,9 @@
     }
 
     async function attendanceRequest(path, options) {
-        const url = apiUrl(path);
-        const response = await (window.VinayakApi ? window.VinayakApi.fetch(path, Object.assign({
+        const response = await apiFetch(path, Object.assign({
             headers: { "Content-Type": "application/json" }
-        }, options || {})) : window.fetch(url, Object.assign({
-            headers: { "Content-Type": "application/json" }
-        }, options || {})));
+        }, options || {}));
         const payload = await response.json().catch(function () { return {}; });
         if (!response.ok || payload.success === false) {
             throw new Error(payload.message || payload.error || "Attendance request failed.");
@@ -3711,6 +4077,8 @@
             if (sectionTarget) showAdminSection(sectionTarget.getAttribute("data-admin-section-target"));
             const view = event.target.closest("[data-view-student]");
             if (view) renderProfile(view.getAttribute("data-view-student"));
+            const viewApproved = event.target.closest("[data-view-approved-student]");
+            if (viewApproved) openApprovedStudentDetails(viewApproved.getAttribute("data-view-approved-student"));
             const edit = event.target.closest("[data-edit-student]");
             if (edit) {
                 fillEditForm(getStudentById(edit.getAttribute("data-edit-student")));
@@ -3729,6 +4097,7 @@
                 if (pageButton.getAttribute("data-pagination-key") === "material") renderMaterials();
                 if (pageButton.getAttribute("data-pagination-key") === "announcements") ensureAnnouncementsLoaded(true);
                 if (pageButton.getAttribute("data-pagination-key") === "enquiries") loadEnquiries(false);
+                if (pageButton.getAttribute("data-pagination-key") === "approvedStudents") loadApprovedStudents(false);
                 if (pageButton.getAttribute("data-pagination-key") === "reports") renderReports();
                 if (pageButton.getAttribute("data-pagination-key") === "attendanceReport") loadAttendanceReport();
                 return;
@@ -3742,6 +4111,7 @@
                 if (key === "emi") loadEmiPage(false);
                 if (key === "announcements") ensureAnnouncementsLoaded(true);
                 if (key === "enquiries") loadEnquiries(false);
+                if (key === "approvedStudents") loadApprovedStudents(false);
                 if (key === "reports") renderReports();
                 if (key === "attendanceReport") loadAttendanceReport();
                 if (key === "material") renderMaterials();
@@ -3774,6 +4144,31 @@
             if (deleteAnnouncementButton) deleteAnnouncement(deleteAnnouncementButton.getAttribute("data-delete-announcement"));
             const viewEnquiryButton = event.target.closest("[data-view-enquiry]");
             if (viewEnquiryButton) openEnquiryDetails(viewEnquiryButton.getAttribute("data-view-enquiry"));
+            const acceptApplicationButton = event.target.closest("[data-accept-application]");
+            if (acceptApplicationButton) openApprovalModal(acceptApplicationButton.getAttribute("data-accept-application"));
+            const rejectApplicationButton = event.target.closest("[data-reject-application]");
+            if (rejectApplicationButton) openRejectionModal(rejectApplicationButton.getAttribute("data-reject-application"));
+            const enquiryTab = event.target.closest("[data-enquiry-tab]");
+            if (enquiryTab) {
+                const tabType = enquiryTab.getAttribute("data-enquiry-tab") || "";
+                setValue("enquiryTypeFilter", tabType);
+                setValue("enquiryStatusFilter", tabType === "course_admission" ? "pending" : (tabType === "general_enquiry" ? "new" : ""));
+                loadEnquiries(true);
+            }
+            const closeModalButton = event.target.closest("[data-close-modal]");
+            if (closeModalButton) closeModal(closeModalButton.getAttribute("data-close-modal"));
+            const viewCourseButton = event.target.closest("[data-view-course]");
+            if (viewCourseButton) {
+                showAdminSection("courses");
+                fillCourseForm(viewCourseButton.getAttribute("data-view-course"));
+            }
+            const convertEnquiryButton = event.target.closest("[data-convert-enquiry]");
+            if (convertEnquiryButton) {
+                const enquiry = enquiriesCache.find(function (item) {
+                    return String(item.id) === String(convertEnquiryButton.getAttribute("data-convert-enquiry"));
+                });
+                if (enquiry) prefillAdmissionFromEnquiry(enquiry);
+            }
             const viewBatchButton = event.target.closest("[data-view-batch]");
             if (viewBatchButton) openBatchDetails(viewBatchButton.getAttribute("data-view-batch"));
             const editBatchButton = event.target.closest("[data-edit-batch]");
@@ -3803,6 +4198,7 @@
             if (key === "emi") loadEmiPage(false);
             if (key === "announcements") ensureAnnouncementsLoaded(true);
             if (key === "enquiries") loadEnquiries(false);
+            if (key === "approvedStudents") loadApprovedStudents(false);
             if (key === "reports") renderReports();
             if (key === "attendanceReport") loadAttendanceReport();
             if (key === "material") renderMaterials();
@@ -3833,12 +4229,32 @@
         });
         const enquiryUpdateForm = document.getElementById("enquiryUpdateForm");
         if (enquiryUpdateForm) enquiryUpdateForm.addEventListener("submit", saveEnquiryUpdate);
-        ["enquirySearchInput", "enquiryStatusFilter", "enquiryTypeFilter", "enquirySortFilter"].forEach(function (id) {
+        ["enquirySearchInput", "enquiryStatusFilter", "enquiryTypeFilter", "enquiryCourseFilter", "enquiryDateFromFilter", "enquiryDateToFilter", "enquirySortFilter"].forEach(function (id) {
             const field = document.getElementById(id);
             if (field) {
                 field.addEventListener("input", function () { loadEnquiries(true); });
                 field.addEventListener("change", function () { loadEnquiries(true); });
             }
+        });
+        ["approvedStudentSearchInput", "approvedStudentCourseFilter", "approvedStudentStatusFilter", "approvedStudentDateFromFilter", "approvedStudentDateToFilter", "approvedStudentSortFilter"].forEach(function (id) {
+            const field = document.getElementById(id);
+            if (field) {
+                field.addEventListener("input", function () { loadApprovedStudents(true); });
+                field.addEventListener("change", function () { loadApprovedStudents(true); });
+            }
+        });
+        const approvalForm = document.getElementById("approvalForm");
+        if (approvalForm) approvalForm.addEventListener("submit", submitApprovalForm);
+        const rejectionForm = document.getElementById("rejectionForm");
+        if (rejectionForm) rejectionForm.addEventListener("submit", submitRejectionForm);
+        const regenerateId = document.getElementById("regenerateApprovalIdBtn");
+        if (regenerateId) regenerateId.addEventListener("click", function () { setValue("approvalStudentId", generateStudentId()); });
+        const regeneratePassword = document.getElementById("regenerateApprovalPasswordBtn");
+        if (regeneratePassword) regeneratePassword.addEventListener("click", function () { setValue("approvalTemporaryPassword", generateTemporaryPassword()); });
+        const rejectionReasonSelect = document.getElementById("rejectionReasonSelect");
+        if (rejectionReasonSelect) rejectionReasonSelect.addEventListener("change", function () {
+            const wrap = document.getElementById("rejectionOtherWrap");
+            if (wrap) wrap.hidden = getValue("rejectionReasonSelect") !== "Other";
         });
         ["studentSearchInput", "studentCourseFilter", "studentBatchFilter", "studentStatusFilter"].forEach(function (id) {
             document.getElementById(id).addEventListener("input", applyStudentFilter);

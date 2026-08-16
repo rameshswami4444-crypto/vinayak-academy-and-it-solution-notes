@@ -1848,6 +1848,39 @@ main {
     overflow-wrap: anywhere;
 }
 
+.admin-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.58);
+}
+
+.admin-modal-backdrop[hidden] {
+    display: none;
+}
+
+.admin-modal {
+    width: min(860px, 100%);
+    max-height: min(90vh, 760px);
+    overflow: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+    padding: 1.1rem;
+}
+
+.success-btn {
+    background: #16a34a;
+    box-shadow: 0 10px 24px rgba(22, 163, 74, 0.22);
+}
+
+.success-btn:hover {
+    background: #15803d;
+}
+
 #admissionEmiBody input,
 #admissionEmiBody select,
 #editEmiTableBody input,

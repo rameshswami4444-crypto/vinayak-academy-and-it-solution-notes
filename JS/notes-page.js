@@ -126,7 +126,7 @@
             headers: getStudentAuthHeaders()
         });
         const result = await response.json().catch(function () { return {}; });
-        const accessUrl = result.url || result.signedUrl;
+        const accessUrl = result.url ? apiUrl(result.url) : result.signedUrl;
         if (!response.ok || !result.success || !accessUrl) {
             const debugDetails = result.details ? " Details: " + JSON.stringify(result.details) : "";
             throw new Error((result.message || result.error || "Could not create a secure PDF link.") + debugDetails);

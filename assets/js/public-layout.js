@@ -19,7 +19,8 @@
         login: "/login.html",
         studentDashboard: "/dashboard.html",
         adminDashboard: "/admin.html",
-        apply: "/apply-now",
+        enquiry: "/enquiry",
+        getStarted: "/get-started",
         skillCourses: "/skill-courses",
         competitionCourses: "/competition-courses",
         services: "/services",
@@ -50,7 +51,7 @@
         ["SEO Services", "/services/seo-services"]
     ];
 
-    var tickerItems = ["Accounting & GST", "Website Development", "Digital Marketing", "SEO Services", "Graphic Design", "Business Registration"];
+    var tickerItems = ["Digital Marketing", "SEO Services", "Graphic Design", "Business Registration", "Accounting & GST", "Website Development", "Designing"];
 
     function icon(name) {
         return '<i data-lucide="' + name + '" aria-hidden="true"></i>';
@@ -58,6 +59,16 @@
 
     function escapeHtml(value) {
         return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function isActiveRoute(href) {
+        var path = window.location.pathname.replace(/\/+$/, "") || "/";
+        if (href === "/index.html") return path === "/" || path === "/index.html";
+        return path === href || path.indexOf(href + "/") === 0;
+    }
+
+    function navClass(href) {
+        return "public-nav-link" + (isActiveRoute(href) ? " active" : "");
     }
 
     function menuCards(items) {
@@ -106,16 +117,17 @@
             '<a class="public-brand" href="' + ROUTES.home + '" aria-label="Vinayak Academy home"><img class="public-logo" src="/logo.png" alt="Vinayak Academy & IT Solution logo" width="500" height="214"></a>',
             '<nav class="public-nav" aria-label="Primary navigation">',
             '<ul class="public-nav-list">',
-            '<li class="public-nav-item"><a class="public-nav-link" href="' + ROUTES.home + '">Home</a></li>',
+            '<li class="public-nav-item"><a class="' + navClass(ROUTES.home) + '" href="' + ROUTES.home + '">Home</a></li>',
             '<li class="public-nav-item"><button class="public-nav-trigger" type="button" aria-expanded="false">Skill Courses ' + icon("chevron-down") + '</button><div class="public-dropdown"><div class="public-menu-list">' + menuCards(skillGroups) + '</div></div></li>',
             '<li class="public-nav-item"><button class="public-nav-trigger" type="button" aria-expanded="false">Competition Courses ' + icon("chevron-down") + '</button><div class="public-dropdown"><div class="public-menu-list">' + menuCards(competitionGroups) + '</div></div></li>',
             '<li class="public-nav-item"><button class="public-nav-trigger" type="button" aria-expanded="false">Our Services ' + icon("chevron-down") + '</button><div class="public-dropdown"><div class="public-menu-list">' + menuList(serviceLinks) + '</div></div></li>',
-            '<li class="public-nav-item"><a class="public-nav-link" href="' + ROUTES.gallery + '">Course Gallery</a></li>',
-            '<li class="public-nav-item"><a class="public-nav-link" href="' + ROUTES.contact + '">Contact us</a></li>',
+            '<li class="public-nav-item"><a class="' + navClass(ROUTES.gallery) + '" href="' + ROUTES.gallery + '">Course Gallery</a></li>',
+            '<li class="public-nav-item"><a class="' + navClass(ROUTES.contact) + '" href="' + ROUTES.contact + '">Contact Us</a></li>',
             '</ul>',
             '</nav>',
             '<div class="public-header-actions">',
-            '<a class="public-btn public-btn-primary" href="' + ROUTES.apply + '">' + icon("send") + '<span>APPLY NOW</span></a>',
+            '<a class="public-btn public-btn-primary" href="' + ROUTES.getStarted + '" data-main-get-started>' + icon("user-round") + '<span>GET STARTED</span></a>',
+            '<a class="public-btn public-btn-enquiry" href="' + ROUTES.enquiry + '">' + icon("send") + '<span>ENQUIRY</span></a>',
             '</div>',
             '<button class="public-nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" data-public-menu-toggle>' + icon("menu") + '</button>',
             '</div>',
@@ -126,8 +138,9 @@
             mobileDetails("Competition Courses", competitionGroups, true),
             mobileDetails("Our Services", serviceLinks, false),
             '<a class="public-mobile-link" href="' + ROUTES.gallery + '">Course Gallery</a>',
-            '<a class="public-mobile-link" href="' + ROUTES.contact + '">Contact us</a>',
-            '<a class="public-mobile-link" href="' + ROUTES.apply + '">APPLY NOW</a>',
+            '<a class="public-mobile-link" href="' + ROUTES.contact + '">Contact Us</a>',
+            '<a class="public-mobile-link" href="' + ROUTES.getStarted + '">GET STARTED</a>',
+            '<a class="public-mobile-link" href="' + ROUTES.enquiry + '">ENQUIRY</a>',
             '<div data-public-mobile-auth></div>',
             '</div>',
             '</div>',
@@ -166,9 +179,9 @@
             return '<a class="public-btn public-btn-primary public-btn-compact" href="' + ROUTES.studentDashboard + '">' + icon("layout-dashboard") + '<span>Dashboard</span></a><button class="public-btn public-btn-danger public-btn-compact" type="button" data-public-logout>' + icon("log-out") + '<span>Logout</span></button>';
         }
         if (session && session.role === "admin") {
-            return '<a class="public-btn public-btn-primary public-btn-compact" href="' + ROUTES.adminDashboard + '">' + icon("shield-check") + '<span>Dashboard</span></a><button class="public-btn public-btn-danger public-btn-compact" type="button" data-public-logout>' + icon("log-out") + '<span>Logout</span></button>';
+            return '<a class="public-btn public-btn-secondary public-btn-compact" href="' + ROUTES.login + '?role=student">' + icon("graduation-cap") + '<span>Student Login</span></a>';
         }
-        return '<a class="public-btn public-btn-secondary public-btn-compact" href="' + ROUTES.login + '?role=student">' + icon("graduation-cap") + '<span>Student Login</span></a><a class="public-btn public-btn-secondary public-btn-compact" href="' + ROUTES.login + '?role=admin">' + icon("shield") + '<span>Admin Login</span></a>';
+        return '<a class="public-btn public-btn-secondary public-btn-compact" href="' + ROUTES.login + '?role=student">' + icon("graduation-cap") + '<span>Student Login</span></a>';
     }
 
     async function resolveSession() {
@@ -245,6 +258,12 @@
 
     function renderAuth(session) {
         var markup = authButtonMarkup(session);
+        document.querySelectorAll("[data-main-get-started]").forEach(function (node) {
+            if (session && session.role === "student") {
+                node.href = ROUTES.studentDashboard;
+                node.innerHTML = icon("layout-dashboard") + "<span>Student Dashboard</span>";
+            }
+        });
         document.querySelectorAll("[data-public-auth-actions]").forEach(function (node) {
             node.insertAdjacentHTML("beforeend", markup);
         });

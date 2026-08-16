@@ -2,6 +2,8 @@
 -- Current production code works with the existing courses table, but these fields
 -- let public pages render exact images, slugs, highlights, curriculum and FAQs.
 
+create extension if not exists pgcrypto;
+
 alter table public.courses
     add column if not exists slug text,
     add column if not exists category text,
@@ -41,8 +43,10 @@ create table if not exists public.enquiries (
     course_category text,
     course_id uuid,
     course_name_snapshot text,
+    mobile_verified boolean default false,
     qualification text,
     preferred_learning_mode text,
+    preferred_contact_time text,
     subject text,
     message text not null,
     source text default 'public_contact',
@@ -50,6 +54,16 @@ create table if not exists public.enquiries (
     priority text default 'normal',
     assigned_to text,
     admin_notes text,
+    approved_by text,
+    approved_at timestamptz,
+    accepted_by text,
+    accepted_at timestamptz,
+    rejected_by text,
+    rejected_at timestamptz,
+    rejection_reason text,
+    student_id text,
+    credentials_status text,
+    course_end_date date,
     consent_given boolean default false,
     ip_address text,
     user_agent text,
@@ -74,11 +88,23 @@ alter table public.enquiries
     add column if not exists course_category text,
     add column if not exists course_id uuid,
     add column if not exists course_name_snapshot text,
+    add column if not exists mobile_verified boolean default false,
     add column if not exists qualification text,
     add column if not exists preferred_learning_mode text,
+    add column if not exists preferred_contact_time text,
     add column if not exists priority text default 'normal',
     add column if not exists assigned_to text,
     add column if not exists admin_notes text,
+    add column if not exists approved_by text,
+    add column if not exists approved_at timestamptz,
+    add column if not exists accepted_by text,
+    add column if not exists accepted_at timestamptz,
+    add column if not exists rejected_by text,
+    add column if not exists rejected_at timestamptz,
+    add column if not exists rejection_reason text,
+    add column if not exists student_id text,
+    add column if not exists credentials_status text,
+    add column if not exists course_end_date date,
     add column if not exists consent_given boolean default false,
     add column if not exists ip_address text,
     add column if not exists user_agent text,
@@ -89,6 +115,16 @@ alter table public.enquiries
 
 alter table public.enquiries
     alter column message drop not null;
+
+alter table public.enquiries
+    alter column status set default 'new',
+    alter column enquiry_type set default 'general_enquiry';
+
+update public.enquiries
+set status = 'approved'
+where enquiry_type = 'course_admission'
+  and status in ('accepted', 'student_created')
+  and student_id is not null;
 
 create index if not exists enquiries_status_created_idx
     on public.enquiries (status, created_at desc);
@@ -102,6 +138,76 @@ create index if not exists enquiries_phone_course_created_idx
 create unique index if not exists enquiries_enquiry_number_unique_idx
     on public.enquiries (enquiry_number)
     where enquiry_number is not null;
+
+create index if not exists enquiries_status_idx
+    on public.enquiries (status);
+
+create index if not exists enquiries_type_idx
+    on public.enquiries (enquiry_type);
+
+create index if not exists enquiries_phone_idx
+    on public.enquiries (phone);
+
+create index if not exists enquiries_course_id_idx
+    on public.enquiries (course_id);
+
+create index if not exists enquiries_created_at_idx
+    on public.enquiries (created_at desc);
+
+create index if not exists enquiries_student_id_idx
+    on public.enquiries (student_id)
+    where student_id is not null;
+
+do $$
+begin
+    if exists (
+        select 1 from information_schema.tables
+        where table_schema = 'public' and table_name = 'students'
+    ) then
+        execute 'alter table public.students add column if not exists must_change_password boolean default false';
+        execute 'alter table public.students add column if not exists created_from_application_id uuid';
+        execute 'create index if not exists students_id_idx on public.students (id)';
+        execute 'create index if not exists students_mobile_idx on public.students (mobile)';
+    end if;
+end $$;
+
+create table if not exists public.course_enrollments (
+    id uuid primary key default gen_random_uuid(),
+    student_id text not null,
+    course_id uuid not null,
+    source_application_id uuid,
+    status text default 'active',
+    start_date date,
+    end_date date,
+    enrolled_by text,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now(),
+    unique (student_id, course_id)
+);
+
+create index if not exists course_enrollments_student_id_idx
+    on public.course_enrollments (student_id);
+
+create index if not exists course_enrollments_course_id_idx
+    on public.course_enrollments (course_id);
+
+do $$
+begin
+    if exists (
+        select 1 from information_schema.tables
+        where table_schema = 'public' and table_name = 'courses'
+    ) and not exists (
+        select 1 from information_schema.table_constraints
+        where constraint_schema = 'public'
+          and table_name = 'course_enrollments'
+          and constraint_name = 'course_enrollments_course_id_fkey'
+    ) then
+        alter table public.course_enrollments
+            add constraint course_enrollments_course_id_fkey
+            foreign key (course_id) references public.courses(id)
+            on delete cascade;
+    end if;
+end $$;
 
 create table if not exists public.services (
     id uuid primary key default gen_random_uuid(),
@@ -181,6 +287,8 @@ on conflict (slug) do update set
     curriculum = excluded.curriculum,
     faqs = excluded.faqs,
     requirements = excluded.requirements;
+
+notify pgrst, 'reload schema';
 
 -- Optional rollback guidance:
 -- Drop only the new public workflow objects if you have confirmed no production

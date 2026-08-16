@@ -20,6 +20,7 @@
                 <button type="button" class="erp-nav-link active" data-admin-section-target="dashboard"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="admissions"><i data-lucide="user-round-plus"></i><span>Admissions</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="enquiries"><i data-lucide="messages-square"></i><span>Enquiries</span></button>
+                <button type="button" class="erp-nav-link" data-admin-section-target="approved-students"><i data-lucide="badge-check"></i><span>Approved Students</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="bulk-import"><i data-lucide="files"></i><span>Bulk Student Import</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="students"><i data-lucide="users-round"></i><span>Students</span></button>
                 <button type="button" class="erp-nav-link" data-admin-section-target="courses"><i data-lucide="book-open"></i><span>Courses</span></button>
@@ -67,6 +68,10 @@
                     <article class="erp-stat-card"><span><i class="fas fa-calendar-days"></i></span><small>Pending EMI</small><strong id="statPendingEmi">0</strong></article>
                     <article class="erp-stat-card"><span><i class="fas fa-circle-check"></i></span><small>Paid EMI</small><strong id="statPaidEmi">0</strong></article>
                     <article class="erp-stat-card"><span><i class="fas fa-calendar-day"></i></span><small>Today's Due EMI</small><strong id="statTodayDue">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-message"></i></span><small>New Enquiries</small><strong id="statNewEnquiries">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-user-clock"></i></span><small>Pending Admissions</small><strong id="statPendingAdmissions">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-user-graduate"></i></span><small>Approved Students</small><strong id="statApprovedStudents">0</strong></article>
+                    <article class="erp-stat-card"><span><i class="fas fa-circle-xmark"></i></span><small>Rejected Applications</small><strong id="statRejectedApplications">0</strong></article>
                 </div>
                 <div class="erp-dashboard-grid">
                     <article class="admin-card"><div class="erp-card-head"><h3><i class="fas fa-user-clock"></i> Recent Admissions</h3><button type="button" class="table-action-btn" data-admin-section-target="students">View All</button></div><div id="recentStudentsList" class="erp-list"></div></article>
@@ -130,14 +135,17 @@
             </section>
 
             <section class="admin-section" data-admin-section="enquiries">
-                <div class="admin-hero"><div><h2>Enquiries</h2><p class="admin-hero-copy">View public contact enquiries and Apply Now admission applications.</p></div></div>
+                <div class="admin-hero"><div><h2>Enquiries</h2><p class="admin-hero-copy">View general enquiries and pending admission applications.</p></div><div class="erp-quick-actions"><button type="button" class="table-action-btn" data-enquiry-tab="">All Enquiries</button><button type="button" class="table-action-btn" data-enquiry-tab="general_enquiry">General Enquiries</button><button type="button" class="table-action-btn" data-enquiry-tab="course_admission">Admission Applications</button><button type="button" class="table-action-btn" data-admin-section-target="approved-students">Approved Students</button></div></div>
                 <section class="admin-card admin-table-card">
                     <div class="admin-table-header">
                         <h3><i class="fas fa-message"></i> Enquiry Records</h3>
                         <div class="erp-table-tools">
                             <div class="login-field admin-search-field"><label for="enquirySearchInput">Search</label><input type="search" id="enquirySearchInput" placeholder="Name, phone, email, enquiry no."></div>
-                            <div class="login-field erp-filter-field"><label for="enquiryStatusFilter">Status</label><select id="enquiryStatusFilter"><option value="">All Status</option><option value="new">New</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="interested">Interested</option><option value="converted">Converted</option><option value="rejected">Rejected</option><option value="closed">Closed</option></select></div>
-                            <div class="login-field erp-filter-field"><label for="enquiryTypeFilter">Type</label><select id="enquiryTypeFilter"><option value="">All Types</option><option value="admission_application">Apply Now</option><option value="general">Contact</option></select></div>
+                            <div class="login-field erp-filter-field"><label for="enquiryStatusFilter">Status</label><select id="enquiryStatusFilter"><option value="">All Status</option><option value="new">New</option><option value="pending">Pending</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="interested">Interested</option><option value="approved">Approved</option><option value="converted">Converted</option><option value="rejected">Rejected</option><option value="closed">Closed</option></select></div>
+                            <div class="login-field erp-filter-field"><label for="enquiryTypeFilter">Type</label><select id="enquiryTypeFilter"><option value="">All Types</option><option value="course_admission">Get Started</option><option value="general_enquiry">General Enquiry</option><option value="course_enquiry">Course Enquiry</option><option value="admission_application">Old Application</option><option value="general">Contact</option></select></div>
+                            <div class="login-field erp-filter-field"><label for="enquiryCourseFilter">Course</label><select id="enquiryCourseFilter"><option value="">All Courses</option></select></div>
+                            <div class="login-field erp-filter-field"><label for="enquiryDateFromFilter">From</label><input type="date" id="enquiryDateFromFilter"></div>
+                            <div class="login-field erp-filter-field"><label for="enquiryDateToFilter">To</label><input type="date" id="enquiryDateToFilter"></div>
                             <div class="login-field erp-filter-field"><label for="enquirySortFilter">Sort</label><select id="enquirySortFilter"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Applicant name</option><option value="status">Status</option><option value="course">Course</option></select></div>
                         </div>
                     </div>
@@ -150,7 +158,7 @@
                     <form id="enquiryUpdateForm" class="admin-form">
                         <input type="hidden" id="activeEnquiryId">
                         <div class="erp-form-grid">
-                            <div class="login-field"><label for="enquiryDetailStatus">Status</label><select id="enquiryDetailStatus"><option value="new">New</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="interested">Interested</option><option value="converted">Converted</option><option value="rejected">Rejected</option><option value="closed">Closed</option></select></div>
+                            <div class="login-field"><label for="enquiryDetailStatus">Status</label><select id="enquiryDetailStatus"><option value="new">New</option><option value="pending">Pending</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="interested">Interested</option><option value="approved">Approved</option><option value="converted">Converted</option><option value="rejected">Rejected</option><option value="closed">Closed</option></select></div>
                             <div class="login-field"><label for="enquiryDetailPriority">Priority</label><select id="enquiryDetailPriority"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option><option value="low">Low</option></select></div>
                             <div class="login-field"><label for="enquiryFollowUpDate">Follow-up Date</label><input type="date" id="enquiryFollowUpDate"></div>
                             <div class="login-field"><label for="enquiryAssignedTo">Assigned Admin</label><input type="text" id="enquiryAssignedTo"></div>
@@ -158,6 +166,25 @@
                         </div>
                         <div class="admin-form-actions"><button type="submit" class="login-btn"><i class="fas fa-floppy-disk"></i> Save Enquiry</button></div>
                     </form>
+                </section>
+            </section>
+
+            <section class="admin-section" data-admin-section="approved-students">
+                <div class="admin-hero"><div><h2>Approved Students</h2><p class="admin-hero-copy">Students created from approved Get Started applications with verified course access.</p></div></div>
+                <section class="admin-card admin-table-card">
+                    <div class="admin-table-header">
+                        <h3><i class="fas fa-user-graduate"></i> Approved Student Records</h3>
+                        <div class="erp-table-tools">
+                            <div class="login-field admin-search-field"><label for="approvedStudentSearchInput">Search</label><input type="search" id="approvedStudentSearchInput" placeholder="Student ID, name, mobile, email"></div>
+                            <div class="login-field erp-filter-field"><label for="approvedStudentCourseFilter">Course</label><select id="approvedStudentCourseFilter"><option value="">All Courses</option></select></div>
+                            <div class="login-field erp-filter-field"><label for="approvedStudentStatusFilter">Access</label><select id="approvedStudentStatusFilter"><option value="">All</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+                            <div class="login-field erp-filter-field"><label for="approvedStudentDateFromFilter">From</label><input type="date" id="approvedStudentDateFromFilter"></div>
+                            <div class="login-field erp-filter-field"><label for="approvedStudentDateToFilter">To</label><input type="date" id="approvedStudentDateToFilter"></div>
+                            <div class="login-field erp-filter-field"><label for="approvedStudentSortFilter">Sort</label><select id="approvedStudentSortFilter"><option value="newest">Newest approved</option><option value="oldest">Oldest</option><option value="name">Name</option><option value="student_id">Student ID</option></select></div>
+                        </div>
+                    </div>
+                    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Student ID</th><th>Name</th><th>Mobile</th><th>Email</th><th>Course</th><th>Application No.</th><th>Approval Date</th><th>Course Start</th><th>Account</th><th>Access</th><th>Actions</th></tr></thead><tbody id="approvedStudentsTableBody"><tr><td colspan="11" class="admin-empty">No approved students loaded.</td></tr></tbody></table></div>
+                    <div class="erp-pagination" id="approvedStudentsPagination"></div>
                 </section>
             </section>
 
@@ -502,6 +529,41 @@
             <section class="admin-section" data-admin-section="settings"><article class="admin-card erp-placeholder"><h2>Settings</h2><p>Not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="admins"><article class="admin-card erp-placeholder"><h2>Admins</h2><p>Admin roles are not part of this phase.</p></article></section>
         </main>
+    </div>
+
+    <div class="admin-modal-backdrop" id="approvalModal" hidden>
+        <section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="approvalModalTitle">
+            <div class="erp-card-head"><h3 id="approvalModalTitle"><i class="fas fa-user-check"></i> Approve Student</h3><button type="button" class="table-action-btn" data-close-modal="approvalModal">Close</button></div>
+            <form id="approvalForm" class="admin-form">
+                <input type="hidden" id="approvalApplicationId">
+                <div id="approvalSummary" class="student-profile-grid"></div>
+                <div class="erp-form-grid">
+                    <div class="login-field"><label for="approvalStudentId">Student ID</label><input type="text" id="approvalStudentId" required></div>
+                    <div class="login-field"><label for="approvalTemporaryPassword">Temporary Password</label><input type="text" id="approvalTemporaryPassword" required></div>
+                    <div class="login-field"><label for="approvalCourse">Selected Course</label><input type="text" id="approvalCourse" readonly></div>
+                    <div class="login-field"><label for="approvalStartDate">Course Start Date</label><input type="date" id="approvalStartDate" required></div>
+                    <div class="login-field"><label for="approvalEndDate">Course End Date</label><input type="date" id="approvalEndDate"></div>
+                    <div class="login-field"><label for="approvalBatchId">Batch ID</label><input type="text" id="approvalBatchId" placeholder="Optional"></div>
+                    <div class="login-field"><label for="approvalLearningMode">Learning Mode</label><input type="text" id="approvalLearningMode"></div>
+                    <div class="login-field"><label for="approvalAccountStatus">Student Status</label><select id="approvalAccountStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="blocked">Blocked</option><option value="disabled">Disabled</option></select></div>
+                </div>
+                <div class="admin-form-actions"><button type="button" class="table-action-btn" id="regenerateApprovalIdBtn">Regenerate ID</button><button type="button" class="table-action-btn" id="regenerateApprovalPasswordBtn">Regenerate Password</button><button type="submit" class="login-btn success-btn"><i class="fas fa-circle-check"></i> Approve & Create Student</button></div>
+            </form>
+        </section>
+    </div>
+
+    <div class="admin-modal-backdrop" id="rejectionModal" hidden>
+        <section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="rejectionModalTitle">
+            <div class="erp-card-head"><h3 id="rejectionModalTitle"><i class="fas fa-circle-xmark"></i> Reject Application</h3><button type="button" class="table-action-btn" data-close-modal="rejectionModal">Close</button></div>
+            <form id="rejectionForm" class="admin-form">
+                <input type="hidden" id="rejectionApplicationId">
+                <div class="erp-form-grid">
+                    <div class="login-field"><label for="rejectionReasonSelect">Reason</label><select id="rejectionReasonSelect" required><option value="">Select reason</option><option value="Incomplete information">Incomplete information</option><option value="Duplicate application">Duplicate application</option><option value="Course unavailable">Course unavailable</option><option value="Unable to contact">Unable to contact</option><option value="Eligibility issue">Eligibility issue</option><option value="Other">Other</option></select></div>
+                    <div class="login-field erp-span-2" id="rejectionOtherWrap" hidden><label for="rejectionOtherReason">Custom Reason</label><textarea id="rejectionOtherReason" rows="3"></textarea></div>
+                </div>
+                <div class="admin-form-actions"><button type="submit" class="table-action-btn danger-btn"><i class="fas fa-ban"></i> Reject Application</button></div>
+            </form>
+        </section>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

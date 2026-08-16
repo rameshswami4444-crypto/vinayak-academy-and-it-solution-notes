@@ -291,7 +291,7 @@ async function generateSignedUrl(key, options) {
             endpoint: config.endpoint,
             objectKey: objectKey,
             expiresIn: Number(settings.expiresIn || DEFAULT_SIGNED_URL_SECONDS),
-            signedUrl: signedUrl
+            hasSignedUrl: Boolean(signedUrl)
         });
         return signedUrl;
     } catch (error) {
@@ -305,32 +305,39 @@ async function generateSignedUrl(key, options) {
     }
 }
 
-async function getPDFObject(key) {
+async function getPDFObject(key, options) {
+    const settings = options || {};
     const config = getConfig();
     assertConfig(config);
     const objectKey = normalizeKey(key);
+    const range = String(settings.range || "").trim();
 
     try {
         console.log("R2 PDF object requested", {
             bucket: config.bucket,
             endpoint: config.endpoint,
-            objectKey: objectKey
+            objectKey: objectKey,
+            hasRange: Boolean(range)
         });
-        const result = await createClient().send(new GetObjectCommand({
+        const command = {
             Bucket: config.bucket,
             Key: objectKey,
             ResponseContentType: "application/pdf"
-        }));
+        };
+        if (range) command.Range = range;
+        const result = await createClient().send(new GetObjectCommand(command));
 
         console.log("R2 PDF object fetched", {
             bucket: config.bucket,
             objectKey: objectKey,
+            contentRange: result.ContentRange || "",
             contentLength: result.ContentLength || "",
             contentType: result.ContentType || "application/pdf"
         });
         return {
             body: result.Body,
             contentLength: result.ContentLength,
+            contentRange: result.ContentRange || "",
             contentType: result.ContentType || "application/pdf",
             objectKey: objectKey,
             bucket: config.bucket

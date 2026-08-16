@@ -21,20 +21,31 @@ const {
     testConnection,
     uploadPDF
 } = require("./api/services/r2");
+const {
+    hashPassword,
+    isPasswordHash,
+    timingSafeEqualString,
+    verifyPassword
+} = require("./api/utils/passwords");
 
 const PORT = Number(process.env.PORT || 3000);
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const MAX_PDF_SIZE = 200 * 1024 * 1024;
 const ATTENDANCE_SESSION_COLUMNS = "id, course_id, batch_id, subject, lecture_title, duration_minutes, start_time, end_time, status, created_by, created_at, session_id";
 const ATTENDANCE_RESPONSE_COLUMNS = "id, session_id, student_id, response, response_time, created_at";
 const STUDENT_COLUMNS = "id, password, course, session_id, fees_status, due_date, payment_note, name, father_name, mobile, email, address, course_id, batch_id, admission_date, account_status, created_at, alternate_mobile, batch, course_duration, failed_attempts, locked_until, last_failed_login, student_name";
-const STUDENT_ADMIN_COLUMNS = "id, password, course, session_id, fees_status, due_date, payment_note, name, father_name, mobile, email, address, course_id, batch_id, admission_date, account_status, created_at, alternate_mobile, batch, course_duration";
+const STUDENT_ADMIN_COLUMNS = "id, course, fees_status, due_date, payment_note, name, father_name, mobile, email, address, course_id, batch_id, admission_date, account_status, created_at, alternate_mobile, batch, course_duration";
 const STUDENT_FEE_COLUMNS = "id, student_id, total_fee, admission_fee, remaining_fee, total_emis, status, paid_amount, institute_id";
 const EMI_COLUMNS = "id, student_id, emi_number, amount, due_date, paid_date, status, payment_id, institute_id";
 const PAYMENT_COLUMNS = "id, student_id, emi_id, amount, payment_mode, transaction_id, payment_date, remark, institute_id";
 const ANNOUNCEMENT_COLUMNS = "id, title, message, target_course, created_at, institute_id, all_courses, content, expires_at, is_pinned, target_courses";
 const COURSE_COLUMNS = "id, course_name, duration, total_fee, description, created_at, institute_id";
 const ENQUIRY_SELECT_COLUMNS = "*";
-const ENQUIRY_STATUSES = ["new", "contacted", "follow_up", "interested", "converted", "rejected", "closed"];
+const ENQUIRY_STATUSES = ["new", "pending", "contacted", "follow_up", "interested", "approved", "accepted", "rejected", "student_created", "converted", "closed"];
+const OTP_EXPIRY_MS = Number(process.env.OTP_EXPIRY_SECONDS || 300) * 1000;
+const OTP_RESEND_MS = Number(process.env.OTP_RESEND_SECONDS || 60) * 1000;
+const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+const OTP_VERIFIED_MS = Number(process.env.OTP_VERIFIED_SECONDS || 20 * 60) * 1000;
 const DB = {
     batches: {
         table: "batches",
@@ -126,6 +137,29 @@ const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_PDF_SIZE }
 });
+const OTP_CHALLENGES = new Map();
+const OTP_VERIFIED_TOKENS = new Map();
+
+function addMonths(dateString, months) {
+    const match = String(dateString || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return "";
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    date.setUTCMonth(date.getUTCMonth() + Number(months || 0));
+    return date.toISOString().slice(0, 10);
+}
+
+function generatePublicStudentId() {
+    const stamp = new Date();
+    return "VA" + String(stamp.getFullYear()).slice(2) +
+        String(stamp.getMonth() + 1).padStart(2, "0") +
+        String(stamp.getDate()).padStart(2, "0") +
+        String(Math.floor(Math.random() * 9000) + 1000);
+}
+
+function generateStudentPassword(mobile) {
+    const suffix = normalizePhone(mobile).slice(-4) || String(Math.floor(Math.random() * 9000) + 1000);
+    return "VA@" + suffix;
+}
 
 function parsePositiveInt(value, fallback, maxValue) {
     const number = Math.floor(Number(value));
@@ -202,7 +236,8 @@ function readFrontendSupabaseConfig() {
 function getSupabaseConfig() {
     const frontendConfig = readFrontendSupabaseConfig();
     const url = process.env.SUPABASE_URL || frontendConfig.url || "";
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    const key = process.env.SUPABASE_SECRET_KEY ||
+        process.env.SUPABASE_SERVICE_ROLE_KEY ||
         process.env.SUPABASE_SERVICE_KEY ||
         process.env.SUPABASE_ANON_KEY ||
         process.env.SUPABASE_PUBLISHABLE_KEY ||
@@ -217,6 +252,170 @@ function getSupabaseConfig() {
     }
 
     return { url: url, key: key };
+}
+
+function getSupabaseJwtRole(key) {
+    const parts = String(key || "").split(".");
+    if (parts.length < 2) return "";
+    try {
+        const json = Buffer.from(parts[1], "base64url").toString("utf8");
+        return String((JSON.parse(json) || {}).role || "");
+    } catch (error) {
+        return "";
+    }
+}
+
+function isSupabaseServiceRoleKey(key) {
+    const value = String(key || "");
+    return value.indexOf("sb_secret_") === 0 || getSupabaseJwtRole(value) === "service_role";
+}
+
+function getEnvironmentStatus() {
+    const supabase = getSupabaseConfig();
+    const serviceRoleConfigured = Boolean(String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || "").trim());
+    return {
+        requiredAll: {
+            SUPABASE_URL: Boolean(String(supabase.url || "").trim()),
+            SUPABASE_SERVER_KEY: Boolean(String(supabase.key || "").trim())
+        },
+        diagnostics: {
+            SUPABASE_SERVICE_ROLE_KEY: serviceRoleConfigured,
+            SUPABASE_SERVICE_ROLE_CAPABLE: isSupabaseServiceRoleKey(supabase.key)
+        },
+        requiredProduction: {
+            SESSION_SECRET: Boolean(String(process.env.SESSION_SECRET || "").trim()),
+            PDF_ACCESS_SECRET: Boolean(String(process.env.PDF_ACCESS_SECRET || "").trim())
+        },
+        optional: {
+            R2_BUCKET: Boolean(String(process.env.R2_BUCKET || "").trim()),
+            R2_ENDPOINT: Boolean(String(process.env.R2_ENDPOINT || "").trim()),
+            TURNSTILE_SECRET_KEY: Boolean(String(process.env.TURNSTILE_SECRET_KEY || "").trim()),
+            OTP_SMS_ENDPOINT: Boolean(String(process.env.OTP_SMS_ENDPOINT || "").trim())
+        }
+    };
+}
+
+function getMissingRequiredEnv(status) {
+    const envStatus = status || getEnvironmentStatus();
+    const missing = [];
+    Object.keys(envStatus.requiredAll).forEach(function (name) {
+        if (!envStatus.requiredAll[name]) missing.push(name);
+    });
+    if (!envStatus.requiredProduction.PDF_ACCESS_SECRET && !envStatus.requiredProduction.SESSION_SECRET) {
+        missing.push("PDF_ACCESS_SECRET or SESSION_SECRET");
+    }
+    if (IS_PRODUCTION && !envStatus.diagnostics.SUPABASE_SERVICE_ROLE_CAPABLE) {
+        missing.push("SUPABASE_SERVICE_ROLE_KEY with service_role privileges");
+    }
+    return missing;
+}
+
+function validateSecurityEnvironment() {
+    const status = getEnvironmentStatus();
+    console.log("Security environment status", {
+        supabaseUrlConfigured: status.requiredAll.SUPABASE_URL,
+        supabaseServerKeyConfigured: status.requiredAll.SUPABASE_SERVER_KEY,
+        supabaseServiceRoleConfigured: status.diagnostics.SUPABASE_SERVICE_ROLE_KEY,
+        supabaseServiceRoleCapable: status.diagnostics.SUPABASE_SERVICE_ROLE_CAPABLE,
+        sessionSecretConfigured: status.requiredProduction.SESSION_SECRET,
+        pdfAccessSecretConfigured: status.requiredProduction.PDF_ACCESS_SECRET,
+        turnstileConfigured: status.optional.TURNSTILE_SECRET_KEY,
+        otpSmsConfigured: status.optional.OTP_SMS_ENDPOINT
+    });
+    const missing = getMissingRequiredEnv(status);
+    if (!status.requiredProduction.SESSION_SECRET && !missing.includes("SESSION_SECRET")) {
+        missing.push("SESSION_SECRET");
+    }
+    if (!missing.length) return;
+    const message = "Missing required security environment variable(s): " + missing.join(", ") + ".";
+    if (IS_PRODUCTION) {
+        throw new Error(message);
+    }
+    console.warn(message + " Admin login tokens and PDF/material viewer tokens will not work until configured.");
+}
+
+async function migratePasswordHash(client, tableName, keyColumn, keyValue, password, storedPassword) {
+    if (!password || isPasswordHash(storedPassword)) return;
+    const payload = { password: hashPassword(password) };
+    const result = await client.from(tableName).update(payload).eq(keyColumn, keyValue);
+    if (result.error) throw result.error;
+}
+
+function getSessionSecret() {
+    return String(process.env.SESSION_SECRET || "").trim();
+}
+
+function signAdminTokenPayload(payload) {
+    const secret = getSessionSecret();
+    if (!secret) {
+        throw new Error("SESSION_SECRET is required for admin login.");
+    }
+    const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    const signature = crypto.createHmac("sha256", secret).update(body).digest("base64url");
+    return ADMIN_TOKEN_PREFIX + body + "." + signature;
+}
+
+function verifySignedAdminToken(token) {
+    const value = String(token || "").trim();
+    if (!value.startsWith(ADMIN_TOKEN_PREFIX)) return null;
+    const raw = value.slice(ADMIN_TOKEN_PREFIX.length);
+    const parts = raw.split(".");
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+    const secret = getSessionSecret();
+    if (!secret) return null;
+    const expected = crypto.createHmac("sha256", secret).update(parts[0]).digest("base64url");
+    if (!timingSafeEqualString(expected, parts[1])) return null;
+    try {
+        const payload = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8")) || {};
+        if (payload.type !== "admin" || !payload.adminId || Number(payload.expiresAt || 0) <= Date.now()) {
+            return null;
+        }
+        return {
+            token: value,
+            adminId: String(payload.adminId || ""),
+            expiresAt: Number(payload.expiresAt || 0),
+            role: payload.role || "admin",
+            institute_id: payload.institute_id || null,
+            full_name: payload.full_name || ""
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
+function createAdminToken(admin) {
+    const record = {
+        type: "admin",
+        adminId: String(admin.username || ""),
+        expiresAt: Date.now() + ADMIN_SESSION_TTL_MS,
+        role: admin.role || "admin",
+        institute_id: admin.institute_id || null,
+        full_name: admin.full_name || ""
+    };
+    const token = signAdminTokenPayload(record);
+    ADMIN_SESSIONS.set(token, {
+        adminId: record.adminId,
+        expiresAt: record.expiresAt,
+        role: record.role,
+        institute_id: record.institute_id,
+        full_name: record.full_name
+    });
+    return token;
+}
+
+function getAdminTokenRecord(request) {
+    const token = String(request.get("x-admin-token") || request.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    if (!token) return null;
+    const signedRecord = verifySignedAdminToken(token);
+    if (signedRecord) return signedRecord;
+    const record = ADMIN_SESSIONS.get(token);
+    if (!record) return null;
+    if (record.expiresAt <= Date.now()) {
+        ADMIN_SESSIONS.delete(token);
+        return null;
+    }
+    record.expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+    return Object.assign({ token: token }, record);
 }
 
 function getSupabaseClient() {
@@ -270,14 +469,24 @@ function validateMaterialRequest(body, file) {
     const primaryCourseId = String(body.course_id || body.courseId || body.primary_course_id || "").trim();
     const courseIds = parseCourseIds(body.course_ids || body.courseIds, primaryCourseId);
 
-    if (!title) throw new Error("Title is required.");
-    if (!subject) throw new Error("Subject is required.");
-    if (!courseIds.length) throw new Error("At least one course UUID is required.");
-    if (!file) throw new Error("PDF file is required.");
-    if (file.size > MAX_PDF_SIZE) throw new Error("PDF must be 200 MB or smaller.");
-    if (file.mimetype && file.mimetype !== "application/pdf") throw new Error("Only PDF files are allowed.");
+    function uploadError(message, statusCode) {
+        const error = new Error(message);
+        error.statusCode = statusCode || 400;
+        return error;
+    }
+
+    if (!title) throw uploadError("Title is required.", 400);
+    if (!subject) throw uploadError("Subject is required.", 400);
+    if (!courseIds.length) throw uploadError("At least one course UUID is required.", 400);
+    if (!file) throw uploadError("PDF file is required.", 400);
+    if (file.size > MAX_PDF_SIZE) throw uploadError("PDF must be 200 MB or smaller.", 413);
+    if (file.mimetype && file.mimetype !== "application/pdf") throw uploadError("Only PDF files are allowed.", 415);
     if (!/\.pdf$/i.test(file.originalname || "") && file.mimetype !== "application/pdf") {
-        throw new Error("Only PDF files are allowed.");
+        throw uploadError("Only PDF files are allowed.", 415);
+    }
+    const signature = file.buffer && file.buffer.slice ? file.buffer.slice(0, 5).toString("utf8") : "";
+    if (signature !== "%PDF-") {
+        throw uploadError("Uploaded file is not a valid PDF.", 415);
     }
 
     return {
@@ -342,8 +551,10 @@ async function insertNoteRecord(client, payload) {
 }
 
 function sendError(response, error, statusCode) {
+    const requestId = crypto.randomUUID();
     const details = serializeR2Error(error);
     console.error("Error details", {
+        requestId: requestId,
         name: details.name,
         message: details.message,
         code: details.code,
@@ -353,17 +564,16 @@ function sendError(response, error, statusCode) {
     });
     response.status(statusCode || 500).json({
         success: false,
-        message: details.message,
-        code: details.code,
-        status: details.status,
-        stack: process.env.NODE_ENV === "production" ? undefined : details.stack,
-        details: process.env.NODE_ENV === "production" ? undefined : details
+        message: "Request could not be completed. Please try again or contact support.",
+        request_id: requestId
     });
 }
 
 function sendApiError(response, statusCode, message, error, context) {
+    const requestId = crypto.randomUUID();
     const details = error ? serializeR2Error(error) : {};
     console.error("API error", {
+        requestId: requestId,
         message: message,
         context: context || {},
         error: details
@@ -372,8 +582,7 @@ function sendApiError(response, statusCode, message, error, context) {
         success: false,
         message: message,
         error: message,
-        context: process.env.NODE_ENV === "production" ? undefined : context,
-        details: process.env.NODE_ENV === "production" ? undefined : details
+        request_id: requestId
     });
 }
 
@@ -589,43 +798,368 @@ function normalizeKey(value) {
 }
 
 const PUBLIC_FORM_RATE_LIMIT = new Map();
-function rateLimitPublicForm(request) {
-    const key = String(request.ip || request.get("x-forwarded-for") || "local").split(",")[0].trim();
+function rateLimitPublicForm(request, bucket, maxCount, windowMs) {
+    const ip = String(request.ip || request.get("x-forwarded-for") || "local").split(",")[0].trim();
+    const key = [bucket || "form", ip].join(":");
     const now = Date.now();
-    const windowMs = 10 * 60 * 1000;
+    const limitWindow = windowMs || 10 * 60 * 1000;
     const current = PUBLIC_FORM_RATE_LIMIT.get(key) || [];
-    const recent = current.filter(function (time) { return now - time < windowMs; });
+    const recent = current.filter(function (time) { return now - time < limitWindow; });
     recent.push(now);
     PUBLIC_FORM_RATE_LIMIT.set(key, recent);
-    return recent.length <= 5;
+    return recent.length <= (maxCount || 5);
+}
+
+function cleanupOtpStores() {
+    const now = Date.now();
+    OTP_CHALLENGES.forEach(function (entry, key) {
+        if (!entry || entry.expiresAt < now) OTP_CHALLENGES.delete(key);
+    });
+    OTP_VERIFIED_TOKENS.forEach(function (entry, key) {
+        if (!entry || entry.expiresAt < now) OTP_VERIFIED_TOKENS.delete(key);
+    });
+}
+
+function createOtpHash(otp, salt) {
+    return crypto.createHash("sha256").update(String(otp) + ":" + String(salt)).digest("hex");
+}
+
+async function sendOtpMessage(mobile, otp) {
+    const endpoint = String(process.env.OTP_SMS_ENDPOINT || "").trim();
+    const devMode = process.env.OTP_DEV_MODE === "true" && process.env.NODE_ENV !== "production";
+    const message = String(process.env.OTP_SMS_TEMPLATE || "Your Vinayak Academy enquiry OTP is {{otp}}. It expires in 5 minutes.").replace(/\{\{otp\}\}/g, otp);
+
+    if (!endpoint) {
+        if (devMode) {
+            console.log("Development OTP for " + mobile + ": " + otp);
+            return { delivered: true, mode: "development" };
+        }
+        throw new Error("OTP SMS provider is not configured.");
+    }
+    if (typeof fetch !== "function") {
+        throw new Error("Server fetch API is not available for OTP SMS delivery.");
+    }
+
+    const headers = { "Content-Type": "application/json", "Accept": "application/json" };
+    const authHeader = String(process.env.OTP_SMS_AUTH_HEADER || "").trim();
+    const authValue = String(process.env.OTP_SMS_AUTH_VALUE || "").trim();
+    if (authHeader && authValue) headers[authHeader] = authValue;
+
+    const result = await fetch(endpoint, {
+        method: String(process.env.OTP_SMS_METHOD || "POST").toUpperCase(),
+        headers: headers,
+        body: JSON.stringify({ mobile: mobile, phone: mobile, to: mobile, otp: otp, message: message })
+    });
+    if (!result.ok) {
+        throw new Error("OTP SMS provider rejected the request.");
+    }
+    return { delivered: true, mode: "provider" };
+}
+
+function hasVerifiedMobileToken(mobile, token) {
+    cleanupOtpStores();
+    const cleanMobile = normalizePhone(mobile);
+    const entry = OTP_VERIFIED_TOKENS.get(String(token || ""));
+    return Boolean(entry && entry.mobile === cleanMobile && entry.expiresAt >= Date.now());
+}
+
+function consumeVerifiedMobileToken(mobile, token) {
+    if (!hasVerifiedMobileToken(mobile, token)) return false;
+    OTP_VERIFIED_TOKENS.delete(String(token || ""));
+    return true;
+}
+
+async function verifyTurnstileToken(token, request) {
+    const secret = String(process.env.TURNSTILE_SECRET_KEY || "").trim();
+    if (!secret) return { checked: false, ok: true };
+    if (!token) return { checked: true, ok: false };
+    if (typeof fetch !== "function") throw new Error("Server fetch API is not available for CAPTCHA verification.");
+    const form = new URLSearchParams();
+    form.set("secret", secret);
+    form.set("response", String(token));
+    form.set("remoteip", String(request.ip || "").split(",")[0]);
+    const result = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString()
+    });
+    const payload = await result.json().catch(function () { return {}; });
+    return { checked: true, ok: Boolean(payload.success) };
+}
+
+async function insertEnquiryWithFallback(client, payload) {
+    const nextPayload = Object.assign({}, payload);
+    let lastResult = null;
+    for (let attempts = 0; attempts < 8; attempts += 1) {
+        lastResult = await client.from("enquiries").insert([nextPayload]).select("id, enquiry_number").single();
+        if (!lastResult.error) return lastResult;
+        if (lastResult.error.code !== "42703" && lastResult.error.code !== "PGRST204") break;
+        const column = getUnknownColumn(lastResult.error);
+        if (!column || !Object.prototype.hasOwnProperty.call(nextPayload, column)) break;
+        delete nextPayload[column];
+    }
+    return lastResult;
+}
+
+async function insertStudentWithFallback(client, payload) {
+    const nextPayload = Object.assign({}, payload);
+    let lastResult = null;
+    for (let attempts = 0; attempts < 10; attempts += 1) {
+        lastResult = await client.from("students").insert([nextPayload]).select("id").single();
+        if (!lastResult.error) return lastResult;
+        if (lastResult.error.code !== "42703" && lastResult.error.code !== "PGRST204") break;
+        const column = getUnknownColumn(lastResult.error);
+        if (!column || !Object.prototype.hasOwnProperty.call(nextPayload, column)) break;
+        delete nextPayload[column];
+    }
+    return lastResult;
+}
+
+async function updateEnquiryWithFallback(client, id, payload, selectColumns) {
+    const nextPayload = Object.assign({}, payload);
+    let lastResult = null;
+    for (let attempts = 0; attempts < 14; attempts += 1) {
+        lastResult = await client.from("enquiries").update(nextPayload).eq("id", id).select(selectColumns || ENQUIRY_SELECT_COLUMNS).single();
+        if (!lastResult.error) return lastResult;
+        if (lastResult.error.code !== "42703" && lastResult.error.code !== "PGRST204") break;
+        const column = getUnknownColumn(lastResult.error);
+        if (!column || !Object.prototype.hasOwnProperty.call(nextPayload, column)) break;
+        delete nextPayload[column];
+    }
+    return lastResult;
+}
+
+function generateStrongTemporaryPassword() {
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const lower = "abcdefghijkmnopqrstuvwxyz";
+    const digits = "23456789";
+    const safe = "@#$";
+    const all = upper + lower + digits + safe;
+    const pick = function (chars) {
+        return chars[crypto.randomInt(0, chars.length)];
+    };
+    const required = [pick(upper), pick(lower), pick(digits), pick(safe)];
+    while (required.length < 12) required.push(pick(all));
+    for (let index = required.length - 1; index > 0; index -= 1) {
+        const swap = crypto.randomInt(0, index + 1);
+        const value = required[index];
+        required[index] = required[swap];
+        required[swap] = value;
+    }
+    return required.join("");
+}
+
+function buildCredentialMessage(studentName, studentId, password, courseName) {
+    return [
+        "Hello " + (studentName || "Student") + ",",
+        "",
+        "Your admission at Vinayak Academy & IT Solution has been approved.",
+        "",
+        "Course: " + (courseName || "-"),
+        "",
+        "Student ID: " + studentId,
+        "Temporary Password: " + password,
+        "",
+        "Login using the Student Login option on our website.",
+        "",
+        "For security, please change your password after your first login.",
+        "",
+        "Vinayak Academy & IT Solution"
+    ].join("\n");
+}
+
+function buildRejectionMessage(studentName, courseName, reason) {
+    return [
+        "Hello " + (studentName || "Student") + ",",
+        "",
+        "Your application for " + (courseName || "your selected course") + " at Vinayak Academy & IT Solution has been reviewed.",
+        "",
+        "Unfortunately, your application could not be approved at this time.",
+        "",
+        "Reason:",
+        reason || "Please contact our team for further information.",
+        "",
+        "For further information, you may contact our team.",
+        "",
+        "Vinayak Academy & IT Solution"
+    ].join("\n");
+}
+
+function buildPendingAdmissionMessage(studentName, courseName) {
+    return [
+        "Hello " + (studentName || "Student") + ",",
+        "",
+        "We have received your application for " + (courseName || "your selected course") + ".",
+        "",
+        "Your application is currently under review.",
+        "",
+        "Vinayak Academy & IT Solution"
+    ].join("\n");
+}
+
+function normalizeWhatsAppNumber(phone) {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (!digits) return "";
+    const lastTen = digits.slice(-10);
+    if (!/^[6-9]\d{9}$/.test(lastTen)) return "";
+    return "91" + lastTen;
+}
+
+async function findExistingStudentAccount(client, mobile, email) {
+    const phone = normalizePhone(mobile);
+    if (phone) {
+        const mobileResult = await client
+            .from("students")
+            .select(STUDENT_ADMIN_COLUMNS)
+            .eq("mobile", phone)
+            .limit(1);
+        if (mobileResult.error) throw mobileResult.error;
+        if (mobileResult.data && mobileResult.data.length) return mobileResult.data[0];
+    }
+    if (email) {
+        const emailResult = await client
+            .from("students")
+            .select(STUDENT_ADMIN_COLUMNS)
+            .eq("email", email)
+            .limit(1);
+        if (emailResult.error) throw emailResult.error;
+        if (emailResult.data && emailResult.data.length) return emailResult.data[0];
+    }
+    return null;
+}
+
+async function findStudentById(client, studentId) {
+    const result = await client
+        .from("students")
+        .select(STUDENT_ADMIN_COLUMNS)
+        .eq("id", studentId)
+        .limit(1);
+    if (result.error) throw result.error;
+    return result.data && result.data[0] ? result.data[0] : null;
+}
+
+function getCourseDbId(course) {
+    return /^[0-9a-f-]{36}$/i.test(String(course && course.id || "")) ? course.id : null;
+}
+
+function studentHasCourseAccess(student, course) {
+    if (!student || !course) return false;
+    const expectedCourseId = getCourseDbId(course);
+    const studentCourseId = String(student.course_id || "").trim();
+    const studentCourseName = normalizeKey(student.course || "");
+    return Boolean(
+        (expectedCourseId && studentCourseId === String(expectedCourseId)) ||
+        (course.title && studentCourseName === normalizeKey(course.title))
+    );
+}
+
+function shapeApprovedStudent(application, student, course) {
+    const accountStatus = String(student.account_status || "active").toLowerCase();
+    const hasAccess = studentHasCourseAccess(student, course || { id: application.course_id, title: application.course_name_snapshot });
+    return {
+        student_id: student.id,
+        student_name: student.name || student.student_name || application.name || "",
+        guardian_name: student.father_name || application.father_guardian_name || "",
+        mobile: student.mobile || application.phone || "",
+        alternate_mobile: student.alternate_mobile || application.alternate_phone || "",
+        email: student.email || application.email || "",
+        address: student.address || [application.address, application.city, application.state, application.pin_code].filter(Boolean).join(", "),
+        course: student.course || application.course_name_snapshot || "",
+        course_id: student.course_id || application.course_id || "",
+        batch_id: student.batch_id || "",
+        batch: student.batch || "",
+        application_id: application.id,
+        application_number: application.enquiry_number || "",
+        applied_at: application.created_at || "",
+        approval_date: application.approved_at || application.accepted_at || "",
+        approved_by: application.approved_by || application.accepted_by || "",
+        learning_mode: application.preferred_learning_mode || "",
+        course_start_date: student.admission_date || "",
+        course_end_date: application.course_end_date || "",
+        enrolment_date: student.admission_date || student.created_at || "",
+        account_status: accountStatus,
+        course_access_status: hasAccess && accountStatus === "active" ? "active" : "inactive",
+        created_at: student.created_at || ""
+    };
+}
+
+async function getPublicBatches(client, courseId) {
+    let query = client
+        .from("batches")
+        .select("id, course_id, batch_name, timing, status")
+        .order("batch_name", { ascending: true });
+    if (courseId) query = query.eq("course_id", courseId);
+    const result = await query.limit(500);
+    if (result.error) throw result.error;
+    return (result.data || []).filter(function (batch) {
+        return String(batch.status || "Active").toLowerCase() !== "inactive";
+    });
+}
+
+async function generateUniqueStudentId(client) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+        const studentId = generatePublicStudentId();
+        const existing = await client.from("students").select("id").eq("id", studentId).limit(1);
+        if (existing.error) throw existing.error;
+        if (!existing.data || !existing.data.length) return studentId;
+    }
+    return "VA" + Date.now();
 }
 
 function getAdminAuthFromRequest(request) {
     return {
         adminId: formString(request.get("x-admin-id") || "", 120),
-        password: String(request.get("x-admin-password") || "")
+        password: String(request.get("x-admin-password") || ""),
+        tokenRecord: getAdminTokenRecord(request)
     };
 }
 
 async function requireAdmin(request, response) {
     const auth = getAdminAuthFromRequest(request);
+    if (auth.tokenRecord && auth.tokenRecord.adminId) {
+        return {
+            username: auth.tokenRecord.adminId,
+            role: auth.tokenRecord.role || "admin",
+            institute_id: auth.tokenRecord.institute_id,
+            full_name: auth.tokenRecord.full_name || ""
+        };
+    }
     if (!auth.adminId || !auth.password) {
+        const studentId = formString(request.get("x-student-id") || "", 120);
+        const studentToken = String(request.get("x-session-token") || "");
+        if (studentId || studentToken) {
+            response.status(403).json({ success: false, message: "Admin access denied." });
+            return null;
+        }
         response.status(401).json({ success: false, message: "Admin authentication required." });
         return null;
     }
-    const result = await getSupabaseClient()
+    const client = getSupabaseClient();
+    const result = await client
         .from("admins")
-        .select("username, password, role, account_status, status, full_name")
+        .select("username, password, role, institute_id, account_status, status, full_name")
         .eq("username", auth.adminId)
         .limit(1);
     if (result.error) throw result.error;
     const admin = result.data && result.data[0];
     const status = String(admin && (admin.account_status || admin.status || "active")).toLowerCase();
-    if (!admin || String(admin.password || "") !== auth.password || ["blocked", "disabled", "inactive", "suspended"].includes(status)) {
+    if (!admin || !verifyPassword(auth.password, admin.password) || ["blocked", "disabled", "inactive", "suspended"].includes(status)) {
         response.status(403).json({ success: false, message: "Admin access denied." });
         return null;
     }
+    await migratePasswordHash(client, "admins", "username", admin.username, auth.password, admin.password);
     return admin;
+}
+
+async function requireAdminMiddleware(request, response, next) {
+    try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
+        request.admin = admin;
+        next();
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Admin authentication failed.", error);
+    }
 }
 
 function isIndianMobile(value) {
@@ -665,12 +1199,12 @@ async function generateEnquiryNumber(client) {
     const year = new Date().getFullYear();
     for (let attempt = 0; attempt < 5; attempt += 1) {
         const suffix = String(Date.now()).slice(-6) + String(Math.floor(Math.random() * 100)).padStart(2, "0");
-        const number = "VCA-APP-" + year + "-" + suffix;
+        const number = "VCA-ENQ-" + year + "-" + suffix;
         const existing = await client.from("enquiries").select("id").eq("enquiry_number", number).limit(1);
         if (existing.error) throw existing.error;
         if (!existing.data || !existing.data.length) return number;
     }
-    return "VCA-APP-" + year + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    return "VCA-ENQ-" + year + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 }
 
 async function getStudentCourseIds(client, student) {
@@ -1321,11 +1855,19 @@ function summarizeStudentAttendance(rows) {
 }
 
 const app = express();
+app.disable("x-powered-by");
 app.set("etag", "strong");
+if (IS_PRODUCTION) {
+    app.set("trust proxy", String(process.env.TRUST_PROXY || "loopback"));
+}
+const ADMIN_SESSION_TTL_MS = Number(process.env.ADMIN_SESSION_TTL_SECONDS || 6 * 60 * 60) * 1000;
+const ADMIN_SESSIONS = new Map();
+const ADMIN_TOKEN_PREFIX = "adm1.";
 const DEFAULT_ALLOWED_ORIGINS = [
     "https://www.vinayakacademy.online",
     "https://vinayakacademy.online",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "http://localhost:5500",
     "http://localhost:5501",
     "http://localhost:5502",
@@ -1353,7 +1895,7 @@ const corsOptions = {
         callback(new Error("CORS origin not allowed."));
     },
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Student-Id", "X-Session-Token", "X-Admin-Id", "X-Admin-Password"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Student-Id", "X-Session-Token", "X-Admin-Id", "X-Admin-Token", "X-Admin-Password"],
     optionsSuccessStatus: 204
 };
 
@@ -1363,15 +1905,143 @@ app.use(function securityHeaders(request, response, next) {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("X-Frame-Options", "SAMEORIGIN");
     response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (IS_PRODUCTION && request.secure) {
+        response.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+    }
     next();
 });
 app.use(compression({
     threshold: 1024
 }));
+app.use(function noStoreSensitiveResponses(request, response, next) {
+    if (/^\/api\/auth\//.test(request.path) ||
+        /^\/api\/material\/[^/]+\/(?:access|content)/.test(request.path) ||
+        ["/admin.html", "/dashboard.html", "/studymaterial.html", "/profile.html", "/assignments.html", "/attendance.html", "/emi.html", "/pdf-viewer.html", "/login.html", "/admin/login"].includes(request.path)) {
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Pragma", "no-cache");
+    }
+    next();
+});
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-app.post("/api/upload-material", upload.single("file"), async function (request, response) {
+function sanitizeAdmin(admin) {
+    return {
+        username: admin && admin.username || "",
+        role: admin && admin.role || "admin",
+        institute_id: admin && admin.institute_id || null,
+        full_name: admin && admin.full_name || "",
+        account_status: admin && (admin.account_status || admin.status || "active")
+    };
+}
+
+async function updateLoginFailure(client, tableName, keyColumn, keyValue, attempts) {
+    if (!keyValue) return;
+    const payload = {
+        failed_attempts: attempts,
+        last_failed_login: new Date().toISOString(),
+        locked_until: attempts >= 5 ? new Date(Date.now() + 60 * 60 * 1000).toISOString() : null
+    };
+    await client.from(tableName).update(payload).eq(keyColumn, keyValue);
+}
+
+function isLockedAccount(record) {
+    const lockedUntil = record && record.locked_until ? new Date(record.locked_until).getTime() : 0;
+    return Number.isFinite(lockedUntil) && lockedUntil > Date.now();
+}
+
+app.post("/api/auth/login", async function (request, response) {
+    try {
+        const role = formString(request.body.role, 20).toLowerCase();
+        const identifier = formString(request.body.identifier || request.body.username || request.body.student_id, 120);
+        const password = String(request.body.password || "");
+        if (!["student", "admin"].includes(role) || !identifier || !password) {
+            response.status(400).json({ success: false, message: "Invalid username or password." });
+            return;
+        }
+        const client = getSupabaseClient();
+        if (role === "admin") {
+            const result = await client.from("admins").select("username, password, role, institute_id, full_name, account_status, status, failed_attempts, locked_until").eq("username", identifier).limit(1);
+            if (result.error) throw result.error;
+            const admin = result.data && result.data[0];
+            const status = String(admin && (admin.account_status || admin.status || "active")).toLowerCase();
+            if (admin && isLockedAccount(admin)) {
+                response.status(423).json({ success: false, message: "Too many failed login attempts. Please try again later." });
+                return;
+            }
+            if (!admin || !verifyPassword(password, admin.password) || ["blocked", "disabled", "inactive", "suspended"].includes(status)) {
+                if (admin) await updateLoginFailure(client, "admins", "username", admin.username, Number(admin.failed_attempts || 0) + 1);
+                response.status(401).json({ success: false, message: "Invalid username or password." });
+                return;
+            }
+            await migratePasswordHash(client, "admins", "username", admin.username, password, admin.password);
+            await client.from("admins").update({ failed_attempts: 0, locked_until: null, last_failed_login: null }).eq("username", admin.username);
+            const token = createAdminToken(admin);
+            response.json({ success: true, role: "admin", admin: sanitizeAdmin(admin), admin_token: token, expires_in_seconds: Math.floor(ADMIN_SESSION_TTL_MS / 1000) });
+            return;
+        }
+
+        const result = await client.from("students").select(STUDENT_COLUMNS).eq("id", identifier).limit(1);
+        if (result.error) throw result.error;
+        const student = result.data && result.data[0];
+        const status = String(student && student.account_status || "active").toLowerCase();
+        if (student && isLockedAccount(student)) {
+            response.status(423).json({ success: false, message: "Too many failed login attempts. Please try again later." });
+            return;
+        }
+        if (!student || !verifyPassword(password, student.password) || ["blocked", "disabled", "inactive", "suspended"].includes(status)) {
+            if (student) await updateLoginFailure(client, "students", "id", student.id, Number(student.failed_attempts || 0) + 1);
+            response.status(401).json({ success: false, message: "Invalid username or password." });
+            return;
+        }
+        await migratePasswordHash(client, "students", "id", student.id, password, student.password);
+        const sessionId = crypto.randomBytes(32).toString("base64url");
+        await client.from("students").update({ session_id: sessionId, failed_attempts: 0, locked_until: null, last_failed_login: null }).eq("id", student.id);
+        const fresh = Object.assign({}, student, { session_id: sessionId });
+        response.json({ success: true, role: "student", student: sanitizeStudent(fresh), session_token: sessionId, redirect: "/dashboard.html" });
+    } catch (error) {
+        sendApiError(response, 500, "Login failed.", error);
+    }
+});
+
+app.get("/api/auth/session", async function (request, response) {
+    try {
+        const auth = getStudentAuthFromRequest(request);
+        const role = formString(request.query.role || request.get("x-auth-role") || (auth.studentId && auth.sessionToken ? "student" : ""), 20).toLowerCase();
+        if (role === "admin") {
+            const admin = await requireAdmin(request, response);
+            if (!admin) return;
+            response.json({ success: true, role: "admin", admin: sanitizeAdmin(admin) });
+            return;
+        }
+        if (role === "student") {
+            const resolved = await resolveStudentForApi(request);
+            response.json({ success: true, role: "student", student: sanitizeStudent(resolved.student), session_token: resolved.auth.sessionToken });
+            return;
+        }
+        response.status(400).json({ success: false, message: "Invalid session role." });
+    } catch (error) {
+        sendApiError(response, error.statusCode || 500, error.message || "Session validation failed.", error);
+    }
+});
+
+app.post("/api/admin/password/hash", async function (request, response) {
+    try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
+        const password = String(request.body.password || "");
+        if (password.length < 8 || password.length > 128) {
+            response.status(400).json({ success: false, message: "Password must be 8 to 128 characters." });
+            return;
+        }
+        response.json({ success: true, password_hash: hashPassword(password) });
+    } catch (error) {
+        sendApiError(response, 500, "Could not prepare password.", error);
+    }
+});
+
+app.post("/api/upload-material", requireAdminMiddleware, upload.single("file"), async function (request, response) {
     console.log("Request received: POST /api/upload-material");
 
     let objectKey = "";
@@ -1445,7 +2115,8 @@ app.post("/api/upload-material", upload.single("file"), async function (request,
                 console.error("R2 cleanup after upload-material failure failed", deleteError);
             });
         }
-        sendError(response, error, 500);
+        const statusCode = error.statusCode || 500;
+        sendApiError(response, statusCode, statusCode < 500 ? error.message : "Study material upload failed. Please try again.", error);
     }
 });
 
@@ -1629,6 +2300,8 @@ app.get("/api/dashboard", async function (request, response) {
 
 app.get("/api/admin/materials", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const page = parsePositiveInt(request.query.page, 1, 100000);
         const limit = parsePositiveInt(request.query.limit, 250, 1000);
@@ -1658,6 +2331,8 @@ app.get("/api/admin/materials", async function (request, response) {
 });
 
 app.get("/api/upload-material/health", async function (request, response) {
+    const admin = await requireAdmin(request, response);
+    if (!admin) return;
     const diagnostics = getDiagnostics();
     response.json({
         success: true,
@@ -1705,7 +2380,7 @@ app.get("/api/material/:id", async function (request, response) {
             materialId: materialId,
             objectKey: objectKey,
             bucket: getDiagnostics().bucket,
-            signedUrl: signedUrl
+            hasSignedUrl: Boolean(signedUrl)
         });
         console.log("Signed URL generated", {
             studentId: auth.studentId,
@@ -1738,7 +2413,7 @@ app.get("/api/material/:id", async function (request, response) {
             studentId: getStudentAuthFromRequest(request).studentId,
             error: serializeR2Error(error)
         });
-        sendApiError(response, error.statusCode || 500, error.message || "Could not create a secure PDF link.", error, Object.assign({
+        sendApiError(response, error.statusCode || 500, error.publicMessage || "PDF could not be opened. Please try again or contact support.", error, Object.assign({
             materialId: materialId,
             studentId: getStudentAuthFromRequest(request).studentId
         }, error.context || {}));
@@ -1746,7 +2421,14 @@ app.get("/api/material/:id", async function (request, response) {
 });
 
 function getMaterialAccessSecret() {
-    return String(process.env.PDF_ACCESS_SECRET || process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || getSupabaseConfig().key || "");
+    const secret = String(process.env.PDF_ACCESS_SECRET || process.env.SESSION_SECRET || "");
+    if (!secret) {
+        const error = new Error("Material access token secret is not configured.");
+        error.code = "MATERIAL_ACCESS_SECRET_MISSING";
+        error.publicMessage = "PDF could not be opened. Please try again or contact support.";
+        throw error;
+    }
+    return secret;
 }
 
 function createMaterialAccessToken(payload) {
@@ -1781,13 +2463,25 @@ function verifyMaterialAccessToken(token, materialId) {
     return payload;
 }
 
-async function sendPdfObject(response, objectKey, context) {
+function getPdfRangeHeader(request) {
+    const range = String(request.get("range") || "").trim();
+    if (!/^bytes=\d*-\d*(,\d*-\d*)*$/i.test(range)) return "";
+    if (range.indexOf(",") !== -1) return "";
+    return range;
+}
+
+async function sendPdfObject(request, response, objectKey, context) {
     const info = context || {};
-    const pdf = await getPDFObject(objectKey);
+    const range = getPdfRangeHeader(request);
+    const pdf = await getPDFObject(objectKey, { range: range });
     response.setHeader("Content-Type", pdf.contentType || "application/pdf");
     response.setHeader("Content-Disposition", "inline; filename=\"study-material.pdf\"");
     response.setHeader("Cache-Control", "private, no-store, max-age=0");
-    response.setHeader("Accept-Ranges", "none");
+    response.setHeader("Accept-Ranges", "bytes");
+    if (pdf.contentRange) {
+        response.status(206);
+        response.setHeader("Content-Range", pdf.contentRange);
+    }
     if (pdf.contentLength) {
         response.setHeader("Content-Length", String(pdf.contentLength));
     }
@@ -1796,6 +2490,7 @@ async function sendPdfObject(response, objectKey, context) {
         materialId: info.materialId || "",
         bucket: pdf.bucket || getDiagnostics().bucket,
         objectKey: pdf.objectKey || objectKey,
+        contentRange: pdf.contentRange || "",
         contentLength: pdf.contentLength || "",
         contentType: pdf.contentType || "application/pdf"
     });
@@ -1853,7 +2548,7 @@ app.get("/api/material/:id/content", async function (request, response) {
             bucket: getDiagnostics().bucket,
             objectKey: objectKey
         });
-        await sendPdfObject(response, objectKey, {
+        await sendPdfObject(request, response, objectKey, {
             studentId: studentId,
             materialId: materialId
         });
@@ -1863,7 +2558,7 @@ app.get("/api/material/:id/content", async function (request, response) {
             studentId: getStudentAuthFromRequest(request).studentId,
             error: serializeR2Error(error)
         });
-        sendApiError(response, error.statusCode || 500, error.message || "Could not stream PDF content.", error, Object.assign({
+        sendApiError(response, error.statusCode || 500, error.publicMessage || "PDF could not be opened. Please try again or contact support.", error, Object.assign({
             materialId: materialId,
             studentId: getStudentAuthFromRequest(request).studentId
         }, error.context || {}));
@@ -1872,6 +2567,8 @@ app.get("/api/material/:id/content", async function (request, response) {
 
 app.get("/api/attendance/batches", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const courseId = String(request.query.course_id || "").trim();
         const client = getSupabaseClient();
         let query = client
@@ -1898,6 +2595,8 @@ app.get("/api/attendance/batches", async function (request, response) {
 
 app.post("/api/attendance/start", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const courseId = String(request.body.course_id || "").trim();
         const batchId = String(request.body.batch_id || request.body.batch || "").trim();
         const durationMinutes = Math.max(1, Math.floor(Number(request.body.duration_minutes || 5)));
@@ -1944,6 +2643,8 @@ app.post("/api/attendance/start", async function (request, response) {
 
 app.get("/api/attendance/live/:sessionId", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const session = await getAttendanceSession(client, request.params.sessionId);
         if (!session) {
@@ -1958,6 +2659,8 @@ app.get("/api/attendance/live/:sessionId", async function (request, response) {
 
 app.post("/api/attendance/mark", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const sessionId = String(request.body.session_id || "").trim();
         const studentId = String(request.body.student_id || "").trim();
         const status = normalizeAttendanceStatus(request.body.status);
@@ -1985,6 +2688,8 @@ app.post("/api/attendance/mark", async function (request, response) {
 
 app.get("/api/attendance/edit", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const courseId = String(request.query.course_id || "").trim();
         const batchId = String(request.query.batch_id || "").trim();
         const date = String(request.query.date || "").trim();
@@ -2022,6 +2727,8 @@ app.get("/api/attendance/edit", async function (request, response) {
 
 app.get("/api/attendance/history", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         let query = client
             .from("attendance_sessions")
@@ -2043,6 +2750,8 @@ app.get("/api/attendance/history", async function (request, response) {
 
 app.get("/api/attendance/report", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const pageSettings = getPageSettings(request, { limit: 50, max: 500 });
         const fromDate = String(request.query.from_date || request.query.from || "").trim();
@@ -2140,6 +2849,8 @@ app.get("/api/attendance/report", async function (request, response) {
 
 app.get("/api/attendance/report/:sessionId", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const session = await getAttendanceSession(client, request.params.sessionId);
         if (!session) {
@@ -2154,6 +2865,8 @@ app.get("/api/attendance/report/:sessionId", async function (request, response) 
 
 app.get("/api/attendance/dashboard", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const today = new Date().toISOString().slice(0, 10);
         const sessionResult = await client
@@ -2323,6 +3036,8 @@ app.get("/api/student/attendance/history", async function (request, response) {
 
 app.get("/api/admin/dashboard/stats", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const course = String(request.query.course || "").trim();
         const courseId = String(request.query.course_id || "").trim();
@@ -2360,6 +3075,10 @@ app.get("/api/admin/dashboard/stats", async function (request, response) {
             todayDueEmis,
             todayAttendance,
             totalAttendanceSessions,
+            newEnquiries,
+            pendingAdmissions,
+            approvedStudents,
+            rejectedApplications,
             recentAdmissionsResult,
             pendingEmisResult,
             todayDueEmisResult,
@@ -2379,6 +3098,10 @@ app.get("/api/admin/dashboard/stats", async function (request, response) {
             countRows(client, "emis", "id", function (query) { return applyEmiScope(query).neq("status", "paid").eq("due_date", today); }),
             countRows(client, "attendance_responses", "id", function (query) { return query.gte("response_time", todayStart).lt("response_time", tomorrowStart); }),
             countRows(client, "attendance_sessions", "id"),
+            countRows(client, "enquiries", "id", function (query) { return query.eq("enquiry_type", "general_enquiry").eq("status", "new"); }),
+            countRows(client, "enquiries", "id", function (query) { return query.eq("enquiry_type", "course_admission").eq("status", "pending"); }),
+            countRows(client, "enquiries", "id", function (query) { return query.eq("enquiry_type", "course_admission").in("status", ["approved", "student_created", "accepted"]).not("student_id", "is", null); }),
+            countRows(client, "enquiries", "id", function (query) { return query.eq("enquiry_type", "course_admission").eq("status", "rejected"); }),
             applyStudentScope(client.from("students").select("id, name, course, admission_date, created_at, account_status, fees_status")).not("admission_date", "is", null).order("admission_date", { ascending: false }).limit(5),
             applyEmiScope(client.from("emis").select("id, student_id, emi_number, amount, due_date, status")).eq("status", "pending").order("due_date", { ascending: true }).limit(5),
             applyEmiScope(client.from("emis").select("id, student_id, emi_number, amount, due_date, status")).neq("status", "paid").eq("due_date", today).order("emi_number", { ascending: true }).limit(10),
@@ -2419,6 +3142,10 @@ app.get("/api/admin/dashboard/stats", async function (request, response) {
                 today_due_emi: todayDueEmis,
                 today_attendance: todayAttendance,
                 total_attendance_sessions: totalAttendanceSessions,
+                new_enquiries: newEnquiries,
+                pending_admissions: pendingAdmissions,
+                approved_students: approvedStudents,
+                rejected_applications: rejectedApplications,
                 filters: {
                     course: course,
                     course_id: courseId
@@ -2438,6 +3165,8 @@ app.get("/api/admin/dashboard/stats", async function (request, response) {
 
 app.get("/api/admin/students", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const pageSettings = getPageSettings(request, { limit: 25, max: 100 });
         let query = client
@@ -2458,8 +3187,62 @@ app.get("/api/admin/students", async function (request, response) {
     }
 });
 
+app.get("/api/admin/approved-students", async function (request, response) {
+    try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
+        const client = getSupabaseClient();
+        const pageSettings = getPageSettings(request, { limit: 25, max: 100 });
+        let query = client
+            .from("approved_students")
+            .select("*", { count: "exact" });
+        const search = formString(request.query.search, 120);
+        if (search) {
+            const cleanedSearch = search.replace(/[%(),]/g, " ");
+            const digits = search.replace(/\D/g, "");
+            if (digits && digits.length >= 6 && digits.length === search.replace(/\s/g, "").length) {
+                query = query.eq("mobile", Number(digits));
+            } else {
+                query = query.or(["student_id", "student_name", "email", "application_number", "course_name"].map(function (column) {
+                    return column + ".ilike.%" + cleanedSearch + "%";
+                }).join(","));
+            }
+        }
+        if (request.query.course) query = query.ilike("course_name", "%" + formString(request.query.course, 120) + "%");
+        if (request.query.status) query = query.eq("course_access_status", formString(request.query.status, 40));
+        if (request.query.date_from) query = query.gte("approved_at", formString(request.query.date_from, 30));
+        if (request.query.date_to) query = query.lte("approved_at", formString(request.query.date_to, 30) + "T23:59:59");
+        const sort = String(request.query.sort || "newest");
+        if (sort === "oldest") query = query.order("approved_at", { ascending: true, nullsFirst: false });
+        else if (sort === "name") query = query.order("student_name", { ascending: true });
+        else if (sort === "student_id") query = query.order("student_id", { ascending: true });
+        else query = query.order("approved_at", { ascending: false, nullsFirst: false });
+        const result = await query.range(pageSettings.from, pageSettings.to);
+        if (result.error) throw result.error;
+        const rows = (result.data || []).map(function (row) {
+            return Object.assign({}, row, {
+                student_id: row.student_id || row.id || "",
+                student_name: row.student_name || row.name || "",
+                mobile: row.mobile || row.phone || "",
+                course: row.course || row.course_name || row.course_name_snapshot || "",
+                application_number: row.application_number || row.enquiry_number || "",
+                approval_date: row.approval_date || row.approved_at || row.accepted_at || "",
+                course_start_date: row.course_start_date || row.start_date || row.admission_date || "",
+                course_end_date: row.course_end_date || row.end_date || "",
+                account_status: row.account_status || "active",
+                course_access_status: row.course_access_status || "active"
+            });
+        });
+        sendPaged(response, rows, result.count, pageSettings);
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load approved students.", error);
+    }
+});
+
 app.get("/api/admin/fees", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const pageSettings = getPageSettings(request, { limit: 50, max: 200 });
         let query = client.from("student_fees").select(STUDENT_FEE_COLUMNS, { count: "exact" });
@@ -2476,6 +3259,8 @@ app.get("/api/admin/fees", async function (request, response) {
 
 app.get("/api/admin/emis", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const pageSettings = getPageSettings(request, { limit: 25, max: 200 });
         let query = client.from("emis").select(EMI_COLUMNS, { count: "exact" });
@@ -2492,6 +3277,8 @@ app.get("/api/admin/emis", async function (request, response) {
 
 app.post("/api/admin/emis", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const studentId = String(request.body.student_id || "").trim();
         const emiNumber = Math.floor(Number(request.body.emi_number || 0));
@@ -2581,6 +3368,8 @@ app.post("/api/admin/emis", async function (request, response) {
 
 app.patch("/api/admin/emis/:id", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const emiId = String(request.params.id || "").trim();
         const studentId = String(request.body.student_id || request.query.student_id || "").trim();
@@ -2627,6 +3416,8 @@ app.patch("/api/admin/emis/:id", async function (request, response) {
 
 app.delete("/api/admin/emis/:id", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const emiId = String(request.params.id || "").trim();
         const studentId = String(request.body.student_id || request.query.student_id || "").trim();
@@ -2663,6 +3454,8 @@ app.delete("/api/admin/emis/:id", async function (request, response) {
 
 app.get("/api/admin/payments", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const pageSettings = getPageSettings(request, { limit: 25, max: 200 });
         let query = client.from("payments").select(PAYMENT_COLUMNS, { count: "exact" });
@@ -2678,6 +3471,8 @@ app.get("/api/admin/payments", async function (request, response) {
 
 app.get("/api/admin/announcements", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const pageSettings = getPageSettings(request, { limit: 25, max: 100 });
         let query = client.from("announcements").select(ANNOUNCEMENT_COLUMNS, { count: "exact" });
@@ -2692,6 +3487,8 @@ app.get("/api/admin/announcements", async function (request, response) {
 
 app.get("/api/admin/student-report", async function (request, response) {
     try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
         const client = getSupabaseClient();
         const pageSettings = getPageSettings(request, { limit: 25, max: 100 });
         let studentQuery = client.from("students").select(STUDENT_ADMIN_COLUMNS, { count: "exact" });
@@ -2719,11 +3516,11 @@ app.get("/api/admin/student-report", async function (request, response) {
     }
 });
 
-app.post("/api/r2/delete", require("./api/r2/delete"));
-app.get("/api/r2/sign", require("./api/r2/sign"));
-app.get("/api/r2/test", require("./api/r2/test"));
-app.get("/api/r2/credentials", require("./api/r2/credentials"));
-app.get("/api/r2/list", require("./api/r2/list"));
+app.post("/api/r2/delete", requireAdminMiddleware, require("./api/r2/delete"));
+app.get("/api/r2/sign", requireAdminMiddleware, require("./api/r2/sign"));
+app.get("/api/r2/test", requireAdminMiddleware, require("./api/r2/test"));
+app.get("/api/r2/credentials", requireAdminMiddleware, require("./api/r2/credentials"));
+app.get("/api/r2/list", requireAdminMiddleware, require("./api/r2/list"));
 
 app.get("/api/public/courses/:slug", async function (request, response) {
     const slug = String(request.params.slug || "").trim().toLowerCase();
@@ -2758,8 +3555,8 @@ app.get("/api/public/courses/:slug", async function (request, response) {
             },
             enrollment: {
                 available: false,
-                actionLabel: "Apply for Course",
-                reason: "No public payment or enrolment checkout route exists in this project yet."
+                actionLabel: "GET STARTED",
+                reason: "Submit your details and our team will contact you with course information."
             }
         });
     } catch (error) {
@@ -2873,8 +3670,10 @@ app.get("/api/public/page-data", async function (request, response) {
         }
         const simplePages = {
             "/course-gallery": ["gallery", "Course Gallery", "Academy Gallery", "Classroom, computer lab and student activity images."],
-            "/contact": ["contact", "Contact Us", "Get In Touch", "Contact Vinayak Academy & IT Solution for courses, admissions and services."],
-            "/apply-now": ["apply", "Apply Now", "Admission Form", "Submit your admission enquiry for available courses."],
+            "/contact": ["contact", "Contact Us", "Get In Touch", "Contact Vinayak Academy & IT Solution for courses and services."],
+            "/apply-now": ["apply", "Course Enquiry", "Enquiry", "Tell us which course you are interested in. Our team will contact you soon."],
+            "/get-started": ["get-started", "Start Your Learning Journey", "GET STARTED", "Choose your course and submit your details. Our team will contact you with admission and course information."],
+            "/enquiry": ["enquiry", "General Enquiry", "ENQUIRY", "Send us your question and our team will contact you soon."],
             "/about": ["about", "About Us", "Founded in 2017", "Learn about Vinayak Academy & IT Solution, our mission and values."],
             "/privacy-policy": ["legal", "Privacy Policy", "Owner Review Required", "Draft privacy policy for Vinayak Academy & IT Solution."],
             "/terms-and-conditions": ["legal", "Terms and Conditions", "Owner Review Required", "Draft terms for Vinayak Academy & IT Solution."]
@@ -2924,6 +3723,12 @@ app.get("/gallery", function (request, response) {
     response.redirect(301, "/course-gallery");
 });
 
+app.get("/apply-now", function (request, response) {
+    const queryStart = request.originalUrl.indexOf("?");
+    const query = queryStart >= 0 ? request.originalUrl.slice(queryStart) : "";
+    response.redirect(301, "/get-started" + query);
+});
+
 app.get([
     "/skill-courses",
     "/skill-courses/:categorySlug",
@@ -2933,7 +3738,8 @@ app.get([
     "/services/:serviceSlug",
     "/course-gallery",
     "/contact",
-    "/apply-now",
+    "/get-started",
+    "/enquiry",
     "/about",
     "/privacy-policy",
     "/terms-and-conditions"
@@ -2954,8 +3760,324 @@ app.get([
     response.sendFile(path.join(__dirname, "public-page.html"));
 });
 
+app.get("/api/public/form-config", function (request, response) {
+    response.json({
+        success: true,
+        turnstile_site_key: String(process.env.TURNSTILE_SITE_KEY || "").trim(),
+        captcha_enabled: Boolean(String(process.env.TURNSTILE_SECRET_KEY || "").trim()),
+        otp_enabled: Boolean(String(process.env.OTP_SMS_ENDPOINT || "").trim() || (process.env.OTP_DEV_MODE === "true" && process.env.NODE_ENV !== "production"))
+    });
+});
+
+app.get("/api/public/admission-config", async function (request, response) {
+    try {
+        const client = getSupabaseClient();
+        const courses = mergeCatalogCourses(await loadPublicCourseRows(client));
+        const batches = await getPublicBatches(client, "");
+        response.json({
+            success: true,
+            courses: courses,
+            batches: batches.map(function (batch) {
+                return {
+                    id: batch.id,
+                    course_id: batch.course_id,
+                    name: batch.batch_name,
+                    timing: batch.timing || "",
+                    status: batch.status || "Active"
+                };
+            }),
+            admission_fee_default: Number(process.env.PUBLIC_ADMISSION_FEE_DEFAULT || 0),
+            max_emi_count: Number(process.env.PUBLIC_MAX_EMI_COUNT || 12)
+        });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not load admission configuration.", error);
+    }
+});
+
+app.post("/api/public/otp/send", async function (request, response) {
+    if (!rateLimitPublicForm(request, "otp-send", 5, 10 * 60 * 1000)) {
+        response.status(429).json({ success: false, message: "Please wait before requesting another OTP." });
+        return;
+    }
+    cleanupOtpStores();
+    const mobile = normalizePhone(request.body.mobile);
+    if (!isIndianMobile(mobile)) {
+        response.status(400).json({ success: false, message: "Enter a valid 10-digit Indian mobile number." });
+        return;
+    }
+    const existing = OTP_CHALLENGES.get(mobile);
+    if (existing && Date.now() - existing.sentAt < OTP_RESEND_MS) {
+        response.status(429).json({ success: false, message: "Please wait before resending OTP." });
+        return;
+    }
+    const otp = String(crypto.randomInt(100000, 1000000));
+    const salt = crypto.randomBytes(12).toString("hex");
+    try {
+        await sendOtpMessage(mobile, otp);
+        OTP_CHALLENGES.set(mobile, {
+            hash: createOtpHash(otp, salt),
+            salt: salt,
+            attempts: 0,
+            sentAt: Date.now(),
+            expiresAt: Date.now() + OTP_EXPIRY_MS
+        });
+        response.json({
+            success: true,
+            message: "OTP sent successfully.",
+            expires_in_seconds: Math.floor(OTP_EXPIRY_MS / 1000),
+            resend_after_seconds: Math.floor(OTP_RESEND_MS / 1000)
+        });
+    } catch (error) {
+        sendApiError(response, 503, "OTP could not be sent right now. Please call the academy.", error);
+    }
+});
+
+app.post("/api/public/admissions", async function (request, response) {
+    response.status(410).json({
+        success: false,
+        message: "Direct public admission is disabled. Please use Get Started so an admin can review and approve the application."
+    });
+    return;
+    if (!rateLimitPublicForm(request, "public-admission", 3, 15 * 60 * 1000)) {
+        response.status(429).json({ success: false, message: "Please wait before submitting another admission." });
+        return;
+    }
+
+    const payload = {
+        student_name: formString(request.body.student_name, 120),
+        guardian_name: formString(request.body.guardian_name, 120),
+        mobile: normalizePhone(request.body.mobile),
+        alternate_mobile: normalizePhone(request.body.alternate_mobile),
+        email: formString(request.body.email, 160),
+        date_of_birth: formString(request.body.date_of_birth, 30),
+        gender: formString(request.body.gender, 40),
+        address: formString(request.body.address, 400),
+        city: formString(request.body.city, 80),
+        state: formString(request.body.state, 80),
+        pin_code: formString(request.body.pin_code, 20),
+        education_qualification: formString(request.body.education_qualification, 160),
+        selected_course: formString(request.body.selected_course, 160),
+        batch_id: formString(request.body.batch_id, 120),
+        admission_fee: Number(request.body.admission_fee || process.env.PUBLIC_ADMISSION_FEE_DEFAULT || 0),
+        emi_count: Math.floor(Number(request.body.emi_count || 1)),
+        first_due_date: formString(request.body.first_due_date, 30),
+        mobile_verification_token: formString(request.body.mobile_verification_token, 120),
+        turnstile_token: formString(request.body["cf-turnstile-response"] || request.body.turnstile_token, 3000),
+        consent: Boolean(request.body.consent)
+    };
+
+    if (!payload.student_name || !payload.guardian_name || !isIndianMobile(payload.mobile) || !payload.address || !payload.city || !payload.state || !payload.pin_code || !payload.education_qualification || !payload.selected_course || !payload.batch_id || !payload.consent) {
+        response.status(400).json({ success: false, message: "Complete all required admission details before submitting." });
+        return;
+    }
+    if (payload.email && !isValidEmail(payload.email)) {
+        response.status(400).json({ success: false, message: "Enter a valid email address." });
+        return;
+    }
+    if (!isValidDateInput(payload.date_of_birth)) {
+        response.status(400).json({ success: false, message: "Enter a valid date of birth." });
+        return;
+    }
+    if (payload.alternate_mobile && !isIndianMobile(payload.alternate_mobile)) {
+        response.status(400).json({ success: false, message: "Enter a valid alternate mobile number." });
+        return;
+    }
+    if (!/^\d{6}$/.test(payload.pin_code)) {
+        response.status(400).json({ success: false, message: "Enter a valid 6-digit PIN code." });
+        return;
+    }
+    if (payload.gender && !["Female", "Male", "Other"].includes(payload.gender)) {
+        response.status(400).json({ success: false, message: "Select a valid gender." });
+        return;
+    }
+    if (!hasVerifiedMobileToken(payload.mobile, payload.mobile_verification_token)) {
+        response.status(400).json({ success: false, message: "Please verify your mobile number before submitting admission." });
+        return;
+    }
+
+    try {
+        const captcha = await verifyTurnstileToken(payload.turnstile_token, request);
+        if (!captcha.ok) {
+            response.status(400).json({ success: false, message: "CAPTCHA verification failed. Please try again." });
+            return;
+        }
+        const client = getSupabaseClient();
+        const course = await resolvePublicCourse(client, payload.selected_course);
+        if (!course) {
+            response.status(400).json({ success: false, message: "Selected course is not available." });
+            return;
+        }
+        const courseDbId = /^[0-9a-f-]{36}$/i.test(String(course.id || "")) ? course.id : "";
+        const batches = await getPublicBatches(client, courseDbId);
+        const batch = batches.find(function (item) {
+            return String(item.id) === payload.batch_id;
+        });
+        if (!batch) {
+            response.status(400).json({ success: false, message: "Selected batch is not available for this course." });
+            return;
+        }
+
+        let duplicateQuery = client
+            .from("students")
+            .select("id, mobile, course_id, course")
+            .eq("mobile", payload.mobile);
+        duplicateQuery = courseDbId ? duplicateQuery.eq("course_id", courseDbId) : duplicateQuery.eq("course", course.title);
+        const duplicate = await duplicateQuery.limit(1);
+        if (duplicate.error) throw duplicate.error;
+        if (duplicate.data && duplicate.data.length) {
+            response.status(409).json({ success: false, message: "A student admission already exists for this mobile and course.", student_id: duplicate.data[0].id });
+            return;
+        }
+
+        const totalFee = Math.max(Number(course.price || 0), 0);
+        const admissionFee = Math.max(0, Math.min(Number.isFinite(payload.admission_fee) ? payload.admission_fee : 0, totalFee));
+        const remainingFee = Math.max(totalFee - admissionFee, 0);
+        const maxEmiCount = Math.max(1, Number(process.env.PUBLIC_MAX_EMI_COUNT || 12));
+        const emiCount = Math.max(1, Math.min(payload.emi_count || 1, maxEmiCount));
+        if (remainingFee > 0 && !payload.first_due_date) {
+            response.status(400).json({ success: false, message: "First EMI due date is required when fee is pending." });
+            return;
+        }
+
+        const studentId = await generateUniqueStudentId(client);
+        const password = generateStudentPassword(payload.mobile);
+        const address = [payload.address, payload.city, payload.state, payload.pin_code].filter(Boolean).join(", ");
+        const firstDue = remainingFee > 0 ? payload.first_due_date : null;
+        const studentPayload = {
+            id: studentId,
+            password: hashPassword(password),
+            name: payload.student_name,
+            student_name: payload.student_name,
+            father_name: payload.guardian_name,
+            mobile: payload.mobile,
+            alternate_mobile: payload.alternate_mobile || null,
+            email: payload.email || null,
+            address: address,
+            course: course.title,
+            course_id: courseDbId || null,
+            batch_id: batch.id,
+            batch: batch.batch_name || "",
+            admission_date: new Date().toISOString().slice(0, 10),
+            course_duration: course.duration || "",
+            account_status: "active",
+            fees_status: remainingFee > 0 ? "due" : "paid",
+            due_date: firstDue,
+            payment_note: [
+                "Online admission created from public GET STARTED flow.",
+                payload.date_of_birth ? "DOB: " + payload.date_of_birth + "." : "",
+                payload.gender ? "Gender: " + payload.gender + "." : "",
+                payload.education_qualification ? "Education: " + payload.education_qualification + "." : ""
+            ].filter(Boolean).join(" ")
+        };
+        const feePayload = {
+            student_id: studentId,
+            total_fee: totalFee,
+            admission_fee: admissionFee,
+            remaining_fee: remainingFee,
+            total_emis: remainingFee > 0 ? emiCount : 0,
+            paid_amount: admissionFee,
+            status: remainingFee > 0 ? "pending" : "paid"
+        };
+        const emiRows = [];
+        if (remainingFee > 0) {
+            const baseAmount = Math.floor((remainingFee / emiCount) * 100) / 100;
+            let allocated = 0;
+            for (let index = 0; index < emiCount; index += 1) {
+                const amount = index === emiCount - 1 ? Number((remainingFee - allocated).toFixed(2)) : baseAmount;
+                allocated += amount;
+                emiRows.push({
+                    student_id: studentId,
+                    emi_number: index + 1,
+                    amount: amount,
+                    due_date: addMonths(firstDue, index),
+                    paid_date: null,
+                    status: "pending"
+                });
+            }
+        }
+
+        let studentCreated = false;
+        try {
+            if (!hasVerifiedMobileToken(payload.mobile, payload.mobile_verification_token)) {
+                response.status(400).json({ success: false, message: "Please verify your mobile number before submitting admission." });
+                return;
+            }
+            const studentResult = await insertStudentWithFallback(client, studentPayload);
+            if (studentResult.error) throw studentResult.error;
+            studentCreated = true;
+            const feeResult = await client.from("student_fees").insert([feePayload]);
+            if (feeResult.error) throw feeResult.error;
+            if (emiRows.length) {
+                const emiResult = await client.from("emis").insert(emiRows);
+                if (emiResult.error) throw emiResult.error;
+            }
+            consumeVerifiedMobileToken(payload.mobile, payload.mobile_verification_token);
+        } catch (error) {
+            if (studentCreated) {
+                await client.from("emis").delete().eq("student_id", studentId);
+                await client.from("student_fees").delete().eq("student_id", studentId);
+                await client.from("students").delete().eq("id", studentId);
+            }
+            throw error;
+        }
+
+        response.status(201).json({
+            success: true,
+            message: "Admission completed successfully.",
+            student_id: studentId,
+            password: password,
+            course: course.title,
+            batch: batch.batch_name || "",
+            total_fee: totalFee,
+            admission_fee: admissionFee,
+            remaining_fee: remainingFee,
+            emi_count: emiRows.length
+        });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Admission could not be completed right now.", error);
+    }
+});
+
+app.post("/api/public/otp/verify", function (request, response) {
+    if (!rateLimitPublicForm(request, "otp-verify", 12, 10 * 60 * 1000)) {
+        response.status(429).json({ success: false, message: "Too many OTP attempts. Please try later." });
+        return;
+    }
+    const mobile = normalizePhone(request.body.mobile);
+    const otp = formString(request.body.otp, 12).replace(/\D/g, "");
+    const entry = OTP_CHALLENGES.get(mobile);
+    if (!isIndianMobile(mobile) || !entry) {
+        response.status(400).json({ success: false, message: "Request OTP again before verification." });
+        return;
+    }
+    if (entry.expiresAt < Date.now()) {
+        OTP_CHALLENGES.delete(mobile);
+        response.status(400).json({ success: false, message: "OTP expired. Please request a new OTP." });
+        return;
+    }
+    if (entry.attempts >= OTP_MAX_ATTEMPTS) {
+        OTP_CHALLENGES.delete(mobile);
+        response.status(429).json({ success: false, message: "Too many wrong OTP attempts. Please request a new OTP." });
+        return;
+    }
+    entry.attempts += 1;
+    if (createOtpHash(otp, entry.salt) !== entry.hash) {
+        response.status(400).json({ success: false, message: "Wrong OTP. Please try again." });
+        return;
+    }
+    OTP_CHALLENGES.delete(mobile);
+    const token = crypto.randomBytes(32).toString("hex");
+    OTP_VERIFIED_TOKENS.set(token, { mobile: mobile, expiresAt: Date.now() + OTP_VERIFIED_MS });
+    response.json({
+        success: true,
+        message: "Mobile Number Verified",
+        mobile_verification_token: token,
+        expires_in_seconds: Math.floor(OTP_VERIFIED_MS / 1000)
+    });
+});
+
 app.post("/api/public/contact", async function (request, response) {
-    if (!rateLimitPublicForm(request)) {
+    if (!rateLimitPublicForm(request, "contact", 5, 10 * 60 * 1000)) {
         response.status(429).json({ success: false, message: "Please wait before submitting another enquiry." });
         return;
     }
@@ -2980,9 +4102,67 @@ app.post("/api/public/contact", async function (request, response) {
     }
 });
 
-app.post("/api/public/apply-now", async function (request, response) {
-    if (!rateLimitPublicForm(request)) {
-        response.status(429).json({ success: false, message: "Please wait before submitting another application." });
+app.post("/api/public/enquiry", async function (request, response) {
+    if (!rateLimitPublicForm(request, "general-enquiry", 5, 10 * 60 * 1000)) {
+        response.status(429).json({ success: false, message: "Please wait before submitting another enquiry." });
+        return;
+    }
+    const payload = {
+        name: formString(request.body.name, 120),
+        phone: normalizePhone(request.body.phone),
+        email: formString(request.body.email, 160),
+        subject: formString(request.body.subject, 180),
+        enquiry_type_option: formString(request.body.enquiry_type_option, 80),
+        message: formString(request.body.message, 1200),
+        consent: Boolean(request.body.consent)
+    };
+    const allowedTypes = ["Course Information", "Fees", "Admission", "Computer Course", "Competition Course", "IT Service", "Accounting & GST Service", "Website Development", "Other"];
+    if (!payload.name || !isIndianMobile(payload.phone) || !payload.subject || !payload.enquiry_type_option || !payload.message || !payload.consent) {
+        response.status(400).json({ success: false, message: "Name, mobile, subject, enquiry type, message and consent are required." });
+        return;
+    }
+    if (payload.email && !isValidEmail(payload.email)) {
+        response.status(400).json({ success: false, message: "Enter a valid email address." });
+        return;
+    }
+    if (!allowedTypes.includes(payload.enquiry_type_option)) {
+        response.status(400).json({ success: false, message: "Select a valid enquiry type." });
+        return;
+    }
+    try {
+        const client = getSupabaseClient();
+        const enquiryNumber = await generateEnquiryNumber(client);
+        const insertPayload = {
+            enquiry_number: enquiryNumber,
+            enquiry_type: "general_enquiry",
+            source: "enquiry",
+            name: payload.name,
+            phone: payload.phone,
+            email: payload.email || null,
+            subject: payload.subject,
+            course_category: payload.enquiry_type_option,
+            message: payload.message,
+            status: "new",
+            priority: "normal",
+            consent_given: true,
+            ip_address: formString((request.ip || request.get("x-forwarded-for") || "").split(",")[0], 80),
+            user_agent: formString(request.get("user-agent") || "", 300)
+        };
+        const result = await insertEnquiryWithFallback(client, insertPayload);
+        if (result.error) throw result.error;
+        response.json({
+            success: true,
+            message: "Enquiry submitted successfully.",
+            enquiry_number: result.data.enquiry_number
+        });
+    } catch (error) {
+        sendApiError(response, 503, "Enquiry could not be submitted right now. Please call the academy.", error);
+    }
+});
+
+app.post("/api/public/get-started", async function (request, response) {
+    if (!rateLimitPublicForm(request, "get-started", 5, 10 * 60 * 1000)) {
+        response.status(429).json({ success: false, message: "Please wait before submitting another course request." });
         return;
     }
     const payload = {
@@ -2993,31 +4173,56 @@ app.post("/api/public/apply-now", async function (request, response) {
         email: formString(request.body.email, 160),
         date_of_birth: formString(request.body.date_of_birth, 30),
         gender: formString(request.body.gender, 40),
+        qualification: formString(request.body.qualification || request.body.education_qualification, 160),
         address: formString(request.body.address, 400),
         city: formString(request.body.city, 80),
         state: formString(request.body.state, 80),
         pin_code: formString(request.body.pin_code, 20),
-        course_category: formString(request.body.course_category, 120),
+        preferred_learning_mode: formString(request.body.preferred_learning_mode, 60),
         selected_course: formString(request.body.selected_course, 160),
-        education_qualification: formString(request.body.education_qualification, 160),
-        preferred_learning_mode: formString(request.body.preferred_learning_mode, 80),
         message: formString(request.body.message, 1200),
-        consent: Boolean(request.body.consent),
-        status: "new"
+        mobile_verification_token: formString(request.body.mobile_verification_token, 120),
+        turnstile_token: formString(request.body["cf-turnstile-response"] || request.body.turnstile_token, 3000),
+        consent: Boolean(request.body.consent)
     };
-    if (!payload.student_name || !isIndianMobile(payload.mobile) || !payload.selected_course || !payload.consent) {
-        response.status(400).json({ success: false, message: "Student name, valid mobile, selected course and consent are required." });
+    if (!payload.student_name || !payload.guardian_name || !isIndianMobile(payload.mobile) || !payload.selected_course || !payload.consent) {
+        response.status(400).json({ success: false, message: "Student name, guardian name, valid mobile, interested course and consent are required." });
         return;
     }
-    if (!isValidEmail(payload.email)) {
+    if (payload.email && !isValidEmail(payload.email)) {
         response.status(400).json({ success: false, message: "Enter a valid email address." });
+        return;
+    }
+    if (payload.alternate_mobile && !isIndianMobile(payload.alternate_mobile)) {
+        response.status(400).json({ success: false, message: "Enter a valid alternate mobile number." });
         return;
     }
     if (!isValidDateInput(payload.date_of_birth)) {
         response.status(400).json({ success: false, message: "Enter a valid date of birth." });
         return;
     }
+    if (payload.gender && !["Female", "Male", "Other"].includes(payload.gender)) {
+        response.status(400).json({ success: false, message: "Select a valid gender." });
+        return;
+    }
+    if (payload.pin_code && !/^\d{6}$/.test(payload.pin_code)) {
+        response.status(400).json({ success: false, message: "Enter a valid 6-digit PIN code." });
+        return;
+    }
+    if (payload.preferred_learning_mode && !["Classroom", "Online", "Hybrid"].includes(payload.preferred_learning_mode)) {
+        response.status(400).json({ success: false, message: "Select a valid learning mode." });
+        return;
+    }
+    if (!hasVerifiedMobileToken(payload.mobile, payload.mobile_verification_token)) {
+        response.status(400).json({ success: false, message: "Please verify your mobile number before submitting." });
+        return;
+    }
     try {
+        const captcha = await verifyTurnstileToken(payload.turnstile_token, request);
+        if (!captcha.ok) {
+            response.status(400).json({ success: false, message: "CAPTCHA verification failed. Please try again." });
+            return;
+        }
         const client = getSupabaseClient();
         const course = await resolvePublicCourse(client, payload.selected_course);
         if (!course) {
@@ -3030,14 +4235,15 @@ app.post("/api/public/apply-now", async function (request, response) {
             .select("id, enquiry_number")
             .eq("phone", payload.mobile)
             .eq("course_name_snapshot", course.title)
-            .eq("source", "apply_now")
+            .eq("source", "get_started")
             .gte("created_at", since)
             .limit(1);
         if (duplicate.error) throw duplicate.error;
         if (duplicate.data && duplicate.data.length) {
+            consumeVerifiedMobileToken(payload.mobile, payload.mobile_verification_token);
             response.json({
                 success: true,
-                message: "Your application is already recorded.",
+                message: "Your details are already recorded.",
                 enquiry_number: duplicate.data[0].enquiry_number,
                 applicant_name: payload.student_name,
                 course: course.title
@@ -3047,8 +4253,8 @@ app.post("/api/public/apply-now", async function (request, response) {
         const enquiryNumber = await generateEnquiryNumber(client);
         const insertPayload = {
             enquiry_number: enquiryNumber,
-            enquiry_type: "admission_application",
-            source: "apply_now",
+            enquiry_type: "course_admission",
+            source: "get_started",
             name: payload.student_name,
             father_guardian_name: payload.guardian_name || null,
             phone: payload.mobile,
@@ -3056,15 +4262,116 @@ app.post("/api/public/apply-now", async function (request, response) {
             email: payload.email || null,
             date_of_birth: payload.date_of_birth || null,
             gender: payload.gender || null,
+            qualification: payload.qualification || null,
             address: payload.address || null,
             city: payload.city || null,
             state: payload.state || null,
             pin_code: payload.pin_code || null,
-            course_category: course.category || payload.course_category || null,
+            preferred_learning_mode: payload.preferred_learning_mode || null,
+            course_category: course.category || null,
             course_id: /^[0-9a-f-]{36}$/i.test(String(course.id || "")) ? course.id : null,
             course_name_snapshot: course.title,
-            qualification: payload.education_qualification || null,
-            preferred_learning_mode: payload.preferred_learning_mode || null,
+            mobile_verified: true,
+            message: payload.message || null,
+            status: "pending",
+            priority: "normal",
+            consent_given: true,
+            ip_address: formString((request.ip || request.get("x-forwarded-for") || "").split(",")[0], 80),
+            user_agent: formString(request.get("user-agent") || "", 300)
+        };
+        const result = await insertEnquiryWithFallback(client, insertPayload);
+        if (result.error) throw result.error;
+        consumeVerifiedMobileToken(payload.mobile, payload.mobile_verification_token);
+        response.json({
+            success: true,
+            message: "Your details have been submitted successfully.",
+            enquiry_number: result.data.enquiry_number,
+            applicant_name: payload.student_name,
+            course: course.title,
+            contact: "+91-9950756514"
+        });
+    } catch (error) {
+        sendApiError(response, 503, "Your details could not be submitted right now. Please call the academy.", error);
+    }
+});
+
+app.post("/api/public/apply-now", async function (request, response) {
+    if (!rateLimitPublicForm(request, "course-enquiry", 5, 10 * 60 * 1000)) {
+        response.status(429).json({ success: false, message: "Please wait before submitting another enquiry." });
+        return;
+    }
+    const payload = {
+        student_name: formString(request.body.student_name, 120),
+        guardian_name: formString(request.body.guardian_name, 120),
+        mobile: normalizePhone(request.body.mobile),
+        address: formString(request.body.address, 400),
+        selected_course: formString(request.body.selected_course, 160),
+        preferred_contact_time: formString(request.body.preferred_contact_time, 40),
+        message: formString(request.body.message, 1200),
+        mobile_verification_token: formString(request.body.mobile_verification_token, 120),
+        turnstile_token: formString(request.body["cf-turnstile-response"] || request.body.turnstile_token, 3000),
+        consent: Boolean(request.body.consent),
+        status: "new"
+    };
+    if (!payload.student_name || !payload.guardian_name || !isIndianMobile(payload.mobile) || !payload.selected_course || !payload.address || !payload.consent) {
+        response.status(400).json({ success: false, message: "Student name, guardian name, valid mobile, course, address/city and consent are required." });
+        return;
+    }
+    if (!hasVerifiedMobileToken(payload.mobile, payload.mobile_verification_token)) {
+        response.status(400).json({ success: false, message: "Please verify your mobile number before submitting." });
+        return;
+    }
+    if (payload.preferred_contact_time && !["Anytime", "Morning", "Afternoon", "Evening"].includes(payload.preferred_contact_time)) {
+        response.status(400).json({ success: false, message: "Select a valid preferred contact time." });
+        return;
+    }
+    try {
+        const captcha = await verifyTurnstileToken(payload.turnstile_token, request);
+        if (!captcha.ok) {
+            response.status(400).json({ success: false, message: "CAPTCHA verification failed. Please try again." });
+            return;
+        }
+        const client = getSupabaseClient();
+        const course = await resolvePublicCourse(client, payload.selected_course);
+        if (!course) {
+            response.status(400).json({ success: false, message: "Selected course is not available." });
+            return;
+        }
+        const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+        const duplicate = await client
+            .from("enquiries")
+            .select("id, enquiry_number")
+            .eq("phone", payload.mobile)
+            .eq("course_name_snapshot", course.title)
+            .in("source", ["apply_now", "public_course_enquiry"])
+            .gte("created_at", since)
+            .limit(1);
+        if (duplicate.error) throw duplicate.error;
+        if (duplicate.data && duplicate.data.length) {
+            consumeVerifiedMobileToken(payload.mobile, payload.mobile_verification_token);
+            response.json({
+                success: true,
+                message: "Your enquiry is already recorded.",
+                enquiry_number: duplicate.data[0].enquiry_number,
+                applicant_name: payload.student_name,
+                course: course.title
+            });
+            return;
+        }
+        const enquiryNumber = await generateEnquiryNumber(client);
+        const insertPayload = {
+            enquiry_number: enquiryNumber,
+            enquiry_type: "course_enquiry",
+            source: "public_course_enquiry",
+            name: payload.student_name,
+            father_guardian_name: payload.guardian_name || null,
+            phone: payload.mobile,
+            address: payload.address || null,
+            course_category: course.category || null,
+            course_id: /^[0-9a-f-]{36}$/i.test(String(course.id || "")) ? course.id : null,
+            course_name_snapshot: course.title,
+            mobile_verified: true,
+            preferred_contact_time: payload.preferred_contact_time || null,
             message: payload.message || null,
             status: "new",
             priority: "normal",
@@ -3072,23 +4379,28 @@ app.post("/api/public/apply-now", async function (request, response) {
             ip_address: formString((request.ip || request.get("x-forwarded-for") || "").split(",")[0], 80),
             user_agent: formString(request.get("user-agent") || "", 300)
         };
-        const result = await client.from("enquiries").insert([insertPayload]).select("id, enquiry_number").single();
+        if (!hasVerifiedMobileToken(payload.mobile, payload.mobile_verification_token)) {
+            response.status(400).json({ success: false, message: "Please verify your mobile number before submitting." });
+            return;
+        }
+        const result = await insertEnquiryWithFallback(client, insertPayload);
         if (result.error) throw result.error;
+        consumeVerifiedMobileToken(payload.mobile, payload.mobile_verification_token);
         response.json({
             success: true,
-            message: "Application submitted successfully.",
+            message: "Enquiry submitted successfully.",
             enquiry_number: result.data.enquiry_number,
             applicant_name: payload.student_name,
             course: course.title,
             contact: "+91-9950756514"
         });
     } catch (error) {
-        sendApiError(response, 503, "Application could not be submitted right now. Please call the academy.", error);
+        sendApiError(response, 503, "Enquiry could not be submitted right now. Please call the academy.", error);
     }
 });
 
 app.post("/apply-now", function (request, response) {
-    response.redirect(307, "/api/public/apply-now");
+    response.redirect(307, "/api/public/get-started");
 });
 
 app.get("/api/admin/enquiries", async function (request, response) {
@@ -3173,12 +4485,332 @@ app.patch("/api/admin/enquiries/:id", async function (request, response) {
     }
 });
 
+app.post("/api/admin/enquiries/:id/accept", async function (request, response) {
+    try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
+        const client = getSupabaseClient();
+        const id = formString(request.params.id, 80);
+        if (!/^[0-9a-f-]{36}$/i.test(id)) {
+            response.status(400).json({ success: false, message: "Invalid application id." });
+            return;
+        }
+
+        const enquiryResult = await client.from("enquiries").select(ENQUIRY_SELECT_COLUMNS).eq("id", id).single();
+        if (enquiryResult.error) throw enquiryResult.error;
+        const application = enquiryResult.data || {};
+        if (String(application.enquiry_type || "").toLowerCase() !== "course_admission") {
+            response.status(400).json({ success: false, message: "Only Get Started applications can be accepted." });
+            return;
+        }
+        const currentStatus = String(application.status || "pending").toLowerCase();
+        if (!["pending", "new"].includes(currentStatus)) {
+            response.status(409).json({ success: false, message: "Application is already " + currentStatus + ".", application: application });
+            return;
+        }
+
+        const requestedStudentId = formString(request.body.student_id, 80);
+        const requestedExistingStudentId = formString(request.body.existing_student_id, 80);
+        const courseValue = formString(request.body.course_id || request.body.course || application.course_id || application.course_name_snapshot, 160);
+        const batchId = formString(request.body.batch_id, 120);
+        const startDate = formString(request.body.start_date, 30) || new Date().toISOString().slice(0, 10);
+        const endDate = formString(request.body.end_date, 30);
+        const learningMode = formString(request.body.preferred_learning_mode || application.preferred_learning_mode, 60);
+        const accountStatus = formString(request.body.account_status || "active", 40).toLowerCase();
+        if (!["active", "blocked", "disabled", "inactive"].includes(accountStatus)) {
+            response.status(400).json({ success: false, message: "Invalid student status." });
+            return;
+        }
+
+        const course = await resolvePublicCourse(client, courseValue);
+        if (!course) {
+            response.status(400).json({ success: false, message: "Selected course is not available." });
+            return;
+        }
+        const courseDbId = getCourseDbId(course);
+        let selectedBatch = null;
+        if (courseDbId) {
+            const batches = await getPublicBatches(client, courseDbId);
+            if (batchId) {
+                selectedBatch = batches.find(function (batch) { return String(batch.id) === batchId; }) || null;
+                if (!selectedBatch) {
+                    response.status(400).json({ success: false, message: "Selected batch is not available for this course." });
+                    return;
+                }
+            }
+        }
+
+        let student = requestedExistingStudentId ? await findStudentById(client, requestedExistingStudentId) : null;
+        const matchedStudent = student || await findExistingStudentAccount(client, application.phone, application.email);
+        if (matchedStudent && !requestedExistingStudentId) {
+            response.status(409).json({
+                success: false,
+                message: "Existing student account found.",
+                existing_student: {
+                    id: matchedStudent.id,
+                    name: matchedStudent.name,
+                    mobile: matchedStudent.mobile,
+                    email: matchedStudent.email,
+                    course: matchedStudent.course,
+                    course_id: matchedStudent.course_id
+                },
+                can_assign_existing: true
+            });
+            return;
+        }
+        if (!student && matchedStudent && requestedExistingStudentId) student = matchedStudent;
+
+        const nowIso = new Date().toISOString();
+        let createdStudent = false;
+        let tempPassword = "";
+        let studentId = student && student.id;
+        let studentForAccess = student;
+        if (!student) {
+            studentId = requestedStudentId || await generateUniqueStudentId(client);
+            const duplicateId = await findStudentById(client, studentId);
+            if (duplicateId) {
+                response.status(409).json({ success: false, message: "Student ID already exists. Regenerate and try again." });
+                return;
+            }
+            tempPassword = formString(request.body.temporary_password, 80) || generateStrongTemporaryPassword();
+            const studentPayload = {
+                id: studentId,
+                password: hashPassword(tempPassword),
+                name: application.name,
+                student_name: application.name,
+                father_name: application.father_guardian_name || null,
+                mobile: normalizePhone(application.phone),
+                alternate_mobile: normalizePhone(application.alternate_phone) || null,
+                email: application.email || null,
+                address: [application.address, application.city, application.state, application.pin_code].filter(Boolean).join(", "),
+                course: course.title,
+                course_id: courseDbId,
+                batch_id: selectedBatch ? selectedBatch.id : null,
+                batch: selectedBatch ? selectedBatch.batch_name : "",
+                admission_date: startDate,
+                course_duration: course.duration || endDate || "",
+                account_status: accountStatus,
+                must_change_password: true,
+                created_from_application_id: id,
+                fees_status: "paid",
+                due_date: null,
+                payment_note: [
+                    "Created from accepted Get Started application.",
+                    learningMode ? "Learning mode: " + learningMode + "." : "",
+                    endDate ? "Course end date: " + endDate + "." : ""
+                ].filter(Boolean).join(" ")
+            };
+            const studentInsert = await insertStudentWithFallback(client, studentPayload);
+            if (studentInsert.error) throw studentInsert.error;
+            createdStudent = true;
+            studentForAccess = Object.assign({}, studentPayload, studentInsert.data || {});
+        } else {
+            studentId = student.id;
+            const updatePayload = {
+                course: course.title,
+                course_id: courseDbId,
+                batch_id: selectedBatch ? selectedBatch.id : (batchId || student.batch_id || null),
+                batch: selectedBatch ? selectedBatch.batch_name : (student.batch || ""),
+                account_status: accountStatus,
+                admission_date: student.admission_date || startDate,
+                course_duration: course.duration || student.course_duration || "",
+                payment_note: [
+                    student.payment_note || "",
+                    "Course assigned from accepted Get Started application.",
+                    learningMode ? "Learning mode: " + learningMode + "." : "",
+                    endDate ? "Course end date: " + endDate + "." : ""
+                ].filter(Boolean).join(" ")
+            };
+            const studentUpdate = await client.from("students").update(updatePayload).eq("id", studentId).select(STUDENT_ADMIN_COLUMNS).single();
+            if (studentUpdate.error) throw studentUpdate.error;
+            studentForAccess = studentUpdate.data || Object.assign({}, student, updatePayload);
+        }
+
+        if (!studentHasCourseAccess(studentForAccess, course)) {
+            if (createdStudent) await client.from("students").delete().eq("id", studentId);
+            response.status(500).json({ success: false, message: "Student was created but course access could not be verified." });
+            return;
+        }
+
+        const updatePayload = {
+            status: "approved",
+            approved_by: admin.username || admin.full_name || "admin",
+            approved_at: nowIso,
+            accepted_by: admin.username || admin.full_name || "admin",
+            accepted_at: nowIso,
+            student_id: studentId,
+            credentials_status: createdStudent ? "credentials_prepared" : "existing_student_assigned",
+            course_id: courseDbId,
+            course_name_snapshot: course.title,
+            preferred_learning_mode: learningMode || null,
+            course_end_date: endDate || null,
+            updated_at: nowIso,
+            admin_notes: formString(request.body.admin_notes || application.admin_notes, 2000) || application.admin_notes || null
+        };
+        let updateResult = null;
+        const approvedBy = admin.username || admin.full_name || "admin";
+        const approvalRpc = await client.rpc("approve_existing_student_application", {
+            p_admin_username: approvedBy,
+            p_application_id: id,
+            p_end_date: endDate || null,
+            p_start_date: startDate || null,
+            p_student_id: studentId
+        });
+        if (approvalRpc.error && approvalRpc.error.code !== "PGRST202") {
+            if (createdStudent) await client.from("students").delete().eq("id", studentId);
+            throw approvalRpc.error;
+        }
+        if (approvalRpc.error) {
+            if (courseDbId) {
+                const enrollmentPayload = {
+                    student_id: studentId,
+                    course_id: courseDbId,
+                    source_application_id: id,
+                    status: "active",
+                    start_date: startDate || null,
+                    end_date: endDate || null,
+                    enrolled_by: approvedBy,
+                    updated_at: nowIso
+                };
+                const enrollmentResult = await client
+                    .from("course_enrollments")
+                    .upsert(enrollmentPayload, { onConflict: "student_id,course_id" })
+                    .select("id")
+                    .limit(1);
+                if (enrollmentResult.error && !["42P01", "PGRST205", "PGRST204"].includes(enrollmentResult.error.code)) {
+                    if (createdStudent) await client.from("students").delete().eq("id", studentId);
+                    throw enrollmentResult.error;
+                }
+            }
+            updateResult = await updateEnquiryWithFallback(client, id, updatePayload);
+            if (updateResult.error) {
+                if (createdStudent) await client.from("students").delete().eq("id", studentId);
+                throw updateResult.error;
+            }
+        } else {
+            const refreshedApplication = await client.from("enquiries").select(ENQUIRY_SELECT_COLUMNS).eq("id", id).single();
+            updateResult = refreshedApplication.error ? { data: application } : refreshedApplication;
+        }
+
+        const credentialMessage = createdStudent ? buildCredentialMessage(application.name, studentId, tempPassword, course.title) : "";
+        response.json({
+            success: true,
+            message: "Student approved successfully.",
+            application: updateResult.data,
+            student: {
+                id: studentId,
+                name: application.name,
+                mobile: normalizePhone(application.phone),
+                course: course.title,
+                created: createdStudent,
+                course_access_status: "active"
+            },
+            temporary_password: createdStudent ? tempPassword : "",
+            credential_message: credentialMessage,
+            whatsapp_url: credentialMessage ? "https://wa.me/" + normalizeWhatsAppNumber(application.phone) + "?text=" + encodeURIComponent(credentialMessage) : ""
+        });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not accept application.", error);
+    }
+});
+
+app.post("/api/admin/enquiries/:id/reject", async function (request, response) {
+    try {
+        const admin = await requireAdmin(request, response);
+        if (!admin) return;
+        const id = formString(request.params.id, 80);
+        const reason = formString(request.body.rejection_reason || request.body.reason, 600);
+        if (!/^[0-9a-f-]{36}$/i.test(id)) {
+            response.status(400).json({ success: false, message: "Invalid application id." });
+            return;
+        }
+        if (!reason) {
+            response.status(400).json({ success: false, message: "Rejection reason is required." });
+            return;
+        }
+        const client = getSupabaseClient();
+        const enquiryResult = await client.from("enquiries").select(ENQUIRY_SELECT_COLUMNS).eq("id", id).single();
+        if (enquiryResult.error) throw enquiryResult.error;
+        const application = enquiryResult.data || {};
+        if (String(application.enquiry_type || "").toLowerCase() !== "course_admission") {
+            response.status(400).json({ success: false, message: "Only Get Started applications can be rejected." });
+            return;
+        }
+        const currentStatus = String(application.status || "pending").toLowerCase();
+        if (!["pending", "new"].includes(currentStatus)) {
+            response.status(409).json({ success: false, message: "Application is already " + currentStatus + "." });
+            return;
+        }
+        const nowIso = new Date().toISOString();
+        const updateResult = await updateEnquiryWithFallback(client, id, {
+            status: "rejected",
+            rejected_by: admin.username || admin.full_name || "admin",
+            rejected_at: nowIso,
+            rejection_reason: reason,
+            updated_at: nowIso
+        });
+        if (updateResult.error) throw updateResult.error;
+        const rejectionMessage = buildRejectionMessage(application.name, application.course_name_snapshot, reason);
+        response.json({
+            success: true,
+            message: "Application rejected.",
+            application: updateResult.data,
+            rejection_message: rejectionMessage,
+            whatsapp_url: "https://wa.me/" + normalizeWhatsAppNumber(application.phone) + "?text=" + encodeURIComponent(rejectionMessage)
+        });
+    } catch (error) {
+        sendApiError(response, 500, error.message || "Could not reject application.", error);
+    }
+});
+
+app.get("/admin/login", function (request, response) {
+    response.sendFile(path.join(__dirname, "login.html"));
+});
+
+app.get("/health", function (request, response) {
+    response.setHeader("Cache-Control", "no-store");
+    response.json({ status: "ok" });
+});
+
+function isSensitiveStaticRequest(requestPath) {
+    let normalized = "/";
+    try {
+        normalized = path.posix.normalize(decodeURIComponent(String(requestPath || "/")).replace(/\\/g, "/"));
+    } catch (error) {
+        return true;
+    }
+    if (normalized.includes("..")) return true;
+    const parts = normalized.split("/").filter(Boolean);
+    if (!parts.length) return false;
+    const first = String(parts[0] || "").toLowerCase();
+    const base = String(parts[parts.length - 1] || "").toLowerCase();
+    const extension = path.extname(base).toLowerCase();
+    if (first === ".git" || first === "node_modules" || first === "api" || first === "scripts" || first.startsWith("tmp-")) return true;
+    if (["server.js", "package.json", "package-lock.json", ".env", ".env.example", ".gitignore"].includes(base)) return true;
+    if ([".sql", ".md", ".log", ".bak", ".backup", ".zip", ".gz", ".7z", ".rar"].includes(extension)) return true;
+    return false;
+}
+
+app.use(function blockSensitiveStaticFiles(request, response, next) {
+    if (!isSensitiveStaticRequest(request.path)) {
+        next();
+        return;
+    }
+    response.status(404);
+    if (request.path.indexOf("/api/") === 0 || request.accepts("json")) {
+        response.json({ success: false, message: "Route not found." });
+        return;
+    }
+    response.type("text").send("Not found");
+});
+
 app.use(express.static(__dirname, {
     etag: true,
     maxAge: "7d",
     setHeaders: function (response, filePath) {
         if (/\.(html)$/i.test(filePath)) {
-            response.setHeader("Cache-Control", "no-cache");
+            const privateHtml = /(?:admin|dashboard|studymaterial|profile|assignments|attendance|emi|pdf-viewer|login)\.html$/i.test(filePath);
+            response.setHeader("Cache-Control", privateHtml ? "no-store" : "no-cache");
             return;
         }
         if (/\.(js|css|png|jpg|jpeg|webp|gif|svg|ico|woff2?)$/i.test(filePath)) {
@@ -3194,7 +4826,19 @@ app.use(function (request, response) {
     });
 });
 
+app.use(function globalErrorHandler(error, request, response, next) {
+    if (response.headersSent) {
+        next(error);
+        return;
+    }
+    sendApiError(response, error.statusCode || error.status || 500, "Request could not be completed. Please try again or contact support.", error, {
+        method: request.method,
+        path: request.path
+    });
+});
+
 async function start() {
+    validateSecurityEnvironment();
     console.log("Verifying Cloudflare R2 credentials...");
     const r2 = await testConnection();
     console.log("Cloudflare R2 verified", {
@@ -3207,18 +4851,50 @@ async function start() {
     const supabase = getSupabaseConfig();
     console.log("Supabase configured", {
         url: supabase.url,
-        keyLoaded: Boolean(supabase.key)
+        keyLoaded: Boolean(supabase.key),
+        serverKeyRole: getSupabaseJwtRole(supabase.key) || (String(supabase.key || "").indexOf("sb_secret_") === 0 ? "secret" : "publishable"),
+        serviceRoleCapable: isSupabaseServiceRoleKey(supabase.key)
     });
+    if (!isSupabaseServiceRoleKey(supabase.key)) {
+        console.warn("Supabase server key is not service_role capable. Protected backend writes may be blocked by RLS.");
+    }
 
-    app.listen(PORT, function () {
+    const server = app.listen(PORT, function () {
         console.log("Server started");
         console.log("Local URL: http://localhost:" + PORT);
     });
+    function shutdown(signal) {
+        console.log(signal + " received. Closing HTTP server...");
+        server.close(function (error) {
+            if (error) {
+                console.error("HTTP server close failed", serializeR2Error(error));
+                process.exit(1);
+                return;
+            }
+            console.log("HTTP server closed.");
+            process.exit(0);
+        });
+        setTimeout(function () {
+            console.error("Forced shutdown after timeout.");
+            process.exit(1);
+        }, 10000).unref();
+    }
+    process.once("SIGTERM", function () { shutdown("SIGTERM"); });
+    process.once("SIGINT", function () { shutdown("SIGINT"); });
 }
 
 start().catch(function (error) {
     console.error("Server startup failed");
     sendStartupError(error);
+    process.exit(1);
+});
+
+process.on("unhandledRejection", function (error) {
+    console.error("Unhandled promise rejection", serializeR2Error(error));
+});
+
+process.on("uncaughtException", function (error) {
+    console.error("Uncaught exception", serializeR2Error(error));
     process.exit(1);
 });
 

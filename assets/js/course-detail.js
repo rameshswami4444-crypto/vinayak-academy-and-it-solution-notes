@@ -151,19 +151,9 @@
     function bindCourseAction(course) {
         var button = $("[data-course-action]");
         if (!button) return;
-        button.addEventListener("click", async function () {
-            button.disabled = true;
-            var session = await getSession();
-            if (session && session.role === "admin") {
-                window.location.href = "/admin.html";
-                return;
-            }
-            if (session && session.role === "student") {
-                window.location.href = "/dashboard.html";
-                return;
-            }
-            var next = encodeURIComponent("/courses/" + course.slug);
-            window.location.href = "/login.html?role=student&next=" + next;
+        button.addEventListener("click", function () {
+            var slug = encodeURIComponent(course.slug || slugFromLocation());
+            window.location.href = "/get-started?course=" + slug;
         });
     }
 
@@ -203,8 +193,8 @@
         $("[data-course-reviews]").innerHTML = renderReviews(course);
         $("[data-course-categories]").innerHTML = renderCategories(payload.categories);
         $("[data-course-related]").innerHTML = renderRelated(payload.related);
-        $("[data-course-action]").textContent = payload.enrollment && payload.enrollment.actionLabel || "Apply for Course";
-        $("[data-course-action-note]").textContent = payload.enrollment && payload.enrollment.reason || "Existing student login is reused for access.";
+        $("[data-course-action]").textContent = payload.enrollment && payload.enrollment.actionLabel || "GET STARTED";
+        $("[data-course-action-note]").textContent = payload.enrollment && payload.enrollment.reason || "Submit your details and our team will contact you with course information.";
 
         var initial = String((course.instructor || "Admin").charAt(0) || "A").toUpperCase();
         $all("[data-course-avatar], [data-course-instructor-avatar]").forEach(function (node) { node.textContent = initial; });
