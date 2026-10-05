@@ -1,0 +1,283 @@
+Supabase server key is not service_role capable. Protected backend writes may be blocked by RLS.
+Skipping note because R2 object is missing {
+  noteId: 61,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784258161766-case-study-2-part-13-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 60,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784258133197-case-study-2-part-12-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 59,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784257976140-case-study-2-part-11-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 58,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784257941984-case-study-2-part-10.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 57,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784257907767-case-study-2-part-9.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 53,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784178608794-case-study-2-part-6.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 56,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784179056451-case-study-2-part-7.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 55,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784178690230-case-study-2-part-8.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 52,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784178580052-case-study-2-part-5.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 51,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784172648640-case-study-2-part-4.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 50,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784172615186-case-study-2-part-3.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 49,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784172590726-case-study-2-part-2.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 45,
+  bucket: 'vinayak-study-material',
+  objectKey: '3A2C361F-50D7-41FD-911E-0A046D181743/test/1784114685100-qp1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 43,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-6/1783942750034-docscanner-13-jul-2026-5-03-pm.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 48,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies-2/1784172559825-case-study-2-part-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 42,
+  bucket: 'vinayak-study-material',
+  objectKey: '8B3C44AA-35CB-4802-B358-FC9F4878FE47/solved-assingments/1783770030965-doc-20260708-wa0032.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 44,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-6/1784028875239-docscanner-14-jul-2026-4-58-pm-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 41,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-6/1783769954939-docscanner-11-jul-2026-4-53-pm.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 39,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/unsolved-case-study/1783505839563-docscanner-8-jul-2026-3-37-pm.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 38,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-6/1783321727578-docscanner-6-jul-2026-12-21-pm-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 36,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783164272535-case-study-3-part-12.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 37,
+  bucket: 'vinayak-study-material',
+  objectKey: '3A2C361F-50D7-41FD-911E-0A046D181743/practice-questions/1783316006038-docscanner-6-jul-2026-9-34-am.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 35,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783164122832-case-study-3-part-11.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 32,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160543366-case-study-iii-part-7-pdf.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 33,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160857100-case-study-3-part-9.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 34,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160913723-case-study-3-part-10.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 31,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160417456-case-study-iii-part-6-pdf.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 28,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160098940-5-6147544857230447523-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 29,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160266259-case-study-iii-part-4-pdf.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 27,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160053989-case-study-3-part-2.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 25,
+  bucket: 'vinayak-study-material',
+  objectKey: '3A2C361F-50D7-41FD-911E-0A046D181743/practice-questions/1783147181851-qp2.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 26,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160009091-case-study-3-part-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 24,
+  bucket: 'vinayak-study-material',
+  objectKey: '3A2C361F-50D7-41FD-911E-0A046D181743/practice-questions/1783146790514-qp1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 23,
+  bucket: 'vinayak-study-material',
+  objectKey: '3A2C361F-50D7-41FD-911E-0A046D181743/chapter-notes/1783146635756-rscit-ch-4.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 30,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-study-3/1783160324334-case-study-iii-part-5.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 22,
+  bucket: 'vinayak-study-material',
+  objectKey: '3A2C361F-50D7-41FD-911E-0A046D181743/chapter-notes/1783146562380-rscit-ch-2-3.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 21,
+  bucket: 'vinayak-study-material',
+  objectKey: '3A2C361F-50D7-41FD-911E-0A046D181743/chapter-notes/1783146474212-rscit-ch-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 20,
+  bucket: 'vinayak-study-material',
+  objectKey: '3A2C361F-50D7-41FD-911E-0A046D181743/chapter-notes/1783146433693-rscit-notes-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 19,
+  bucket: 'vinayak-study-material',
+  objectKey: '8B3C44AA-35CB-4802-B358-FC9F4878FE47/unsolved-assingments/1783145372696-dece-3-hindi.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 18,
+  bucket: 'vinayak-study-material',
+  objectKey: '8B3C44AA-35CB-4802-B358-FC9F4878FE47/unsolved-assingments/1783145348161-dece-2-hindi.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 17,
+  bucket: 'vinayak-study-material',
+  objectKey: '8B3C44AA-35CB-4802-B358-FC9F4878FE47/unsolved-assingments/1783145326513-dece-1-hindi.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 16,
+  bucket: 'vinayak-study-material',
+  objectKey: '8B3C44AA-35CB-4802-B358-FC9F4878FE47/solved-assingments/1783144711212-dece-1-part-2.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 15,
+  bucket: 'vinayak-study-material',
+  objectKey: '8B3C44AA-35CB-4802-B358-FC9F4878FE47/solved-assingments/1783144671212-dece-assignment-1-hindi.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 14,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783137580727-case-study-1-part-12.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 12,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783137486528-case-study-1-part-10.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 13,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783137504728-case-study-1-part-11.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 11,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783137468464-case-study-1-part-9.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 10,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783137408432-case-study-1-part-8.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 9,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783137389745-case-study-1-part-7.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 8,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783096562763-case-study-1-part-6.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 6,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783096492586-case-study-1-part-4.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 5,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783096446819-case-study-1-part-3.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 3,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783095953712-case-study-1-part-1.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 4,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783096386701-case-study-1-part-2.pdf'
+}
+Skipping note because R2 object is missing {
+  noteId: 7,
+  bucket: 'vinayak-study-material',
+  objectKey: '7C78A519-CF1E-48D4-A320-0C34F359344D/case-studies/1783096529004-case-study-1-part-5.pdf'
+}
+Study material R2 verification complete {
+  checked: 110,
+  returned: 55,
+  missingCount: 55,
+  failedCount: 0,
+  lastFailure: null
+}

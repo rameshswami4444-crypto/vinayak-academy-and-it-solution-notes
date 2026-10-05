@@ -1,0 +1,57 @@
+◇ injected env (10) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+Cloudflare R2 Startup Check
+R2_ACCOUNT_ID loaded: true
+R2_ACCESS_KEY loaded: true
+R2_SECRET_KEY loaded: true
+R2_BUCKET loaded: true
+R2_ENDPOINT loaded: true
+✓ Cloudflare Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+✓ Bucket Name: vinayak-study-material
+✓ Credentials Loaded: true
+Security environment status {
+  supabaseUrlConfigured: true,
+  supabaseServerKeyConfigured: true,
+  sessionSecretConfigured: true,
+  pdfAccessSecretConfigured: true,
+  turnstileConfigured: false,
+  otpSmsConfigured: false
+}
+Verifying Cloudflare R2 credentials...
+Cloudflare R2 verified {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  totalFiles: 63,
+  responseTimeMs: 1196
+}
+Supabase configured {
+  url: 'https://aptuynimvcllzbbqfmoj.supabase.co',
+  keyLoaded: true,
+  serverKeyRole: 'anon',
+  serviceRoleCapable: false
+}
+Server started
+Local URL: http://localhost:3000
+Request received: POST /api/upload-material
+File received {
+  originalName: 'admin-hash-login-test.pdf',
+  mimeType: 'application/pdf',
+  size: 51
+}
+Uploading to R2...
+==========================
+R2 Upload Debug
+==========================
+Bucket: vinayak-study-material
+Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786863756041-302e2241-admin-hash-login-test.pdf
+Content Type: application/pdf
+File Size: 51
+==========================
+✓ Uploaded Successfully
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786863756041-302e2241-admin-hash-login-test.pdf
+ETag: "20797d6319782419e0cab110c600ddbd"
+OK Verified Object Exists: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786863756041-302e2241-admin-hash-login-test.pdf
+Upload success {
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786863756041-302e2241-admin-hash-login-test.pdf'
+}
+Supabase insert success { noteId: 127, courses: 1 }

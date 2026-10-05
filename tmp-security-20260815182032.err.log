@@ -1,0 +1,1 @@
+Supabase server key is not service_role capable. Protected backend writes may be blocked by RLS.

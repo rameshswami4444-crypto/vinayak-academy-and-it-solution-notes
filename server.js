@@ -604,6 +604,143 @@ function isActiveStudent(student) {
     return !["blocked", "inactive", "suspended", "disabled"].includes(accountStatus);
 }
 
+function isDisabledStudent(student) {
+    const accountStatus = String(student && (student.account_status || student.status || "active")).trim().toLowerCase();
+    return ["inactive", "suspended", "disabled"].includes(accountStatus);
+}
+
+function todayDateString() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeStudentAccountStatus(value) {
+    const status = String(value || "active").trim().toLowerCase();
+    if (["blocked", "inactive", "suspended", "disabled"].includes(status)) return status;
+    return "active";
+}
+
+function normalizeStudentFeeStatus(value) {
+    const status = String(value || "").trim().toLowerCase();
+    if (status === "paid") return "paid";
+    return "due";
+}
+
+function normalizeEmiStatusValue(value) {
+    const status = String(value || "pending").trim().toLowerCase();
+    if (status === "paid" || status === "overdue") return status;
+    return "pending";
+}
+
+async function syncStudentOverdueStatus(client, student) {
+    if (!student || !student.id) return student;
+    const studentId = String(student.id || "").trim();
+    const today = todayDateString();
+    const emiResult = await client
+        .from("emis")
+        .select(EMI_COLUMNS)
+        .eq("student_id", studentId)
+        .neq("status", "paid")
+        .order("due_date", { ascending: true });
+    if (emiResult.error) throw emiResult.error;
+
+    const rows = emiResult.data || [];
+    const overdueRows = rows.filter(function (emi) {
+        const dueDate = String(emi.due_date || "").slice(0, 10);
+        return dueDate && dueDate < today;
+    });
+    const needsOverdueUpdate = overdueRows.filter(function (emi) {
+        return normalizeEmiStatusValue(emi.status) !== "overdue";
+    });
+    if (needsOverdueUpdate.length) {
+        const updateResults = await Promise.all(needsOverdueUpdate.map(function (emi) {
+            return client.from("emis").update({ status: "overdue" }).eq("id", emi.id);
+        }));
+        const failed = updateResults.find(function (result) { return result.error; });
+        if (failed && failed.error) throw failed.error;
+    }
+
+    const currentAccountStatus = normalizeStudentAccountStatus(student.account_status);
+    const isDisabled = ["disabled", "inactive", "suspended"].includes(currentAccountStatus);
+    const shouldBlock = !isDisabled && overdueRows.length > 0;
+    const nextAccountStatus = isDisabled ? currentAccountStatus : (shouldBlock ? "blocked" : "active");
+    const nextFeesStatus = shouldBlock ? "due" : "paid";
+    const nextDueDate = overdueRows.length
+        ? String(overdueRows[0].due_date || "").slice(0, 10)
+        : (rows[0] && rows[0].due_date ? String(rows[0].due_date).slice(0, 10) : (student.due_date || null));
+    const nextPaymentNote = shouldBlock ? "Overdue EMI pending" : (student.payment_note || null);
+
+    if (
+        normalizeStudentAccountStatus(student.account_status) !== nextAccountStatus ||
+        normalizeStudentFeeStatus(student.fees_status) !== normalizeStudentFeeStatus(nextFeesStatus) ||
+        String(student.due_date || "") !== String(nextDueDate || "") ||
+        String(student.payment_note || "") !== String(nextPaymentNote || "")
+    ) {
+        const updateResult = await client
+            .from("students")
+            .update({
+                account_status: nextAccountStatus,
+                fees_status: nextFeesStatus,
+                due_date: nextDueDate || null,
+                payment_note: nextPaymentNote
+            })
+            .eq("id", studentId)
+            .select(STUDENT_COLUMNS)
+            .single();
+        if (updateResult.error) throw updateResult.error;
+        return updateResult.data || Object.assign({}, student, {
+            account_status: nextAccountStatus,
+            fees_status: nextFeesStatus,
+            due_date: nextDueDate,
+            payment_note: nextPaymentNote
+        });
+    }
+
+    return Object.assign({}, student, {
+        account_status: nextAccountStatus,
+        fees_status: nextFeesStatus,
+        due_date: nextDueDate,
+        payment_note: nextPaymentNote
+    });
+}
+
+async function syncAllOverdueEmis(client) {
+    const today = todayDateString();
+    const result = await client
+        .from("emis")
+        .select(EMI_COLUMNS)
+        .neq("status", "paid")
+        .lt("due_date", today)
+        .limit(1000);
+    if (result.error) throw result.error;
+    const rows = result.data || [];
+    const overdueStudentIds = Array.from(new Set(rows.map(function (emi) {
+        return String(emi.student_id || "").trim();
+    }).filter(Boolean)));
+    const pendingRows = rows.filter(function (emi) {
+        return normalizeEmiStatusValue(emi.status) !== "overdue";
+    });
+    if (pendingRows.length) {
+        const updateResults = await Promise.all(pendingRows.map(function (emi) {
+            return client.from("emis").update({ status: "overdue" }).eq("id", emi.id);
+        }));
+        const failed = updateResults.find(function (item) { return item.error; });
+        if (failed && failed.error) throw failed.error;
+    }
+    if (overdueStudentIds.length) {
+        const studentsResult = await client
+            .from("students")
+            .select(STUDENT_COLUMNS)
+            .in("id", overdueStudentIds);
+        if (studentsResult.error) throw studentsResult.error;
+        const students = studentsResult.data || [];
+        const blockResults = await Promise.all(students.map(function (student) {
+            return syncStudentOverdueStatus(client, student);
+        }));
+        return { emisUpdated: pendingRows.length, studentsChecked: blockResults.length };
+    }
+    return { emisUpdated: 0, studentsChecked: 0 };
+}
+
 function slugifyCourse(value) {
     return String(value || "")
         .trim()
@@ -1990,7 +2127,7 @@ app.post("/api/auth/login", async function (request, response) {
             response.status(423).json({ success: false, message: "Too many failed login attempts. Please try again later." });
             return;
         }
-        if (!student || !verifyPassword(password, student.password) || ["blocked", "disabled", "inactive", "suspended"].includes(status)) {
+        if (!student || !verifyPassword(password, student.password) || ["disabled", "inactive", "suspended"].includes(status)) {
             if (student) await updateLoginFailure(client, "students", "id", student.id, Number(student.failed_attempts || 0) + 1);
             response.status(401).json({ success: false, message: "Invalid username or password." });
             return;
@@ -1998,7 +2135,7 @@ app.post("/api/auth/login", async function (request, response) {
         await migratePasswordHash(client, "students", "id", student.id, password, student.password);
         const sessionId = crypto.randomBytes(32).toString("base64url");
         await client.from("students").update({ session_id: sessionId, failed_attempts: 0, locked_until: null, last_failed_login: null }).eq("id", student.id);
-        const fresh = Object.assign({}, student, { session_id: sessionId });
+        const fresh = await syncStudentOverdueStatus(client, Object.assign({}, student, { session_id: sessionId }));
         response.json({ success: true, role: "student", student: sanitizeStudent(fresh), session_token: sessionId, redirect: "/dashboard.html" });
     } catch (error) {
         sendApiError(response, 500, "Login failed.", error);
@@ -2016,7 +2153,7 @@ app.get("/api/auth/session", async function (request, response) {
             return;
         }
         if (role === "student") {
-            const resolved = await resolveStudentForApi(request);
+            const resolved = await resolveStudentSessionForAuth(request);
             response.json({ success: true, role: "student", student: sanitizeStudent(resolved.student), session_token: resolved.auth.sessionToken });
             return;
         }
@@ -2227,7 +2364,48 @@ async function resolveStudentForApi(request) {
         error.statusCode = 403;
         throw error;
     }
-    return { client: client, auth: auth, student: student };
+    const syncedStudent = await syncStudentOverdueStatus(client, student);
+    if (!isActiveStudent(syncedStudent)) {
+        const error = new Error("Your account is not active.");
+        error.statusCode = 403;
+        throw error;
+    }
+    return { client: client, auth: auth, student: syncedStudent };
+}
+
+async function resolveStudentSessionForAuth(request) {
+    const auth = getStudentAuthFromRequest(request);
+    if (!auth.studentId || !auth.sessionToken) {
+        const error = new Error("Student session is required.");
+        error.statusCode = 401;
+        throw error;
+    }
+    const client = getSupabaseClient();
+    const studentResult = await client
+        .from("students")
+        .select(STUDENT_COLUMNS)
+        .eq("id", auth.studentId)
+        .limit(1);
+    if (studentResult.error) throw studentResult.error;
+    const student = studentResult.data && studentResult.data[0];
+    const tokens = getStudentTokens(student);
+    if (!student || !tokens.includes(auth.sessionToken)) {
+        const error = new Error("Invalid or expired student session.");
+        error.statusCode = 401;
+        throw error;
+    }
+    if (isDisabledStudent(student)) {
+        const error = new Error("Your account is not active.");
+        error.statusCode = 403;
+        throw error;
+    }
+    const syncedStudent = await syncStudentOverdueStatus(client, student);
+    if (isDisabledStudent(syncedStudent)) {
+        const error = new Error("Your account is not active.");
+        error.statusCode = 403;
+        throw error;
+    }
+    return { client: client, auth: auth, student: syncedStudent };
 }
 
 function sanitizeStudent(student) {
@@ -3039,6 +3217,7 @@ app.get("/api/admin/dashboard/stats", async function (request, response) {
         const admin = await requireAdmin(request, response);
         if (!admin) return;
         const client = getSupabaseClient();
+        await syncAllOverdueEmis(client);
         const course = String(request.query.course || "").trim();
         const courseId = String(request.query.course_id || "").trim();
         const today = new Date().toISOString().slice(0, 10);
@@ -3262,6 +3441,7 @@ app.get("/api/admin/emis", async function (request, response) {
         const admin = await requireAdmin(request, response);
         if (!admin) return;
         const client = getSupabaseClient();
+        await syncAllOverdueEmis(client);
         const pageSettings = getPageSettings(request, { limit: 25, max: 200 });
         let query = client.from("emis").select(EMI_COLUMNS, { count: "exact" });
         if (request.query.student_id) query = query.eq("student_id", String(request.query.student_id));

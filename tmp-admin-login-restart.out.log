@@ -1,0 +1,162 @@
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+Cloudflare R2 Startup Check
+R2_ACCOUNT_ID loaded: true
+R2_ACCESS_KEY loaded: true
+R2_SECRET_KEY loaded: true
+R2_BUCKET loaded: true
+R2_ENDPOINT loaded: true
+✓ Cloudflare Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+✓ Bucket Name: vinayak-study-material
+✓ Credentials Loaded: true
+Security environment status {
+  supabaseUrlConfigured: true,
+  supabaseServerKeyConfigured: true,
+  sessionSecretConfigured: true,
+  pdfAccessSecretConfigured: true,
+  turnstileConfigured: false,
+  otpSmsConfigured: false
+}
+Verifying Cloudflare R2 credentials...
+Cloudflare R2 verified {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  totalFiles: 62,
+  responseTimeMs: 1080
+}
+Supabase configured {
+  url: 'https://aptuynimvcllzbbqfmoj.supabase.co',
+  keyLoaded: true,
+  serverKeyRole: 'anon',
+  serviceRoleCapable: false
+}
+Server started
+Local URL: http://localhost:3000
+Student active attendance lookup {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-16T06:39:32.964Z',
+    end_time: '>= 2026-08-16T06:39:32.964Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list requested { studentId: 'rishabh' }
+No active attendance session for student {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-16T06:39:32.964Z',
+    end_time: '>= 2026-08-16T06:39:32.964Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'rishabh', total: 46 }
+Request received: POST /api/upload-material
+File received {
+  originalName: 'real-admin-login-test.pdf',
+  mimeType: 'application/pdf',
+  size: 47
+}
+Uploading to R2...
+==========================
+R2 Upload Debug
+==========================
+Bucket: vinayak-study-material
+Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786862741776-c9b7696d-real-admin-login-test.pdf
+Content Type: application/pdf
+File Size: 47
+==========================
+✓ Uploaded Successfully
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786862741776-c9b7696d-real-admin-login-test.pdf
+ETag: "011684786d3a009879d67a353d5eca1e"
+OK Verified Object Exists: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786862741776-c9b7696d-real-admin-login-test.pdf
+Upload success {
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786862741776-c9b7696d-real-admin-login-test.pdf'
+}
+Supabase insert success { noteId: 126, courses: 1 }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+Cloudflare R2 Startup Check
+R2_ACCOUNT_ID loaded: true
+R2_ACCESS_KEY loaded: true
+R2_SECRET_KEY loaded: true
+R2_BUCKET loaded: true
+R2_ENDPOINT loaded: true
+✓ Cloudflare Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+✓ Bucket Name: vinayak-study-material
+✓ Credentials Loaded: true
+Security environment status {
+  supabaseUrlConfigured: true,
+  supabaseServerKeyConfigured: true,
+  sessionSecretConfigured: true,
+  pdfAccessSecretConfigured: true,
+  turnstileConfigured: false,
+  otpSmsConfigured: false
+}
+Verifying Cloudflare R2 credentials...
+Cloudflare R2 verified {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  totalFiles: 63,
+  responseTimeMs: 1011
+}
+Supabase configured {
+  url: 'https://aptuynimvcllzbbqfmoj.supabase.co',
+  keyLoaded: true,
+  serverKeyRole: 'anon',
+  serviceRoleCapable: false
+}
+Server started
+Local URL: http://localhost:3000
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T06:50:34.884Z',
+    end_time: '>= 2026-08-16T06:50:34.884Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T06:50:34.884Z',
+    end_time: '>= 2026-08-16T06:50:34.884Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list requested { studentId: 'monika820' }
+Material list returned { studentId: 'monika820', total: 7 }

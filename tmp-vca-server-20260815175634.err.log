@@ -1,0 +1,16 @@
+API error {
+  message: 'Enquiry could not be submitted right now. Please call the academy.',
+  context: {},
+  error: {
+    name: '',
+    message: 'new row violates row-level security policy for table "enquiries"',
+    code: '42501',
+    stack: '',
+    status: '',
+    statusCode: '',
+    requestId: '',
+    attempts: '',
+    totalRetryDelay: 0,
+    metadata: {}
+  }
+}

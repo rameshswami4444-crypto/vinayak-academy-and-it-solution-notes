@@ -1,0 +1,25 @@
+◇ injected env (8) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+Cloudflare R2 Startup Check
+R2_ACCOUNT_ID loaded: true
+R2_ACCESS_KEY loaded: true
+R2_SECRET_KEY loaded: true
+R2_BUCKET loaded: true
+R2_ENDPOINT loaded: true
+✓ Cloudflare Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+✓ Bucket Name: vinayak-study-material
+✓ Credentials Loaded: true
+Verifying Cloudflare R2 credentials...
+Cloudflare R2 verified {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  totalFiles: 57,
+  responseTimeMs: 1013
+}
+Supabase configured {
+  url: 'https://aptuynimvcllzbbqfmoj.supabase.co',
+  keyLoaded: true,
+  serverKeyRole: 'anon',
+  serviceRoleCapable: false
+}
+Server started
+Local URL: http://localhost:3024

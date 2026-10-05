@@ -1,0 +1,425 @@
+◇ injected env (10) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+Cloudflare R2 Startup Check
+R2_ACCOUNT_ID loaded: true
+R2_ACCESS_KEY loaded: true
+R2_SECRET_KEY loaded: true
+R2_BUCKET loaded: true
+R2_ENDPOINT loaded: true
+✓ Cloudflare Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+✓ Bucket Name: vinayak-study-material
+✓ Credentials Loaded: true
+Security environment status {
+  supabaseUrlConfigured: true,
+  supabaseServerKeyConfigured: true,
+  sessionSecretConfigured: true,
+  pdfAccessSecretConfigured: true,
+  turnstileConfigured: false,
+  otpSmsConfigured: false
+}
+Verifying Cloudflare R2 credentials...
+Cloudflare R2 verified {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  totalFiles: 58,
+  responseTimeMs: 1819
+}
+Supabase configured {
+  url: 'https://aptuynimvcllzbbqfmoj.supabase.co',
+  keyLoaded: true,
+  serverKeyRole: 'anon',
+  serviceRoleCapable: false
+}
+Server started
+Local URL: http://localhost:3000
+Request received: POST /api/upload-material
+Request received: POST /api/upload-material
+File received {
+  originalName: 'codex-auth-upload-1786803798844.pdf',
+  mimeType: 'application/pdf',
+  size: 466
+}
+Uploading to R2...
+==========================
+R2 Upload Debug
+==========================
+Bucket: vinayak-study-material
+Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf
+Content Type: application/pdf
+File Size: 466
+==========================
+✓ Uploaded Successfully
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf
+ETag: "d6a77712c56bb25f7fa58d1a84d95a8d"
+OK Verified Object Exists: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf
+Upload success {
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf'
+}
+Supabase insert success { noteId: 122, courses: 1 }
+Material list requested { studentId: 'rishabh' }
+Material list returned { studentId: 'rishabh', total: 43 }
+PDF retrieval step: material id received { materialId: '122' }
+PDF retrieval step: student id received { studentId: 'rishabh', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'rishabh' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'rishabh',
+  accountStatus: 'active',
+  course: 'ADFA',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d'
+}
+PDF retrieval step: querying material { materialId: '122' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '122',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'Codex Auth Upload 1786803798844',
+  subject: 'AUTH TEST'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '122',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '122',
+  studentId: 'rishabh',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '7c78a519-cf1e-48d4-a320-0c34f359344d' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '122',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'rishabh',
+  materialId: '122',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf',
+  expiryTime: '2026-08-15T14:28:34.372Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '122',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'rishabh',
+  materialId: '122',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf',
+  expiryTime: '2026-08-15T14:28:34.372Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '122',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:28:34.372Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '122',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf',
+  contentRange: '',
+  contentLength: 466,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '122',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf',
+  contentRange: '',
+  contentLength: 466,
+  contentType: 'application/pdf'
+}
+PDF retrieval step: material id received { materialId: '122' }
+PDF retrieval step: student id received { studentId: 'vimla9024', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'vimla9024' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'vimla9024',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '122' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '122',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'Codex Auth Upload 1786803798844',
+  subject: 'AUTH TEST'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '122',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786803801788-a80e81df-codex-auth-upload-1786803798844.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '122',
+  studentId: 'vimla9024',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+Request received: POST /api/upload-material
+Request received: POST /api/upload-material
+File received {
+  originalName: 'Codex Auth Upload 1786804091719.pdf',
+  mimeType: 'application/pdf',
+  size: 331
+}
+Uploading to R2...
+==========================
+R2 Upload Debug
+==========================
+Bucket: vinayak-study-material
+Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf
+Content Type: application/pdf
+File Size: 331
+==========================
+✓ Uploaded Successfully
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf
+ETag: "294b68f1d6fb1942008d13ef82c839d8"
+OK Verified Object Exists: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf
+Upload success {
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf'
+}
+Supabase insert success { noteId: 123, courses: 1 }
+Material list requested { studentId: 'rishabh' }
+Material list returned { studentId: 'rishabh', total: 44 }
+PDF retrieval step: material id received { materialId: '123' }
+PDF retrieval step: student id received { studentId: 'rishabh', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'rishabh' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'rishabh',
+  accountStatus: 'active',
+  course: 'ADFA',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d'
+}
+PDF retrieval step: querying material { materialId: '123' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '123',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'Codex Auth Upload 1786804091719',
+  subject: 'AUTH TEST'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '123',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '123',
+  studentId: 'rishabh',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '7c78a519-cf1e-48d4-a320-0c34f359344d' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '123',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'rishabh',
+  materialId: '123',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf',
+  expiryTime: '2026-08-15T14:33:19.978Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '123',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'rishabh',
+  materialId: '123',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804091735-bb577972-Codex-Auth-Upload-1786804091719.pdf',
+  expiryTime: '2026-08-15T14:33:19.978Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '123',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:33:19.978Z',
+  hasUrl: true
+}
+Request received: POST /api/upload-material
+Request received: POST /api/upload-material
+File received {
+  originalName: 'Codex Auth Upload Final 1786804249769.pdf',
+  mimeType: 'application/pdf',
+  size: 35
+}
+Uploading to R2...
+==========================
+R2 Upload Debug
+==========================
+Bucket: vinayak-study-material
+Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf
+Content Type: application/pdf
+File Size: 35
+==========================
+✓ Uploaded Successfully
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf
+ETag: "31e21fe9b31ca29e2d6a93c2f5854902"
+OK Verified Object Exists: 7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf
+Upload success {
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf'
+}
+Supabase insert success { noteId: 124, courses: 1 }
+Material list requested { studentId: 'rishabh' }
+Material list returned { studentId: 'rishabh', total: 45 }
+PDF retrieval step: material id received { materialId: '124' }
+PDF retrieval step: student id received { studentId: 'rishabh', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'rishabh' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'rishabh',
+  accountStatus: 'active',
+  course: 'ADFA',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d'
+}
+PDF retrieval step: querying material { materialId: '124' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '124',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'Codex Auth Upload Final 1786804249769',
+  subject: 'AUTH TEST'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '124',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '124',
+  studentId: 'rishabh',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '7c78a519-cf1e-48d4-a320-0c34f359344d' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '124',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'rishabh',
+  materialId: '124',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf',
+  expiryTime: '2026-08-15T14:36:48.456Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '124',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'rishabh',
+  materialId: '124',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf',
+  expiryTime: '2026-08-15T14:36:48.456Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '124',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:36:48.456Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '124',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf',
+  contentRange: '',
+  contentLength: 35,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '124',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf',
+  contentRange: '',
+  contentLength: 35,
+  contentType: 'application/pdf'
+}
+PDF retrieval step: material id received { materialId: '124' }
+PDF retrieval step: student id received { studentId: 'vimla9024', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'vimla9024' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'vimla9024',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '124' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '124',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'Codex Auth Upload Final 1786804249769',
+  subject: 'AUTH TEST'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '124',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/AUTH-TEST/1786804249781-11f6d067-Codex-Auth-Upload-Final-1786804249769.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '124',
+  studentId: 'vimla9024',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+Request received: POST /api/upload-material

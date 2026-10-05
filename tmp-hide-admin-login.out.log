@@ -1,0 +1,93 @@
+◇ injected env (10) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+Cloudflare R2 Startup Check
+R2_ACCOUNT_ID loaded: true
+R2_ACCESS_KEY loaded: true
+R2_SECRET_KEY loaded: true
+R2_BUCKET loaded: true
+R2_ENDPOINT loaded: true
+✓ Cloudflare Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+✓ Bucket Name: vinayak-study-material
+✓ Credentials Loaded: true
+Security environment status {
+  supabaseUrlConfigured: true,
+  supabaseServerKeyConfigured: true,
+  sessionSecretConfigured: true,
+  pdfAccessSecretConfigured: true,
+  turnstileConfigured: false,
+  otpSmsConfigured: false
+}
+Verifying Cloudflare R2 credentials...
+Cloudflare R2 verified {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  totalFiles: 64,
+  responseTimeMs: 1004
+}
+Supabase configured {
+  url: 'https://aptuynimvcllzbbqfmoj.supabase.co',
+  keyLoaded: true,
+  serverKeyRole: 'anon',
+  serviceRoleCapable: false
+}
+Server started
+Local URL: http://localhost:3000
+Student active attendance lookup {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-16T07:18:47.086Z',
+    end_time: '>= 2026-08-16T07:18:47.086Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list requested { studentId: 'rishabh' }
+No active attendance session for student {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-16T07:18:47.086Z',
+    end_time: '>= 2026-08-16T07:18:47.086Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'rishabh', total: 48 }
+Request received: POST /api/upload-material
+File received {
+  originalName: 'RATIO ALL TYPE SSC GD 2024.pdf',
+  mimeType: 'application/pdf',
+  size: 1055555
+}
+Uploading to R2...
+==========================
+R2 Upload Debug
+==========================
+Bucket: vinayak-study-material
+Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+Object Key: 54c2264d-781a-484a-9868-05f02f63f446/test/1786865963040-249b7d9f-RATIO-ALL-TYPE-SSC-GD-2024.pdf
+Content Type: application/pdf
+File Size: 1055555
+==========================
+✓ Uploaded Successfully
+Object Key: 54c2264d-781a-484a-9868-05f02f63f446/test/1786865963040-249b7d9f-RATIO-ALL-TYPE-SSC-GD-2024.pdf
+ETag: "4dd4c6203606d7029370adf4f16756a0"
+OK Verified Object Exists: 54c2264d-781a-484a-9868-05f02f63f446/test/1786865963040-249b7d9f-RATIO-ALL-TYPE-SSC-GD-2024.pdf
+Upload success {
+  objectKey: '54c2264d-781a-484a-9868-05f02f63f446/test/1786865963040-249b7d9f-RATIO-ALL-TYPE-SSC-GD-2024.pdf'
+}
+Supabase insert success { noteId: 128, courses: 1 }

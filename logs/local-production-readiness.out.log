@@ -1,0 +1,273 @@
+◇ injected env (10) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+Cloudflare R2 Startup Check
+R2_ACCOUNT_ID loaded: true
+R2_ACCESS_KEY loaded: true
+R2_SECRET_KEY loaded: true
+R2_BUCKET loaded: true
+R2_ENDPOINT loaded: true
+✓ Cloudflare Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+✓ Bucket Name: vinayak-study-material
+✓ Credentials Loaded: true
+Security environment status {
+  supabaseUrlConfigured: true,
+  supabaseServerKeyConfigured: true,
+  supabaseServiceRoleConfigured: true,
+  supabaseServiceRoleCapable: false,
+  sessionSecretConfigured: true,
+  pdfAccessSecretConfigured: true,
+  turnstileConfigured: false,
+  otpSmsConfigured: false
+}
+Verifying Cloudflare R2 credentials...
+Cloudflare R2 verified {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  totalFiles: 66,
+  responseTimeMs: 987
+}
+Supabase configured {
+  url: 'https://aptuynimvcllzbbqfmoj.supabase.co',
+  keyLoaded: true,
+  serverKeyRole: 'anon',
+  serviceRoleCapable: false
+}
+Server started
+Local URL: http://localhost:3000
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T08:26:35.915Z',
+    end_time: '>= 2026-08-16T08:26:35.915Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T08:26:35.915Z',
+    end_time: '>= 2026-08-16T08:26:35.915Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list requested { studentId: 'monika820' }
+Material list requested { studentId: 'monika820' }
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T08:26:38.866Z',
+    end_time: '>= 2026-08-16T08:26:38.866Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T08:26:38.866Z',
+    end_time: '>= 2026-08-16T08:26:38.866Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'monika820', total: 7 }
+Material list returned { studentId: 'monika820', total: 7 }
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T08:27:10.694Z',
+    end_time: '>= 2026-08-16T08:27:10.694Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list requested { studentId: 'monika820' }
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T08:27:10.694Z',
+    end_time: '>= 2026-08-16T08:27:10.694Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list requested { studentId: 'monika820' }
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T08:27:12.360Z',
+    end_time: '>= 2026-08-16T08:27:12.360Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-16T08:27:12.360Z',
+    end_time: '>= 2026-08-16T08:27:12.360Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'monika820', total: 7 }
+Material list returned { studentId: 'monika820', total: 7 }
+PDF retrieval step: material id received { materialId: '117' }
+PDF retrieval step: student id received { studentId: 'monika820', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'monika820' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'monika820',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '117' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '117',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  title: 'assignment front page',
+  subject: 'SOLVED ASSIGNMENT'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '117',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '117',
+  studentId: 'monika820',
+  noteCourseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '117',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'monika820',
+  materialId: '117',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf',
+  expiryTime: '2026-08-16T08:32:14.999Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '117',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'monika820',
+  materialId: '117',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf',
+  expiryTime: '2026-08-16T08:32:14.999Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '117',
+  expiresIn: 300,
+  expiresAt: '2026-08-16T08:32:14.999Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '117',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf',
+  contentRange: '',
+  contentLength: 41540,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '117',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1785125751955-f4f305cc-assignment-front-page.pdf',
+  contentRange: '',
+  contentLength: 41540,
+  contentType: 'application/pdf'
+}

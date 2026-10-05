@@ -1,0 +1,16 @@
+API error {
+  message: 'Enquiry could not be submitted right now. Please call the academy.',
+  context: {},
+  error: {
+    name: '',
+    message: "Could not find the table 'public.enquiries' in the schema cache",
+    code: 'PGRST205',
+    stack: '',
+    status: '',
+    statusCode: '',
+    requestId: '',
+    attempts: '',
+    totalRetryDelay: 0,
+    metadata: {}
+  }
+}

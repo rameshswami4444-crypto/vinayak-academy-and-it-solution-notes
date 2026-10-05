@@ -1,0 +1,3901 @@
+◇ injected env (10) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+Cloudflare R2 Startup Check
+R2_ACCOUNT_ID loaded: true
+R2_ACCESS_KEY loaded: true
+R2_SECRET_KEY loaded: true
+R2_BUCKET loaded: true
+R2_ENDPOINT loaded: true
+✓ Cloudflare Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+✓ Bucket Name: vinayak-study-material
+✓ Credentials Loaded: true
+Security environment status {
+  supabaseUrlConfigured: true,
+  supabaseServerKeyConfigured: true,
+  sessionSecretConfigured: true,
+  pdfAccessSecretConfigured: true,
+  turnstileConfigured: false,
+  otpSmsConfigured: false
+}
+Verifying Cloudflare R2 credentials...
+Cloudflare R2 verified {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  totalFiles: 57,
+  responseTimeMs: 741
+}
+Supabase configured {
+  url: 'https://aptuynimvcllzbbqfmoj.supabase.co',
+  keyLoaded: true,
+  serverKeyRole: 'anon',
+  serviceRoleCapable: false
+}
+Server started
+Local URL: http://localhost:3000
+Request received: POST /api/upload-material
+File received {
+  originalName: 'codex-upload-test-1786801384679.pdf',
+  mimeType: 'application/pdf',
+  size: 453
+}
+Uploading to R2...
+==========================
+R2 Upload Debug
+==========================
+Bucket: vinayak-study-material
+Endpoint: https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf
+Content Type: application/pdf
+File Size: 453
+==========================
+✓ Uploaded Successfully
+Object Key: 7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf
+ETag: "7a07fa2bcaf64cbb15d7194364513034"
+OK Verified Object Exists: 7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf
+Upload success {
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+Supabase insert success { noteId: 121, courses: 1 }
+Material list requested { studentId: 'VA2608154676' }
+Material list returned { studentId: 'VA2608154676', total: 42 }
+PDF retrieval step: material id received { materialId: '121' }
+PDF retrieval step: student id received { studentId: 'VA2608154676', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'VA2608154676' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'VA2608154676',
+  accountStatus: 'active',
+  course: 'ADFA',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d'
+}
+PDF retrieval step: querying material { materialId: '121' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '121',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'Codex Upload Test 1786801384679',
+  subject: 'CODEx TEST'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '121',
+  studentId: 'VA2608154676',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '7c78a519-cf1e-48d4-a320-0c34f359344d' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'VA2608154676',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiryTime: '2026-08-15T13:48:15.324Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'VA2608154676',
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiryTime: '2026-08-15T13:48:15.324Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '121',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T13:48:15.324Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'VA2608154676',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  contentRange: '',
+  contentLength: 453,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'VA2608154676',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  contentRange: '',
+  contentLength: 453,
+  contentType: 'application/pdf'
+}
+Material list requested { studentId: 'monika820' }
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T13:44:52.517Z',
+    end_time: '>= 2026-08-15T13:44:52.517Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T13:44:52.517Z',
+    end_time: '>= 2026-08-15T13:44:52.517Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'monika820', total: 7 }
+PDF retrieval step: material id received { materialId: '107' }
+PDF retrieval step: student id received { studentId: 'monika820', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'monika820' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'monika820',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '107' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '107',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  title: 'DECE-3-Hindi2026',
+  subject: 'UNSOLVED ASSIGNMENT'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '107',
+  studentId: 'monika820',
+  noteCourseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiryTime: '2026-08-15T13:49:55.177Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'monika820',
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiryTime: '2026-08-15T13:49:55.177Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '107',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T13:49:55.177Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 809442,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 809442,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/809442',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/809442',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 786432-809441/809442',
+  contentLength: 23010,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 786432-809441/809442',
+  contentLength: 23010,
+  contentType: 'application/pdf'
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T13:45:00.758Z',
+    end_time: '>= 2026-08-15T13:45:00.758Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T13:45:00.758Z',
+    end_time: '>= 2026-08-15T13:45:00.758Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+PDF retrieval step: material id received { materialId: '106' }
+PDF retrieval step: student id received { studentId: 'monika820', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'monika820' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'monika820',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '106' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '106',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  title: 'DECE-2-Hindi2026',
+  subject: 'UNSOLVED ASSIGNMENT'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '106',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '106',
+  studentId: 'monika820',
+  noteCourseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '106',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'monika820',
+  materialId: '106',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  expiryTime: '2026-08-15T13:50:02.059Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '106',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'monika820',
+  materialId: '106',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  expiryTime: '2026-08-15T13:50:02.059Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '106',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T13:50:02.059Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '106',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 810463,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '106',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 810463,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '106',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/810463',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '106',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/810463',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '106',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  contentRange: 'bytes 786432-810462/810463',
+  contentLength: 24031,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '106',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625271215-48be8b77-DECE-2-Hindi2026.pdf',
+  contentRange: 'bytes 786432-810462/810463',
+  contentLength: 24031,
+  contentType: 'application/pdf'
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T13:45:22.156Z',
+    end_time: '>= 2026-08-15T13:45:22.156Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T13:45:22.156Z',
+    end_time: '>= 2026-08-15T13:45:22.156Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list requested { studentId: 'rishabh' }
+Material list returned { studentId: 'rishabh', total: 42 }
+PDF retrieval step: material id received { materialId: '121' }
+PDF retrieval step: student id received { studentId: 'rishabh', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'rishabh' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'rishabh',
+  accountStatus: 'active',
+  course: 'ADFA',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d'
+}
+PDF retrieval step: querying material { materialId: '121' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '121',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'Codex Upload Test 1786801384679',
+  subject: 'CODEx TEST'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '121',
+  studentId: 'rishabh',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '7c78a519-cf1e-48d4-a320-0c34f359344d' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'rishabh',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiryTime: '2026-08-15T14:03:02.183Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'rishabh',
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiryTime: '2026-08-15T14:03:02.183Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '121',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:03:02.183Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  contentRange: '',
+  contentLength: 453,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  contentRange: '',
+  contentLength: 453,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  contentRange: 'bytes 0-452/453',
+  contentLength: 453,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  contentRange: 'bytes 0-452/453',
+  contentLength: 453,
+  contentType: 'application/pdf'
+}
+PDF retrieval step: material id received { materialId: '121' }
+PDF retrieval step: student id received { studentId: '', hasSessionToken: false }
+Material list requested { studentId: 'rishabh' }
+Student active attendance lookup {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:02:30.918Z',
+    end_time: '>= 2026-08-15T14:02:30.918Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:02:30.918Z',
+    end_time: '>= 2026-08-15T14:02:30.918Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'rishabh', total: 42 }
+PDF retrieval step: material id received { materialId: '120' }
+PDF retrieval step: student id received { studentId: 'rishabh', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'rishabh' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'rishabh',
+  accountStatus: 'active',
+  course: 'ADFA',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d'
+}
+PDF retrieval step: querying material { materialId: '120' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '120',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'DOC-20260617-WA0000.',
+  subject: 'GST NOTES'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '120',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '120',
+  studentId: 'rishabh',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '7c78a519-cf1e-48d4-a320-0c34f359344d' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+Generating signed R2 URL {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  expiryTime: '2026-08-15T14:07:37.494Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '120',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'rishabh',
+  materialId: '120',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  expiryTime: '2026-08-15T14:07:37.494Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '120',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:07:37.494Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: '',
+  contentLength: 22411687,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: '',
+  contentLength: 22411687,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 0-65535/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 0-65535/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22347776-22411686/22411687',
+  contentLength: 63911,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22347776-22411686/22411687',
+  contentLength: 63911,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 1769472-1835007/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 1769472-1835007/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19267584-19333119/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19267584-19333119/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 3473408-3538943/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 3473408-3538943/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19529728-19595263/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19529728-19595263/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 2555904-3473407/22411687',
+  contentLength: 917504,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 2555904-3473407/22411687',
+  contentLength: 917504,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19726336-19791871/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19726336-19791871/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 14483456-14548991/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 14483456-14548991/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 12648448-12713983/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 12648448-12713983/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19333120-19529727/22411687',
+  contentLength: 196608,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19333120-19529727/22411687',
+  contentLength: 196608,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21823488-21889023/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21823488-21889023/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 16056320-16121855/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 16056320-16121855/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19595264-19726335/22411687',
+  contentLength: 131072,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19595264-19726335/22411687',
+  contentLength: 131072,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 12713984-14483455/22411687',
+  contentLength: 1769472,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 12713984-14483455/22411687',
+  contentLength: 1769472,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 20905984-20971519/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 20905984-20971519/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21102592-21168127/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21102592-21168127/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+Student active attendance lookup {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:03:04.812Z',
+    end_time: '>= 2026-08-15T14:03:04.812Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22282240-22347775/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22282240-22347775/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+No active attendance session for student {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:03:04.812Z',
+    end_time: '>= 2026-08-15T14:03:04.812Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 16121856-16187391/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 16121856-16187391/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 14548992-16056319/22411687',
+  contentLength: 1507328,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 14548992-16056319/22411687',
+  contentLength: 1507328,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21364736-21430271/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21364736-21430271/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21889024-21954559/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21889024-21954559/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+Material list requested { studentId: 'rishabh' }
+Student active attendance lookup {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:04:26.703Z',
+    end_time: '>= 2026-08-15T14:04:26.703Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:04:26.703Z',
+    end_time: '>= 2026-08-15T14:04:26.703Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'rishabh', total: 42 }
+PDF retrieval step: material id received { materialId: '120' }
+PDF retrieval step: student id received { studentId: 'rishabh', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'rishabh' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'rishabh',
+  accountStatus: 'active',
+  course: 'ADFA',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d'
+}
+PDF retrieval step: querying material { materialId: '120' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '120',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'DOC-20260617-WA0000.',
+  subject: 'GST NOTES'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '120',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '120',
+  studentId: 'rishabh',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '7c78a519-cf1e-48d4-a320-0c34f359344d' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+Generating signed R2 URL {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  expiryTime: '2026-08-15T14:09:33.278Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '120',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'rishabh',
+  materialId: '120',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  expiryTime: '2026-08-15T14:09:33.278Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '120',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:09:33.278Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: '',
+  contentLength: 22411687,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: '',
+  contentLength: 22411687,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 0-65535/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 0-65535/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22347776-22411686/22411687',
+  contentLength: 63911,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22347776-22411686/22411687',
+  contentLength: 63911,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 1769472-1835007/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 1769472-1835007/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19267584-19333119/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19267584-19333119/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 1572864-1769471/22411687',
+  contentLength: 196608,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 1572864-1769471/22411687',
+  contentLength: 196608,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19529728-19595263/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19529728-19595263/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19333120-19529727/22411687',
+  contentLength: 196608,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19333120-19529727/22411687',
+  contentLength: 196608,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21823488-21889023/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21823488-21889023/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22282240-22347775/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22282240-22347775/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 3473408-3538943/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 3473408-3538943/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 14483456-14548991/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 14483456-14548991/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 12648448-12713983/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 12648448-12713983/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19726336-19791871/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19726336-19791871/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 12713984-14483455/22411687',
+  contentLength: 1769472,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 12713984-14483455/22411687',
+  contentLength: 1769472,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 20905984-20971519/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 20905984-20971519/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21102592-21168127/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21102592-21168127/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19595264-19726335/22411687',
+  contentLength: 131072,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 19595264-19726335/22411687',
+  contentLength: 131072,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21889024-21954559/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21889024-21954559/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+Student active attendance lookup {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:04:57.070Z',
+    end_time: '>= 2026-08-15T14:04:57.070Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:04:57.070Z',
+    end_time: '>= 2026-08-15T14:04:57.070Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 20971520-21102591/22411687',
+  contentLength: 131072,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 20971520-21102591/22411687',
+  contentLength: 131072,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22151168-22216703/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 22151168-22216703/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 17694720-17760255/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 17694720-17760255/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 16121856-16187391/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 16121856-16187391/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 16187392-17694719/22411687',
+  contentLength: 1507328,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 16187392-17694719/22411687',
+  contentLength: 1507328,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21364736-21430271/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21364736-21430271/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21561344-21626879/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '120',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/GST-NOTES/1786352774302-262a929e-DOC-20260617-WA0000..pdf',
+  contentRange: 'bytes 21561344-21626879/22411687',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+Material list requested { studentId: 'rishabh' }
+Student active attendance lookup {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:05:43.135Z',
+    end_time: '>= 2026-08-15T14:05:43.135Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'rishabh', total: 42 }
+No active attendance session for student {
+  student_id: 'rishabh',
+  student_course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  student_batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+    batch_id: '68ecd24a-febe-47d1-995e-3aa064caa712',
+    start_time: '<= 2026-08-15T14:05:43.135Z',
+    end_time: '>= 2026-08-15T14:05:43.135Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+PDF retrieval step: material id received { materialId: '121' }
+PDF retrieval step: student id received { studentId: 'rishabh', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'rishabh' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'rishabh',
+  accountStatus: 'active',
+  course: 'ADFA',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d'
+}
+PDF retrieval step: querying material { materialId: '121' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '121',
+  courseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  title: 'Codex Upload Test 1786801384679',
+  subject: 'CODEx TEST'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '121',
+  studentId: 'rishabh',
+  noteCourseId: '7c78a519-cf1e-48d4-a320-0c34f359344d',
+  studentCourseIds: [ '7c78a519-cf1e-48d4-a320-0c34f359344d' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'rishabh',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiryTime: '2026-08-15T14:10:48.705Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'rishabh',
+  materialId: '121',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  expiryTime: '2026-08-15T14:10:48.705Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '121',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:10:48.705Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'rishabh',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  contentRange: '',
+  contentLength: 453,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'rishabh',
+  materialId: '121',
+  bucket: 'vinayak-study-material',
+  objectKey: '7c78a519-cf1e-48d4-a320-0c34f359344d/CODEx-TEST/1786801384694-c0df4277-codex-upload-test-1786801384679.pdf',
+  contentRange: '',
+  contentLength: 453,
+  contentType: 'application/pdf'
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:35.461Z',
+    end_time: '>= 2026-08-15T14:10:35.461Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:35.461Z',
+    end_time: '>= 2026-08-15T14:10:35.461Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+PDF retrieval step: material id received { materialId: '107' }
+PDF retrieval step: student id received { studentId: 'monika820', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'monika820' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'monika820',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '107' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '107',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  title: 'DECE-3-Hindi2026',
+  subject: 'UNSOLVED ASSIGNMENT'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '107',
+  studentId: 'monika820',
+  noteCourseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiryTime: '2026-08-15T14:15:36.205Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'monika820',
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiryTime: '2026-08-15T14:15:36.205Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '107',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:15:36.205Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 809442,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 809442,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/809442',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/809442',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 786432-809441/809442',
+  contentLength: 23010,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 786432-809441/809442',
+  contentLength: 23010,
+  contentType: 'application/pdf'
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:40.237Z',
+    end_time: '>= 2026-08-15T14:10:40.237Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:40.237Z',
+    end_time: '>= 2026-08-15T14:10:40.237Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:45.389Z',
+    end_time: '>= 2026-08-15T14:10:45.389Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:45.389Z',
+    end_time: '>= 2026-08-15T14:10:45.389Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:50.681Z',
+    end_time: '>= 2026-08-15T14:10:50.681Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:50.681Z',
+    end_time: '>= 2026-08-15T14:10:50.681Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:55.515Z',
+    end_time: '>= 2026-08-15T14:10:55.515Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:10:55.515Z',
+    end_time: '>= 2026-08-15T14:10:55.515Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:00.528Z',
+    end_time: '>= 2026-08-15T14:11:00.528Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:00.528Z',
+    end_time: '>= 2026-08-15T14:11:00.528Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:05.667Z',
+    end_time: '>= 2026-08-15T14:11:05.667Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:05.667Z',
+    end_time: '>= 2026-08-15T14:11:05.667Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:10.503Z',
+    end_time: '>= 2026-08-15T14:11:10.503Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:10.503Z',
+    end_time: '>= 2026-08-15T14:11:10.503Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:15.284Z',
+    end_time: '>= 2026-08-15T14:11:15.284Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:15.284Z',
+    end_time: '>= 2026-08-15T14:11:15.284Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list requested { studentId: 'monika820' }
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:17.516Z',
+    end_time: '>= 2026-08-15T14:11:17.516Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:17.516Z',
+    end_time: '>= 2026-08-15T14:11:17.516Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Material list returned { studentId: 'monika820', total: 7 }
+PDF retrieval step: material id received { materialId: '107' }
+PDF retrieval step: student id received { studentId: 'monika820', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'monika820' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'monika820',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '107' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '107',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  title: 'DECE-3-Hindi2026',
+  subject: 'UNSOLVED ASSIGNMENT'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '107',
+  studentId: 'monika820',
+  noteCourseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiryTime: '2026-08-15T14:16:20.502Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'monika820',
+  materialId: '107',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  expiryTime: '2026-08-15T14:16:20.502Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '107',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:16:20.502Z',
+  hasUrl: true
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:21.735Z',
+    end_time: '>= 2026-08-15T14:11:21.735Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 809442,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 809442,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: true
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:21.735Z',
+    end_time: '>= 2026-08-15T14:11:21.735Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/809442',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/809442',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 786432-809441/809442',
+  contentLength: 23010,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '107',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625317595-bc807bd7-DECE-3-Hindi2026.pdf',
+  contentRange: 'bytes 786432-809441/809442',
+  contentLength: 23010,
+  contentType: 'application/pdf'
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:27.316Z',
+    end_time: '>= 2026-08-15T14:11:27.316Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:27.316Z',
+    end_time: '>= 2026-08-15T14:11:27.316Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:31.785Z',
+    end_time: '>= 2026-08-15T14:11:31.785Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:31.785Z',
+    end_time: '>= 2026-08-15T14:11:31.785Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:36.858Z',
+    end_time: '>= 2026-08-15T14:11:36.858Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:11:36.858Z',
+    end_time: '>= 2026-08-15T14:11:36.858Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:13:01.979Z',
+    end_time: '>= 2026-08-15T14:13:01.979Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:13:01.979Z',
+    end_time: '>= 2026-08-15T14:13:01.979Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+PDF retrieval step: material id received { materialId: '105' }
+PDF retrieval step: student id received { studentId: 'monika820', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'monika820' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'monika820',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '105' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '105',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  title: 'DECE-1-Hindi2026',
+  subject: 'UNSOLVED ASSIGNMENT'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '105',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '105',
+  studentId: 'monika820',
+  noteCourseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '105',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'monika820',
+  materialId: '105',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  expiryTime: '2026-08-15T14:18:10.006Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '105',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'monika820',
+  materialId: '105',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  expiryTime: '2026-08-15T14:18:10.006Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '105',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:18:10.006Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '105',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 817637,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '105',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  contentRange: '',
+  contentLength: 817637,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '105',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/817637',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '105',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  contentRange: 'bytes 0-65535/817637',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '105',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  contentRange: 'bytes 786432-817636/817637',
+  contentLength: 31205,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '105',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/unsolved-assignment/1784625222822-ec1f1c8c-DECE-1-Hindi2026.pdf',
+  contentRange: 'bytes 786432-817636/817637',
+  contentLength: 31205,
+  contentType: 'application/pdf'
+}
+PDF retrieval step: material id received { materialId: '73' }
+PDF retrieval step: student id received { studentId: 'monika820', hasSessionToken: true }
+PDF retrieval step: querying student { studentId: 'monika820' }
+PDF retrieval step: student query result {
+  found: true,
+  studentId: 'monika820',
+  accountStatus: 'active',
+  course: 'ECCE',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47'
+}
+PDF retrieval step: querying material { materialId: '73' }
+PDF retrieval step: database query result {
+  found: true,
+  materialId: '73',
+  courseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  title: 'DECE SOLVED ASSIGNMENT 2',
+  subject: 'SOLVED ASSIGNMENT'
+}
+PDF retrieval step: file_path/object_key {
+  materialId: '73',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+PDF retrieval step: verifying course access {
+  materialId: '73',
+  studentId: 'monika820',
+  noteCourseId: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  studentCourseIds: [ '8b3c44aa-35cb-4802-b358-fc9f4878fe47' ]
+}
+PDF retrieval step: verifying R2 object exists {
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+Generating signed R2 URL {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  expiryTime: '2026-08-15T14:18:14.812Z'
+}
+R2 signed URL generated {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  expiresIn: 300,
+  hasSignedUrl: true
+}
+PDF retrieval step: generated signed URL {
+  materialId: '73',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  bucket: 'vinayak-study-material',
+  hasSignedUrl: true
+}
+Signed URL generated {
+  studentId: 'monika820',
+  materialId: '73',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  expiryTime: '2026-08-15T14:18:14.812Z'
+}
+PDF retrieval step: final response {
+  success: true,
+  materialId: '73',
+  expiresIn: 300,
+  expiresAt: '2026-08-15T14:18:14.812Z',
+  hasUrl: true
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: false
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: '',
+  contentLength: 19066736,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: '',
+  contentLength: 19066736,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 0-65535/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 0-65535/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 19005440-19066735/19066736',
+  contentLength: 61296,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 19005440-19066735/19066736',
+  contentLength: 61296,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 15466496-15532031/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 15466496-15532031/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 15990784-16056319/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 15990784-16056319/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 16449536-16515071/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 16449536-16515071/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 16842752-16908287/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 16842752-16908287/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 17367040-17432575/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 17367040-17432575/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 17956864-18022399/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 17956864-18022399/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF content proxy requested {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf'
+}
+R2 PDF object requested {
+  bucket: 'vinayak-study-material',
+  endpoint: 'https://e44032ab580278bf46377126635612b7.r2.cloudflarestorage.com',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  hasRange: true
+}
+R2 PDF object fetched {
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 18481152-18546687/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+PDF proxy stream started {
+  studentId: 'monika820',
+  materialId: '73',
+  bucket: 'vinayak-study-material',
+  objectKey: '8b3c44aa-35cb-4802-b358-fc9f4878fe47/SOLVED-ASSIGNMENT/1784340020179-49d286bb-DECE-SOLVED-ASSIGNMENT-2.pdf',
+  contentRange: 'bytes 18481152-18546687/19066736',
+  contentLength: 65536,
+  contentType: 'application/pdf'
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:13:33.170Z',
+    end_time: '>= 2026-08-15T14:13:33.170Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:13:33.170Z',
+    end_time: '>= 2026-08-15T14:13:33.170Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:14:03.129Z',
+    end_time: '>= 2026-08-15T14:14:03.129Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:14:03.129Z',
+    end_time: '>= 2026-08-15T14:14:03.129Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:14:33.004Z',
+    end_time: '>= 2026-08-15T14:14:33.004Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:14:33.004Z',
+    end_time: '>= 2026-08-15T14:14:33.004Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+Student active attendance lookup {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:17:27.093Z',
+    end_time: '>= 2026-08-15T14:17:27.093Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}
+No active attendance session for student {
+  student_id: 'monika820',
+  student_course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+  student_batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+  attendance_query: {
+    table: 'attendance_sessions',
+    status: 'OPEN',
+    course_id: '8b3c44aa-35cb-4802-b358-fc9f4878fe47',
+    batch_id: '6a87e029-453a-4680-bba0-153d469f1387',
+    start_time: '<= 2026-08-15T14:17:27.093Z',
+    end_time: '>= 2026-08-15T14:17:27.093Z'
+  },
+  sessions_found: 0,
+  query_result: [],
+  existing_response: null,
+  supabase_error: null
+}

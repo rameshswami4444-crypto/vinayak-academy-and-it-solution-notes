@@ -1741,7 +1741,12 @@
                 address: getValue("editAddress") || null,
                 payment_note: getValue("editPaymentNote") || null
             };
-            if (getValue("editStudentPassword")) payload.password = await hashPasswordForStorage(getValue("editStudentPassword"));
+            if (getValue("editStudentPassword")) {
+                payload.password = await hashPasswordForStorage(getValue("editStudentPassword"));
+                payload.failed_attempts = 0;
+                payload.locked_until = null;
+                payload.last_failed_login = null;
+            }
             const { error } = await client
                 .from(window.VinayakAuth.getStudentsTableName())
                 .update(payload)
@@ -1936,8 +1941,19 @@
             console.warn("Could not reload EMI rows before student lock sync", error);
         }
         const hasOverdue = emis.some(function (emi) {
-            return normalizeEmiStatus(emi.status) === "overdue";
+            const dueDate = String(emi.due_date || "").slice(0, 10);
+            return normalizeEmiStatus(emi.status) === "overdue" ||
+                (normalizeEmiStatus(emi.status) !== "paid" && dueDate && dueDate < getTodayDateString());
         });
+        const overdueUpdates = emis.filter(function (emi) {
+            const dueDate = String(emi.due_date || "").slice(0, 10);
+            return emi.id && normalizeEmiStatus(emi.status) !== "paid" && normalizeEmiStatus(emi.status) !== "overdue" && dueDate && dueDate < getTodayDateString();
+        });
+        if (overdueUpdates.length) {
+            await Promise.all(overdueUpdates.map(function (emi) {
+                return window.VinayakAuth.getClient().from("emis").update({ status: "overdue" }).eq("id", emi.id);
+            }));
+        }
         await window.VinayakAuth.getClient()
             .from(window.VinayakAuth.getStudentsTableName())
             .update({ account_status: hasOverdue ? "blocked" : "active", fees_status: hasOverdue ? "due" : "paid" })
