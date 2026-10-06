@@ -2123,11 +2123,8 @@ app.post("/api/auth/login", async function (request, response) {
         if (result.error) throw result.error;
         const student = result.data && result.data[0];
         const status = String(student && student.account_status || "active").toLowerCase();
-        if (student && isLockedAccount(student)) {
-            response.status(423).json({ success: false, message: "Too many failed login attempts. Please try again later." });
-            return;
-        }
-        if (!student || !verifyPassword(password, student.password) || ["disabled", "inactive", "suspended"].includes(status)) {
+        const passwordOk = Boolean(student && verifyPassword(password, student.password));
+        if (!student || !passwordOk || ["disabled", "inactive", "suspended"].includes(status)) {
             if (student) await updateLoginFailure(client, "students", "id", student.id, Number(student.failed_attempts || 0) + 1);
             response.status(401).json({ success: false, message: "Invalid username or password." });
             return;
@@ -3536,10 +3533,14 @@ app.post("/api/admin/emis", async function (request, response) {
             student_id: insertResult.data.student_id,
             emi_number: insertResult.data.emi_number
         });
+        const refreshedStudentResult = await client.from("students").select(STUDENT_COLUMNS).eq("id", studentId).maybeSingle();
+        if (refreshedStudentResult.error) throw refreshedStudentResult.error;
+        const syncedStudent = refreshedStudentResult.data ? await syncStudentOverdueStatus(client, refreshedStudentResult.data) : null;
         response.status(201).json({
             success: true,
             message: "EMI added.",
-            emi: insertResult.data
+            emi: insertResult.data,
+            student: syncedStudent ? sanitizeStudent(syncedStudent) : null
         });
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not add EMI.", error);
@@ -3588,7 +3589,10 @@ app.patch("/api/admin/emis/:id", async function (request, response) {
             response.status(404).json({ success: false, message: "EMI record was not found for this student." });
             return;
         }
-        response.json({ success: true, message: "EMI updated.", emi: result.data });
+        const studentResult = await client.from("students").select(STUDENT_COLUMNS).eq("id", studentId).maybeSingle();
+        if (studentResult.error) throw studentResult.error;
+        const syncedStudent = studentResult.data ? await syncStudentOverdueStatus(client, studentResult.data) : null;
+        response.json({ success: true, message: "EMI updated.", emi: result.data, student: syncedStudent ? sanitizeStudent(syncedStudent) : null });
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not update EMI.", error);
     }
@@ -3626,7 +3630,10 @@ app.delete("/api/admin/emis/:id", async function (request, response) {
         }
         const result = await client.from("emis").delete().eq("id", emiId).eq("student_id", studentId).select("id").single();
         if (result.error) throw result.error;
-        response.json({ success: true, message: "EMI deleted.", id: result.data && result.data.id });
+        const studentResult = await client.from("students").select(STUDENT_COLUMNS).eq("id", studentId).maybeSingle();
+        if (studentResult.error) throw studentResult.error;
+        const syncedStudent = studentResult.data ? await syncStudentOverdueStatus(client, studentResult.data) : null;
+        response.json({ success: true, message: "EMI deleted.", id: result.data && result.data.id, student: syncedStudent ? sanitizeStudent(syncedStudent) : null });
     } catch (error) {
         sendApiError(response, 500, error.message || "Could not delete EMI.", error);
     }
