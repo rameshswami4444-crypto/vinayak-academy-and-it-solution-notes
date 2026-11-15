@@ -3752,6 +3752,7 @@ app.get("/api/public/courses/:slug", async function (request, response) {
 });
 
 app.get("/api/public/page-data", async function (request, response) {
+    response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     const pagePath = String(request.query.path || "/").replace(/\/+$/, "") || "/";
     try {
         const client = getSupabaseClient();
@@ -3867,12 +3868,21 @@ app.get("/api/public/page-data", async function (request, response) {
         };
         if (simplePages[pagePath]) {
             const item = simplePages[pagePath];
+            const enquiryConfig = pagePath === "/enquiry" ? await getEnquiryFormConfig(client) : null;
+            const activeEnquiryCourses = courses.filter(function (course) {
+                const raw = course.raw || course;
+                return raw.is_active !== false && !["inactive", "disabled", "archived"].includes(String(raw.status || raw.course_status || "active").toLowerCase());
+            });
+            const enquiryCourses = enquiryConfig && !enquiryConfig.all_courses
+                ? activeEnquiryCourses.filter(function (course) { return enquiryConfig.course_ids.map(String).includes(String(course.id)); })
+                : activeEnquiryCourses;
             response.json(Object.assign(base, {
                 pageType: item[0],
                 title: item[1],
                 eyebrow: item[2],
                 description: item[3],
-                courses: courses
+                courses: pagePath === "/enquiry" ? enquiryCourses : courses,
+                enquiryConfig: enquiryConfig
             }));
             return;
         }
@@ -3954,6 +3964,89 @@ app.get("/api/public/form-config", function (request, response) {
         captcha_enabled: Boolean(String(process.env.TURNSTILE_SECRET_KEY || "").trim()),
         otp_enabled: Boolean(String(process.env.OTP_SMS_ENDPOINT || "").trim() || (process.env.OTP_DEV_MODE === "true" && process.env.NODE_ENV !== "production"))
     });
+});
+
+const DEFAULT_ENQUIRY_FORM_CONFIG = {
+    title: "General Enquiry",
+    description: "Send us your question and our team will contact you soon.",
+    is_active: true,
+    fields: [
+        { key: "name", label: "Name", type: "text", required: true },
+        { key: "phone", label: "Mobile Number", type: "tel", required: true },
+        { key: "email", label: "Email", type: "email", required: false },
+        { key: "subject", label: "Subject", type: "text", required: true },
+        { key: "enquiry_type_option", label: "Enquiry Type", type: "select", required: true, options: ["Course Information", "Fees", "Admission", "Other"] },
+        { key: "message", label: "Message", type: "textarea", required: true }
+    ], all_courses: true, course_ids: []
+};
+const ENQUIRY_FORM_CONFIG_FILE = path.join(__dirname, ".runtime", "enquiry-form-config.json");
+
+function readLocalEnquiryFormConfig() {
+    try {
+        if (!fs.existsSync(ENQUIRY_FORM_CONFIG_FILE)) return null;
+        return JSON.parse(fs.readFileSync(ENQUIRY_FORM_CONFIG_FILE, "utf8"));
+    } catch (error) {
+        console.error("Could not read local enquiry form config", error.message);
+        return null;
+    }
+}
+
+function writeLocalEnquiryFormConfig(config) {
+    fs.mkdirSync(path.dirname(ENQUIRY_FORM_CONFIG_FILE), { recursive: true });
+    fs.writeFileSync(ENQUIRY_FORM_CONFIG_FILE, JSON.stringify(config, null, 2), "utf8");
+}
+
+async function getEnquiryFormConfig(client) {
+    const localConfig = readLocalEnquiryFormConfig();
+    if (localConfig) return Object.assign({}, DEFAULT_ENQUIRY_FORM_CONFIG, localConfig);
+    const result = await client.from("enquiry_form_configs").select("title, description, is_active, fields, all_courses, course_ids").eq("id", true).maybeSingle();
+    if (result.error) {
+        if (/relation .* does not exist|schema cache/i.test(result.error.message || "")) return readLocalEnquiryFormConfig() || DEFAULT_ENQUIRY_FORM_CONFIG;
+        if (/column .*description|column .*is_active/i.test(result.error.message || "")) {
+            const legacy = await client.from("enquiry_form_configs").select("title, fields, all_courses, course_ids").eq("id", true).maybeSingle();
+            if (!legacy.error) return Object.assign({}, DEFAULT_ENQUIRY_FORM_CONFIG, legacy.data || {});
+        }
+        return readLocalEnquiryFormConfig() || DEFAULT_ENQUIRY_FORM_CONFIG;
+    }
+    return Object.assign({}, DEFAULT_ENQUIRY_FORM_CONFIG, result.data || readLocalEnquiryFormConfig() || {});
+}
+
+app.get("/api/admin/enquiry-form-config", requireAdminMiddleware, async function (request, response) {
+    try { response.json({ success: true, config: await getEnquiryFormConfig(getSupabaseClient()) }); }
+    catch (error) { sendApiError(response, 500, "Could not load enquiry form settings.", error); }
+});
+
+app.patch("/api/admin/enquiry-form-config", requireAdminMiddleware, async function (request, response) {
+    try {
+        const body = request.body || {};
+        const allowedTypes = ["text", "email", "tel", "number", "textarea", "select", "checkbox", "radio", "date"];
+        const seenKeys = new Set();
+        const fields = Array.isArray(body.fields) ? body.fields.map(function (field) {
+            const key = formString(field.key, 60).replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
+            return { key: key, label: formString(field.label, 120), type: allowedTypes.includes(field.type) ? field.type : "text", required: Boolean(field.required), visible: field.visible !== false, options: Array.isArray(field.options) ? field.options.map(function (x) { return formString(x, 100); }).filter(Boolean).slice(0, 50) : [] };
+        }).filter(function (field) { if (!field.key || !field.label || seenKeys.has(field.key)) return false; seenKeys.add(field.key); return true; }).slice(0, 30) : DEFAULT_ENQUIRY_FORM_CONFIG.fields;
+        const payload = { id: true, title: formString(body.title, 120) || "General Enquiry", description: formString(body.description, 500), is_active: body.is_active !== false, fields: fields, all_courses: Boolean(body.all_courses), course_ids: Array.isArray(body.course_ids) ? body.course_ids.filter(function (id) { return /^[0-9a-f-]{36}$/i.test(String(id)); }).slice(0, 200) : [], updated_at: new Date().toISOString() };
+        let result = await getSupabaseClient().from("enquiry_form_configs").upsert(payload).select("title, description, is_active, fields, all_courses, course_ids").single();
+        if (result.error && /column .*description|column .*is_active/i.test(result.error.message || "")) {
+            const legacyPayload = { id: true, title: payload.title, fields: payload.fields, all_courses: payload.all_courses, course_ids: payload.course_ids, updated_at: payload.updated_at };
+            result = await getSupabaseClient().from("enquiry_form_configs").upsert(legacyPayload).select("title, fields, all_courses, course_ids").single();
+        }
+        if (result.error) {
+            const localConfig = Object.assign({}, DEFAULT_ENQUIRY_FORM_CONFIG, payload);
+            writeLocalEnquiryFormConfig(localConfig);
+            response.json({ success: true, storage: "server_fallback", config: localConfig, message: "Saved on the application server. Database sync is unavailable until Supabase write access is restored." });
+            return;
+        }
+        writeLocalEnquiryFormConfig(result.data);
+        response.json({ success: true, config: result.data });
+    } catch (error) {
+        try {
+            const body = request.body || {};
+            const localConfig = Object.assign({}, DEFAULT_ENQUIRY_FORM_CONFIG, { title: formString(body.title, 120) || "General Enquiry", description: formString(body.description, 500), is_active: body.is_active !== false, fields: Array.isArray(body.fields) ? body.fields : DEFAULT_ENQUIRY_FORM_CONFIG.fields, all_courses: Boolean(body.all_courses), course_ids: Array.isArray(body.course_ids) ? body.course_ids : [] });
+            writeLocalEnquiryFormConfig(localConfig);
+            response.json({ success: true, storage: "server_fallback", config: localConfig, message: "Saved on the application server." });
+        } catch (fallbackError) { sendApiError(response, 400, "Could not save enquiry form settings.", fallbackError); }
+    }
 });
 
 app.get("/api/public/admission-config", async function (request, response) {
@@ -4290,7 +4383,7 @@ app.post("/api/public/contact", async function (request, response) {
 });
 
 app.post("/api/public/enquiry", async function (request, response) {
-    if (!rateLimitPublicForm(request, "general-enquiry", 5, 10 * 60 * 1000)) {
+    if (!rateLimitPublicForm(request, "general-enquiry", 4, 10 * 60 * 1000)) {
         response.status(429).json({ success: false, message: "Please wait before submitting another enquiry." });
         return;
     }
@@ -4303,22 +4396,34 @@ app.post("/api/public/enquiry", async function (request, response) {
         message: formString(request.body.message, 1200),
         consent: Boolean(request.body.consent)
     };
-    const allowedTypes = ["Course Information", "Fees", "Admission", "Computer Course", "Competition Course", "IT Service", "Accounting & GST Service", "Website Development", "Other"];
-    if (!payload.name || !isIndianMobile(payload.phone) || !payload.subject || !payload.enquiry_type_option || !payload.message || !payload.consent) {
-        response.status(400).json({ success: false, message: "Name, mobile, subject, enquiry type, message and consent are required." });
+    const rawPhoneDigits = String(request.body.phone || "").replace(/\D/g, "");
+    if (!/^\d{10}$/.test(rawPhoneDigits) || !isIndianMobile(rawPhoneDigits)) {
+        response.status(400).json({ success: false, message: "Mobile number must be exactly 10 digits and start with 6, 7, 8 or 9." });
         return;
     }
-    if (payload.email && !isValidEmail(payload.email)) {
-        response.status(400).json({ success: false, message: "Enter a valid email address." });
+    let formConfig = DEFAULT_ENQUIRY_FORM_CONFIG;
+    try { formConfig = await getEnquiryFormConfig(getSupabaseClient()); } catch (error) {}
+    const requiredKeys = (formConfig.fields || []).filter(function (field) { return field.required; }).map(function (field) { return field.key; });
+    const missing = requiredKeys.filter(function (key) { return !formString(request.body[key], 1200); });
+    if (missing.length || !payload.consent) {
+        response.status(400).json({ success: false, message: "Please fill all required fields and accept consent." });
         return;
     }
-    if (!allowedTypes.includes(payload.enquiry_type_option)) {
+    const allowedTypes = (formConfig.fields || []).find(function (field) { return field.key === "enquiry_type_option"; });
+    if (payload.enquiry_type_option && allowedTypes && Array.isArray(allowedTypes.options) && allowedTypes.options.length && !allowedTypes.options.includes(payload.enquiry_type_option)) {
         response.status(400).json({ success: false, message: "Select a valid enquiry type." });
+        return;
+    }
+    if (payload.email && (!isValidEmail(payload.email) || !/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(payload.email))) {
+        response.status(400).json({ success: false, message: "Enter a valid email address." });
         return;
     }
     try {
         const client = getSupabaseClient();
         const enquiryNumber = await generateEnquiryNumber(client);
+        const formData = {};
+        (formConfig.fields || []).forEach(function (field) { const value = formString(request.body[field.key], 1200); if (value) formData[field.key] = value; });
+        if (request.body.selected_course_name) formData.selected_course = formString(request.body.selected_course_name, 180);
         const insertPayload = {
             enquiry_number: enquiryNumber,
             enquiry_type: "general_enquiry",
@@ -4328,6 +4433,8 @@ app.post("/api/public/enquiry", async function (request, response) {
             email: payload.email || null,
             subject: payload.subject,
             course_category: payload.enquiry_type_option,
+            course_name_snapshot: formString(request.body.selected_course_name || request.body.selected_course, 180) || null,
+            form_data: formData,
             message: payload.message,
             status: "new",
             priority: "normal",

@@ -1,4 +1,5 @@
 ﻿(function () {
+    console.info("[EnquiryBuilder] admin.js loaded", "enquiry-builder-debug-20261115-2");
     if (window.__vinayakAdminLoaded) return;
     window.__vinayakAdminLoaded = true;
     window.__vinayakAdminLoadedAt = new Date().toISOString();
@@ -33,6 +34,16 @@
     let editStudentContextId = "";
     let currentAdmissionStep = 1;
     let approvalContext = null;
+    let enquiryFormState = { title: "", description: "", is_active: true, all_courses: true, course_ids: [], fields: [] };
+    let enquiryDraggedIndex = null;
+    const DEFAULT_ENQUIRY_FIELDS = [
+        { key: "name", label: "Name", type: "text", required: true, visible: true, options: [] },
+        { key: "phone", label: "Mobile Number", type: "tel", required: true, visible: true, options: [] },
+        { key: "email", label: "Email", type: "email", required: false, visible: true, options: [] },
+        { key: "subject", label: "Subject", type: "text", required: true, visible: true, options: [] },
+        { key: "enquiry_type_option", label: "Enquiry Type", type: "select", required: true, visible: true, options: ["Course Information", "Fees", "Admission", "Other"] },
+        { key: "message", label: "Message", type: "textarea", required: true, visible: true, options: [] }
+    ];
     const paginationState = { students: 1, emi: 1, bulk: 1, material: 1, announcements: 1, enquiries: 1, approvedStudents: 1, payments: 1, reports: 1, attendanceReport: 1 };
     const PAGE_SIZES = { students: 8, emi: 8, bulk: 10, material: 10, announcements: 10, enquiries: 25, approvedStudents: 25, payments: 25, reports: 25, attendanceReport: 50 };
     const TABLE_COLUMNS = {
@@ -83,6 +94,71 @@
             field.value = value == null ? "" : value;
         }
     }
+
+    async function loadEnquiryFormConfig() {
+        console.info("[EnquiryBuilder] settings fetch called", "/api/admin/enquiry-form-config");
+        var response = await apiFetch("/api/admin/enquiry-form-config", { headers: { "Accept": "application/json" } });
+        console.info("[EnquiryBuilder] settings response", response.status);
+        var payload = await response.json().catch(function () { return null; });
+        console.info("[EnquiryBuilder] settings JSON", payload && Object.keys(payload));
+        if (!response.ok || !payload || payload.success === false) throw new Error((payload && payload.message) || "Could not load form settings.");
+        enquiryFormState = Object.assign(enquiryFormState, payload.config || {});
+        if (typeof enquiryFormState.fields === "string") {
+            try { enquiryFormState.fields = JSON.parse(enquiryFormState.fields); } catch (error) { enquiryFormState.fields = []; setPanelMessage("Saved enquiry fields JSON is invalid. Default fields are shown; save only after reviewing them.", "error"); }
+        }
+        enquiryFormState.fields = Array.isArray(enquiryFormState.fields) && enquiryFormState.fields.length ? enquiryFormState.fields : DEFAULT_ENQUIRY_FIELDS.map(function (field) { return Object.assign({}, field, { options: (field.options || []).slice() }); });
+        enquiryFormState.fields.forEach(function (field) { if (field.visible === undefined) field.visible = true; });
+        console.info("[EnquiryBuilder] settings fields parsed", enquiryFormState.fields.length);
+        renderEnquiryBuilder();
+        console.info("[EnquiryBuilder] fields rendering completed");
+    }
+
+    async function saveEnquiryFormConfig(event) {
+        event.preventDefault();
+        try {
+            syncEnquiryFormState();
+            var response = await apiFetch("/api/admin/enquiry-form-config", { method: "PATCH", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(enquiryFormState) });
+            var payload = await response.json(); if (!response.ok || payload.success === false) throw new Error(payload.message || "Could not save form settings.");
+            enquiryFormState = Object.assign(enquiryFormState, payload.config || {}); renderEnquiryBuilder();
+            setPanelMessage(payload.message || "Enquiry form settings saved.", "success");
+        } catch (error) { setPanelMessage(error.message || "Invalid form settings.", "error"); }
+    }
+
+    function syncEnquiryFormState() {
+        enquiryFormState.title = getValue("enquiryConfigTitle");
+        enquiryFormState.description = getValue("enquiryConfigDescription");
+        enquiryFormState.is_active = Boolean(document.getElementById("enquiryConfigActive") && document.getElementById("enquiryConfigActive").checked);
+        // Course targeting was removed from this builder; the public enquiry form uses all active courses.
+        enquiryFormState.all_courses = true;
+        enquiryFormState.course_ids = [];
+    }
+
+    function renderEnquiryCourses() {
+        var target = document.getElementById("enquiryCourseChecklist"); if (!target) return;
+        var selected = (enquiryFormState.course_ids || []).map(String), options = getCourseOptions();
+        console.info("[EnquiryBuilder] course mapping", { received: coursesCache.length, mapped: options.length });
+        target.innerHTML = options.length ? options.map(function (course) { return '<label class="enquiry-course-option"><input type="checkbox" name="enquiryCourseIds" value="' + escapeHtml(course.id) + '"' + (selected.includes(course.id) ? ' checked' : '') + '><span><strong>' + escapeHtml(course.name) + '</strong><small>Active</small></span></label>'; }).join("") : '<p class="admin-note">No courses found in the existing courses table.</p>';
+        var all = document.getElementById("enquiryConfigAllCourses"); target.classList.toggle("is-disabled", Boolean(all && all.checked)); target.querySelectorAll("input").forEach(function (input) { input.disabled = Boolean(all && all.checked); });
+        updateEnquiryCourseCount();
+    }
+
+    function updateEnquiryCourseCount() { var count = document.querySelectorAll('[name="enquiryCourseIds"]:checked').length, el = document.getElementById("enquiryCourseCount"); if (el) el.textContent = count + " Courses Selected"; }
+
+    function renderEnquiryFields() {
+        var target = document.getElementById("enquiryFieldsBuilder"); if (!target) return;
+        var fields = enquiryFormState.fields || [];
+        target.innerHTML = fields.length ? fields.map(function (field, index) { return '<div class="enquiry-field-row" draggable="true" data-enquiry-field-index="' + index + '"><span class="drag-handle">⁙</span><strong>' + escapeHtml(field.label) + '</strong><span>' + escapeHtml(field.key) + '</span><select data-enquiry-type="' + index + '"><option value="text">Text</option><option value="email">Email</option><option value="tel">Phone</option><option value="number">Number</option><option value="textarea">Textarea</option><option value="select">Dropdown</option><option value="checkbox">Checkbox</option><option value="radio">Radio</option><option value="date">Date</option></select><button type="button" class="enquiry-mini-toggle ' + (field.required ? 'on' : '') + '" data-enquiry-required="' + index + '" aria-label="Toggle required"></button><button type="button" class="enquiry-mini-toggle ' + (field.visible !== false ? 'on' : '') + '" data-enquiry-visible="' + index + '" aria-label="Toggle visibility"></button><span class="enquiry-row-actions"><button type="button" data-enquiry-edit="' + index + '">✎</button><button type="button" data-enquiry-delete="' + index + '">♲</button></span></div>'; }).join("") : '<p class="admin-note">No fields configured. Add a field to start building the form.</p>';
+        target.querySelectorAll("[data-enquiry-type]").forEach(function (select) { select.value = fields[Number(select.dataset.enquiryType)].type || "text"; });
+        renderEnquiryPreview();
+    }
+
+    function renderEnquiryPreview() { var target = document.getElementById("enquiryLivePreview"); if (!target) return; var fields = (enquiryFormState.fields || []).filter(function (field) { return field.visible !== false; }); target.innerHTML = '<div class="enquiry-preview-form"><h2>' + escapeHtml(enquiryFormState.title || "General Enquiry") + '</h2><p>' + escapeHtml(enquiryFormState.description || "") + '</p>' + fields.map(function (field) { var c = field.type === "textarea" ? '<textarea></textarea>' : field.type === "select" || field.type === "radio" ? '<select><option>Select</option></select>' : field.type === "checkbox" ? '<input type="checkbox">' : '<input type="' + escapeHtml(field.type || "text") + '">'; return '<div class="preview-field"><label>' + escapeHtml(field.label) + (field.required ? ' *' : '') + '</label>' + c + '</div>'; }).join("") + '<label><input type="checkbox"> I agree to be contacted regarding my enquiry.</label><button class="enquiry-preview-submit" type="button">Submit Enquiry</button></div>'; }
+
+    function renderEnquiryBuilder() { setValue("enquiryConfigTitle", enquiryFormState.title || "General Enquiry"); setValue("enquiryConfigDescription", enquiryFormState.description || ""); var active = document.getElementById("enquiryConfigActive"); if (active) active.checked = enquiryFormState.is_active !== false; var all = document.getElementById("enquiryConfigAllCourses"); if (all) all.checked = enquiryFormState.all_courses !== false; var label = document.getElementById("enquiryConfigActiveLabel"); if (label) label.textContent = active && active.checked ? "Active" : "Inactive"; renderEnquiryCourses(); renderEnquiryFields(); }
+
+    function openEnquiryFieldModal(index) { var field = index === "" || index == null ? { key: "", label: "", type: "text", required: false, visible: true, options: [] } : enquiryFormState.fields[Number(index)]; setValue("enquiryFieldIndex", index == null ? "" : index); setValue("enquiryFieldLabel", field.label); setValue("enquiryFieldKey", field.key); setValue("enquiryFieldType", field.type || "text"); setValue("enquiryFieldOptions", (field.options || []).join("\n")); var req = document.getElementById("enquiryFieldRequired"), vis = document.getElementById("enquiryFieldVisible"); if (req) req.checked = Boolean(field.required); if (vis) vis.checked = field.visible !== false; updateEnquiryOptionsVisibility(); document.getElementById("enquiryFieldModal").hidden = false; }
+    function updateEnquiryOptionsVisibility() { var type = getValue("enquiryFieldType"), group = document.getElementById("enquiryOptionsGroup"); if (group) group.hidden = !["select", "radio"].includes(type); }
+    function saveEnquiryField(event) { event.preventDefault(); var key = getValue("enquiryFieldKey").toLowerCase(); if (!/^[a-z][a-z0-9_]*$/.test(key)) { setPanelMessage("Field key must start with a letter and contain only letters, numbers or underscores.", "error"); return; } var index = getValue("enquiryFieldIndex"), duplicate = enquiryFormState.fields.some(function (field, i) { return field.key === key && String(i) !== String(index); }); if (duplicate) { setPanelMessage("Field keys must be unique.", "error"); return; } var field = { key: key, label: getValue("enquiryFieldLabel"), type: getValue("enquiryFieldType"), required: Boolean(document.getElementById("enquiryFieldRequired").checked), visible: Boolean(document.getElementById("enquiryFieldVisible").checked), options: getValue("enquiryFieldOptions").split("\n").map(function (x) { return x.trim(); }).filter(Boolean) }; if (index === "") enquiryFormState.fields.push(field); else enquiryFormState.fields[Number(index)] = field; document.getElementById("enquiryFieldModal").hidden = true; renderEnquiryFields(); }
 
     function setText(id, value) {
         const element = document.getElementById(id);
@@ -1116,30 +1192,44 @@
     }
 
     async function loadCourses(force) {
+        console.info("[EnquiryBuilder] course fetch called", { force: Boolean(force), cached: coursesCache.length });
         if (!force && coursesCache.length) {
             updateCourseControls();
+            renderEnquiryCourses();
+            console.info("[EnquiryBuilder] course fetch reused cache", coursesCache.length);
             renderCourses();
             return coursesCache;
         }
+        var courseRequestSettled = false;
         try {
-            const { data, error } = await window.VinayakAuth.getClient()
+            const courseClient = window.VinayakAuth.getClient();
+            console.info("[EnquiryBuilder] course API query", "courses.select(id,course_name,duration,total_fee,description,created_at)");
+            const { data, error } = await courseClient
                 .from("courses")
                 .select("id, course_name, duration, total_fee, description, created_at")
                 .order("course_name", { ascending: true });
             if (error) {
                 throw error;
             }
+            console.info("[EnquiryBuilder] course response", { rows: Array.isArray(data) ? data.length : -1, firstKeys: data && data[0] ? Object.keys(data[0]) : [] });
             coursesCache = data || [];
             updateCourseControls();
+            renderEnquiryCourses();
+            courseRequestSettled = true;
+            console.info("[EnquiryBuilder] course state/render completed", coursesCache.length);
             renderCourses();
             return coursesCache;
         } catch (error) {
             console.error("Course loading failed", error);
             coursesCache = [];
             updateCourseControls("Could not load courses");
+            var enquiryCourses = document.getElementById("enquiryCourseChecklist");
+            if (enquiryCourses) enquiryCourses.innerHTML = '<p class="admin-note admin-error">Could not load courses: ' + escapeHtml(error && error.message ? error.message : "Supabase query failed") + '</p>';
             renderCourses();
             setPanelMessage(error && error.message ? error.message : "Could not load courses.", "error");
             return [];
+        } finally {
+            console.info("[EnquiryBuilder] course fetch finished", { settled: courseRequestSettled, count: coursesCache.length });
         }
     }
 
@@ -4036,6 +4126,27 @@
     }
 
     function bindEvents() {
+        const enquiryConfigForm = document.getElementById("enquiryFormConfigForm");
+        if (enquiryConfigForm) {
+            enquiryConfigForm.addEventListener("submit", saveEnquiryFormConfig);
+            loadEnquiryFormConfig().catch(function (error) {
+                console.error("Enquiry form configuration loading failed", error);
+                enquiryFormState.fields = DEFAULT_ENQUIRY_FIELDS.map(function (field) { return Object.assign({}, field, { options: (field.options || []).slice() }); });
+                renderEnquiryBuilder();
+                setPanelMessage("Could not load saved enquiry settings: " + (error.message || "network or permission error") + ". Default fields are shown and have not been saved.", "error");
+            });
+        }
+        ["enquiryConfigTitle", "enquiryConfigDescription"].forEach(function (id) { var field = document.getElementById(id); if (field) field.addEventListener("input", function () { syncEnquiryFormState(); renderEnquiryPreview(); }); });
+        var activeToggle = document.getElementById("enquiryConfigActive"); if (activeToggle) activeToggle.addEventListener("change", function () { syncEnquiryFormState(); var label = document.getElementById("enquiryConfigActiveLabel"); if (label) label.textContent = activeToggle.checked ? "Active" : "Inactive"; renderEnquiryPreview(); });
+        var allCoursesToggle = document.getElementById("enquiryConfigAllCourses"); if (allCoursesToggle) allCoursesToggle.addEventListener("change", function () { syncEnquiryFormState(); renderEnquiryCourses(); });
+        var courseChecklist = document.getElementById("enquiryCourseChecklist"); if (courseChecklist) courseChecklist.addEventListener("change", function () { syncEnquiryFormState(); updateEnquiryCourseCount(); renderEnquiryPreview(); });
+        var selectAllCourses = document.getElementById("enquiryCoursesSelectAll"); if (selectAllCourses) selectAllCourses.addEventListener("change", function () { courseChecklist.querySelectorAll("input").forEach(function (input) { input.checked = selectAllCourses.checked; }); syncEnquiryFormState(); updateEnquiryCourseCount(); });
+        var clearCourses = document.getElementById("enquiryCoursesClearAll"); if (clearCourses) clearCourses.addEventListener("click", function () { courseChecklist.querySelectorAll("input").forEach(function (input) { input.checked = false; }); if (selectAllCourses) selectAllCourses.checked = false; syncEnquiryFormState(); updateEnquiryCourseCount(); });
+        var addField = document.getElementById("enquiryAddFieldBtn"); if (addField) addField.addEventListener("click", function () { openEnquiryFieldModal(""); });
+        var fieldForm = document.getElementById("enquiryFieldForm"); if (fieldForm) fieldForm.addEventListener("submit", saveEnquiryField);
+        var fieldType = document.getElementById("enquiryFieldType"); if (fieldType) fieldType.addEventListener("change", updateEnquiryOptionsVisibility);
+        var closeField = document.getElementById("closeEnquiryFieldModal"); if (closeField) closeField.addEventListener("click", function () { document.getElementById("enquiryFieldModal").hidden = true; });
+        var fieldsBuilder = document.getElementById("enquiryFieldsBuilder"); if (fieldsBuilder) { fieldsBuilder.addEventListener("click", function (event) { var edit = event.target.closest("[data-enquiry-edit]"), del = event.target.closest("[data-enquiry-delete]"), req = event.target.closest("[data-enquiry-required]"), vis = event.target.closest("[data-enquiry-visible]"); if (edit) openEnquiryFieldModal(edit.dataset.enquiryEdit); if (del) { enquiryFormState.fields.splice(Number(del.dataset.enquiryDelete), 1); renderEnquiryFields(); } if (req) { enquiryFormState.fields[Number(req.dataset.enquiryRequired)].required = !enquiryFormState.fields[Number(req.dataset.enquiryRequired)].required; renderEnquiryFields(); } if (vis) { enquiryFormState.fields[Number(vis.dataset.enquiryVisible)].visible = !enquiryFormState.fields[Number(vis.dataset.enquiryVisible)].visible; renderEnquiryFields(); } }); fieldsBuilder.addEventListener("change", function (event) { var select = event.target.closest("[data-enquiry-type]"); if (select) { enquiryFormState.fields[Number(select.dataset.enquiryType)].type = select.value; renderEnquiryPreview(); } }); fieldsBuilder.addEventListener("dragstart", function (event) { var row = event.target.closest("[data-enquiry-field-index]"); if (row) enquiryDraggedIndex = Number(row.dataset.enquiryFieldIndex); }); fieldsBuilder.addEventListener("dragover", function (event) { if (event.target.closest("[data-enquiry-field-index]")) event.preventDefault(); }); fieldsBuilder.addEventListener("drop", function (event) { event.preventDefault(); var row = event.target.closest("[data-enquiry-field-index]"); if (!row || enquiryDraggedIndex == null) return; var targetIndex = Number(row.dataset.enquiryFieldIndex), moved = enquiryFormState.fields.splice(enquiryDraggedIndex, 1)[0]; enquiryFormState.fields.splice(targetIndex, 0, moved); enquiryDraggedIndex = null; renderEnquiryFields(); }); }
         const addForm = document.getElementById("addStudentForm");
         const editForm = document.getElementById("editStudentForm");
         const deleteForm = document.getElementById("deleteStudentForm");

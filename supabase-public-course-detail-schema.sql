@@ -67,12 +67,29 @@ create table if not exists public.enquiries (
     consent_given boolean default false,
     ip_address text,
     user_agent text,
+    form_data jsonb default '{}'::jsonb,
     follow_up_date text,
     updated_at timestamptz default now(),
     contacted_at timestamptz,
     closed_at timestamptz,
     created_at timestamptz default now()
 );
+
+-- Admin-editable public general enquiry form configuration.
+create table if not exists public.enquiry_form_configs (
+    id boolean primary key default true check (id = true),
+    title text not null default 'General Enquiry',
+    description text not null default 'Send us your question and our team will contact you soon.',
+    is_active boolean not null default true,
+    fields jsonb not null default '[{"key":"name","label":"Name","type":"text","required":true},{"key":"phone","label":"Mobile Number","type":"tel","required":true},{"key":"email","label":"Email","type":"email","required":false},{"key":"subject","label":"Subject","type":"text","required":true},{"key":"enquiry_type_option","label":"Enquiry Type","type":"select","required":true,"options":["Course Information","Fees","Admission","Other"]},{"key":"message","label":"Message","type":"textarea","required":true}]'::jsonb,
+    all_courses boolean not null default true,
+    course_ids jsonb not null default '[]'::jsonb,
+    updated_at timestamptz not null default now()
+);
+insert into public.enquiry_form_configs (id) values (true) on conflict (id) do nothing;
+alter table public.enquiry_form_configs
+    add column if not exists description text not null default 'Send us your question and our team will contact you soon.',
+    add column if not exists is_active boolean not null default true;
 
 alter table public.enquiries
     add column if not exists enquiry_number text,
@@ -108,6 +125,7 @@ alter table public.enquiries
     add column if not exists consent_given boolean default false,
     add column if not exists ip_address text,
     add column if not exists user_agent text,
+    add column if not exists form_data jsonb default '{}'::jsonb,
     add column if not exists follow_up_date text,
     add column if not exists updated_at timestamptz default now(),
     add column if not exists contacted_at timestamptz,
