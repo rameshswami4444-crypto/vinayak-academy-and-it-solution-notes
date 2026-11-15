@@ -245,7 +245,7 @@
         setBadges(getUnreadCount(items));
         const dropdown = document.getElementById("studentNotificationDropdown");
         if (dropdown) {
-            renderPreviewList(dropdown.querySelector("[data-notification-preview]"), items.slice(0, 5));
+            renderPreviewList(dropdown.querySelector("[data-notification-preview]"), items);
         }
         return items;
     }
@@ -266,7 +266,7 @@
         button.addEventListener("click", async function (event) {
             event.stopPropagation();
             const items = await fetchVisibleAnnouncements();
-            renderPreviewList(dropdown.querySelector("[data-notification-preview]"), items.slice(0, 5));
+            renderPreviewList(dropdown.querySelector("[data-notification-preview]"), items);
             dropdown.hidden = !dropdown.hidden;
         });
         document.addEventListener("click", function (event) {

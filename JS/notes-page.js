@@ -199,6 +199,9 @@
         }
 
         grid.innerHTML = [
+            '<section class="student-material-hero">',
+            '<div><span class="student-material-hero-icon"><i class="fas fa-folder-open"></i></span><div><h1>Study Material</h1><p>Access your course-wise notes and resources.</p></div></div>',
+            '</section>',
             '<section class="student-material-shell">',
             '<aside class="student-material-subjects">',
             '<button type="button" class="student-material-subject', state.subject === "all" ? " active" : "", '" data-material-subject="all">All Subjects <span>', notes.length, '</span></button>',

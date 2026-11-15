@@ -23,13 +23,14 @@
         return [
             '<header class="student-topbar student-common-header">',
             '<div class="student-brand student-brand-shell">',
-            '<button type="button" class="student-menu-btn" data-student-sidebar-toggle aria-label="Toggle student menu"><i data-lucide="panel-left-close"></i></button>',
+            '<button type="button" class="student-menu-btn student-mobile-menu" data-student-sidebar-toggle aria-label="Toggle student menu"><i data-lucide="menu"></i></button>',
             '<img src="', ROOT_PREFIX, 'logo.png" alt="Vinayak Academy logo" class="student-logo">',
-            '<div class="student-brand-copy"><small>Student Portal</small><strong data-layout-student-name>', studentName, '</strong><span><b data-layout-course>', course, '</b></span></div>',
+            '<div class="student-brand-copy"><small>Student Portal</small><strong>Vinayak Academy</strong><span><b>Student Portal</b></span><span class="student-layout-student-name" data-layout-student-name>', studentName, '</span><span class="student-layout-course" data-layout-course>', course, ' · ', batch, '</span></div>',
             '</div>',
             '<form class="student-top-search" data-student-search-form><i class="fas fa-magnifying-glass"></i><input type="search" data-student-search-input placeholder="Search notes, assignments, notices" aria-label="Search student dashboard"></form>',
             '<div class="student-top-actions">',
             '<button type="button" class="student-icon-btn" aria-label="Notifications"><i data-lucide="bell-ring"></i><span data-layout-notification-count>0</span></button>',
+            '<button type="button" class="student-avatar-btn" aria-label="Student profile"><span>', String(studentName).trim().charAt(0).toUpperCase() || 'S', '</span></button>',
             '<button type="button" class="logout-btn" id="logoutBtn"><i class="fas fa-right-from-bracket"></i> Logout</button>',
             '</div>',
             '</header>'
@@ -49,7 +50,7 @@
         ];
         return [
             '<aside class="student-sidebar" aria-label="Student navigation">',
-            '<div class="student-sidebar-brand"><img src="', ROOT_PREFIX, 'logo.png" alt=""><div><strong>Student ERP</strong><span>Learning Workspace</span></div></div>',
+            '<div class="student-sidebar-brand"><img src="', ROOT_PREFIX, 'logo.png" alt=""><div><strong>Vinayak Academy</strong><span>Student Portal</span></div></div>',
             '<nav class="student-sidebar-nav">',
             navItems.map(function (item) {
                 return item[0] === "Logout"
@@ -242,6 +243,25 @@
         brand.insertAdjacentHTML("afterbegin", '<button type="button" class="student-menu-btn" data-student-sidebar-toggle aria-label="Toggle student menu"><i data-lucide="panel-left-close"></i></button>');
     }
 
+    function ensureMobileBottomNav() {
+        if (document.querySelector(".student-bottom-nav")) return;
+        const items = [
+            ["Home", "house", ROOT_PREFIX + "dashboard.html"],
+            ["Attendance", "calendar-check", ROOT_PREFIX + "profile.html#attendance"],
+            ["PDF Notes", "file-text", ROOT_PREFIX + "studymaterial.html"],
+            ["Test Marks", "chart-no-axes-column", ROOT_PREFIX + "dashboard.html#test-marks"],
+            ["Profile", "user-round", ROOT_PREFIX + "profile.html"]
+        ];
+        document.body.insertAdjacentHTML("beforeend", '<nav class="student-bottom-nav" aria-label="Student quick navigation">' + items.map(function (item) {
+            return '<a href="' + item[2] + '" data-mobile-nav-path="' + item[2].split("#")[0].replace("../", "") + '"><i data-lucide="' + item[1] + '"></i><span>' + item[0] + '</span></a>';
+        }).join("") + '</nav>');
+        const currentPath = window.location.pathname.toLowerCase();
+        document.querySelectorAll(".student-bottom-nav a").forEach(function (link) {
+            const path = String(link.dataset.mobileNavPath || "").toLowerCase();
+            link.classList.toggle("active", Boolean(path && currentPath.endsWith("/" + path)));
+        });
+    }
+
     function inferPageMeta() {
         const body = document.body;
         const heading = document.querySelector(".ecce-title h2, .resource-placeholder h2, main h2, .student-section-head h2");
@@ -407,6 +427,7 @@
         bindNotifications();
         bindSearch();
         highlightActiveNav();
+        ensureMobileBottomNav();
         enhanceLegacyPages();
         ensureInfoStrip();
         restoreSidebarPreference();

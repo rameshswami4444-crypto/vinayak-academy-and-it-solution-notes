@@ -1589,6 +1589,48 @@
         });
     }
 
+    function renderFeeManagement() {
+        const body = document.getElementById("feeDueTableBody");
+        if (!body) return;
+        const today = getTodayDateString();
+        const search = getValue("feeDueSearchInput").toLowerCase();
+        const filter = getValue("feeDueTypeFilter") || "all";
+        const studentById = new Map(studentsCache.map(function (student) { return [String(getIdentifier(student)), student]; }));
+        const rows = emisCache.map(function (emi) {
+            const student = studentById.get(String(emi.student_id)) || {};
+            const status = String(emi.status || "pending").toLowerCase();
+            const overdue = status === "overdue" || (status !== "paid" && emi.due_date && String(emi.due_date).slice(0, 10) < today);
+            const kind = overdue ? "overdue" : (status === "paid" ? "paid" : "pending");
+            return { emi: emi, student: student, kind: kind };
+        }).filter(function (row) {
+            if (row.kind === "paid" || (filter !== "all" && row.kind !== filter)) return false;
+            const text = [getIdentifier(row.student), row.student.name, row.student.mobile, row.student.course, row.emi.student_id].join(" ").toLowerCase();
+            return !search || text.includes(search);
+        }).sort(function (a, b) { return String(a.emi.due_date || "").localeCompare(String(b.emi.due_date || "")); });
+        const overdueCount = rows.filter(function (row) { return row.kind === "overdue"; }).length;
+        const pendingCount = rows.filter(function (row) { return row.kind === "pending"; }).length;
+        setText("feeOverdueStudentCount", new Set(rows.filter(function (row) { return row.kind === "overdue"; }).map(function (row) { return row.emi.student_id; })).size);
+        setText("feePendingEmiCount", pendingCount);
+        setText("feeDueAmount", money(rows.reduce(function (sum, row) { return sum + toNumber(row.emi.amount); }, 0)));
+        body.innerHTML = rows.length ? rows.map(function (row) { const student = row.student, phone = String(student.mobile || "").replace(/\D/g, "").slice(-10), message = encodeURIComponent("Namaste " + (student.name || "Student") + ", aapki EMI " + (row.emi.emi_number || "") + " ki fee " + money(row.emi.amount) + " due hai. Kripya academy se sampark karein."); return '<tr><td data-label="Student"><strong>' + escapeHtml(student.name || row.emi.student_id || "-") + '</strong><small>' + escapeHtml(getIdentifier(student) || row.emi.student_id || "") + '</small></td><td data-label="Mobile">' + escapeHtml(student.mobile || "-") + '</td><td data-label="Course">' + escapeHtml(student.course || "-") + '</td><td data-label="EMI">' + escapeHtml(row.emi.emi_number || "-") + '</td><td data-label="Due Date">' + escapeHtml(row.emi.due_date || "-") + '</td><td data-label="Amount">' + money(row.emi.amount) + '</td><td data-label="Status"><span class="status-badge ' + (row.kind === "overdue" ? "status-due" : "status-interested") + '">' + (row.kind === "overdue" ? "OVERDUE" : "PENDING") + '</span></td><td data-label="Contact">' + (phone ? '<a class="table-action-btn" href="https://wa.me/91' + escapeHtml(phone) + '?text=' + message + '" target="_blank" rel="noopener">WhatsApp</a><a class="table-action-btn" href="tel:' + escapeHtml(phone) + '">Call</a>' : "-") + '</td></tr>'; }).join("") : '<tr><td colspan="8" class="admin-empty">No due or pending EMI records found.</td></tr>';
+    }
+
+    async function loadFeeManagementRecords() {
+        const body = document.getElementById("feeDueTableBody");
+        if (body) body.innerHTML = '<tr><td colspan="8" class="admin-empty">Loading fee records...</td></tr>';
+        try {
+            const response = await apiFetch("/api/admin/emis?page=1&limit=200", { headers: { "Accept": "application/json" } });
+            const payload = await response.json().catch(function () { return {}; });
+            if (!response.ok || payload.success === false) throw new Error(payload.message || payload.error || "Could not load EMI records.");
+            emisCache = Array.isArray(payload.rows) ? payload.rows : (Array.isArray(payload.data) ? payload.data : []);
+            renderFeeManagement();
+        } catch (error) {
+            console.error("Fee management EMI loading failed", error);
+            if (body) body.innerHTML = '<tr><td colspan="8" class="admin-empty admin-error">' + escapeHtml(error.message || "Could not load fee records.") + '</td></tr>';
+            setPanelMessage(error.message || "Could not load fee records.", "error");
+        }
+    }
+
     function fillEditForm(student) {
         if (!student) {
             setPanelMessage("Student record not found.", "error");
@@ -4055,7 +4097,14 @@
         loadedAdminTables.batches = true;
         studentsCache = await fetchStudents();
         feesCache = await fetchAdminPage("/api/admin/fees", "payments", {});
-        emisCache = await fetchAdminPage("/api/admin/emis", "emi", {});
+        try {
+            emisCache = await fetchAdminPage("/api/admin/emis", "emi", {});
+        } catch (error) {
+            console.error("Initial EMI loading failed", error);
+            emisCache = [];
+            const feeBody = document.getElementById("feeDueTableBody");
+            if (feeBody) feeBody.innerHTML = '<tr><td colspan="8" class="admin-empty admin-error">' + escapeHtml(error.message || "Could not load EMI records.") + '</td></tr>';
+        }
         paymentsCache = [];
         try {
             await loadMaterialManagerRows();
@@ -4077,6 +4126,7 @@
         await applyStudentFilter(false);
         renderEmis();
         renderDashboard();
+        renderFeeManagement();
         renderBatches();
         await renderReports();
         renderMaterials();
@@ -4148,6 +4198,9 @@
                 setPanelMessage("Could not load saved enquiry settings: " + (error.message || "network or permission error") + ". Default fields are shown and have not been saved.", "error");
             });
         }
+        ["feeDueSearchInput", "feeDueTypeFilter"].forEach(function (id) { var field = document.getElementById(id); if (field) field.addEventListener("input", renderFeeManagement); field && field.addEventListener("change", renderFeeManagement); });
+        var refreshFeeDueBtn = document.getElementById("refreshFeeDueBtn"); if (refreshFeeDueBtn) refreshFeeDueBtn.addEventListener("click", loadFeeManagementRecords);
+        var feeSectionButton = document.querySelector('[data-admin-section-target="fees"]'); if (feeSectionButton) feeSectionButton.addEventListener("click", loadFeeManagementRecords);
         ["enquiryConfigTitle", "enquiryConfigDescription"].forEach(function (id) { var field = document.getElementById(id); if (field) field.addEventListener("input", function () { syncEnquiryFormState(); renderEnquiryPreview(); }); });
         var activeToggle = document.getElementById("enquiryConfigActive"); if (activeToggle) activeToggle.addEventListener("change", function () { syncEnquiryFormState(); var label = document.getElementById("enquiryConfigActiveLabel"); if (label) label.textContent = activeToggle.checked ? "Active" : "Inactive"; renderEnquiryPreview(); });
         var allCoursesToggle = document.getElementById("enquiryConfigAllCourses"); if (allCoursesToggle) allCoursesToggle.addEventListener("change", function () { syncEnquiryFormState(); renderEnquiryCourses(); });

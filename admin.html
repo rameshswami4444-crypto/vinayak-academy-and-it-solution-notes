@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="responsive.css">
+    <link rel="stylesheet" href="admin-redesign.css?v=admin-ui-20261115">
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="auth-pending admin-page">
@@ -385,7 +386,11 @@
                     <div class="table-wrap"><table class="admin-table"><thead><tr><th>Title</th><th>Subject</th><th>Chapter</th><th>Courses</th><th>Size</th><th>Upload Date</th><th>Actions</th></tr></thead><tbody id="materialTableBody"><tr><td colspan="7" class="admin-empty">No study material loaded.</td></tr></tbody></table></div><div class="erp-pagination" id="materialPagination"></div>
                 </section>
             </section>
-            <section class="admin-section" data-admin-section="fees"><article class="admin-card erp-placeholder"><h2>Fee Management</h2><p>Fee summaries are now created during admission. Full fee module comes later.</p></article></section>
+            <section class="admin-section" data-admin-section="fees">
+                <div class="admin-hero fee-management-hero"><div><p class="login-badge">Fee Management</p><h2>Due & Pending EMI</h2><p class="admin-hero-copy">Students whose instalments need follow-up are listed here.</p></div><button type="button" class="table-action-btn" id="refreshFeeDueBtn"><i class="fas fa-rotate"></i> Refresh</button></div>
+                <div class="erp-stats-grid fee-summary-grid"><article class="erp-stat-card"><span><i class="fas fa-triangle-exclamation"></i></span><small>Overdue Students</small><strong id="feeOverdueStudentCount">0</strong></article><article class="erp-stat-card"><span><i class="fas fa-calendar-days"></i></span><small>Pending EMIs</small><strong id="feePendingEmiCount">0</strong></article><article class="erp-stat-card"><span><i class="fas fa-indian-rupee-sign"></i></span><small>Total Due Amount</small><strong id="feeDueAmount">Rs. 0.00</strong></article></div>
+                <section class="admin-card admin-table-card"><div class="admin-table-header"><h3><i class="fas fa-wallet"></i> Students to Contact</h3><div class="erp-table-tools"><div class="login-field admin-search-field"><label for="feeDueSearchInput">Search</label><input type="search" id="feeDueSearchInput" placeholder="Name, ID or mobile"></div><select id="feeDueTypeFilter" aria-label="Fee status"><option value="all">Due & Pending</option><option value="overdue">Overdue only</option><option value="pending">Pending only</option></select></div></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Student</th><th>Mobile</th><th>Course</th><th>EMI</th><th>Due Date</th><th>Amount</th><th>Status</th><th>Contact</th></tr></thead><tbody id="feeDueTableBody"><tr><td colspan="8" class="admin-empty">Loading fee records...</td></tr></tbody></table></div></section>
+            </section>
             <section class="admin-section" data-admin-section="payments"><article class="admin-card erp-placeholder"><h2>Payments</h2><p>Payment receipts are not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="assignments"><article class="admin-card erp-placeholder"><h2>Assignments</h2><p>Not part of this phase.</p></article></section>
             <section class="admin-section" data-admin-section="attendance">
