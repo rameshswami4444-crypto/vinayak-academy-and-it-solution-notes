@@ -683,7 +683,7 @@
                 type === "course_admission" && enquiry.student_id ? '<button type="button" class="table-action-btn" data-view-student="' + escapeHtml(enquiry.student_id) + '">Student</button>' : ""
             ].filter(Boolean).join("");
             return [
-                '<tr><td data-label="Enquiry No.">', escapeHtml(enquiry.enquiry_number || "-"), '</td><td data-label="Applicant"><strong>', escapeHtml(enquiry.name || "-"), "</strong><small>", escapeHtml(enquiry.email || ""), '</small></td><td data-label="Phone">',
+                '<tr><td data-label="Applicant"><strong>', escapeHtml(enquiry.name || "-"), "</strong><small>", escapeHtml(enquiry.email || ""), '</small></td><td data-label="Phone">',
                 phone ? '<a href="tel:' + escapeHtml(phone) + '">' + escapeHtml(phone) + '</a>' : "-",
                 '</td><td data-label="Course">', escapeHtml(enquiry.course_name_snapshot || enquiry.course_category || "-"), '</td><td data-label="Type">', enquiryBadge(enquiry), '</td><td data-label="Source">',
                 escapeHtml(enquiry.source || "-"), '</td><td data-label="Status">', enquiryStatusBadge(enquiry.status), '</td><td data-label="Date">', escapeHtml(formatDateTime(enquiry.created_at)), '</td><td data-label="Actions">',
@@ -965,20 +965,32 @@
                 const convertButton = type === "course_enquiry"
                     ? '<div><strong>Admission</strong><span><button type="button" class="table-action-btn" data-convert-enquiry="' + escapeHtml(enquiry.id) + '">Convert to Admission</button></span></div>'
                     : "";
+                let customFields = enquiry.form_data;
+                if (typeof customFields === "string") {
+                    try { customFields = JSON.parse(customFields); } catch (error) { customFields = {}; }
+                }
+                customFields = customFields && typeof customFields === "object" ? customFields : {};
+                const configuredKeys = new Set(["name", "phone", "email", "subject", "message", "enquiry_type_option", "consent", "selected_course", "selected_course_name"]);
+                const customFieldRows = Object.keys(customFields).filter(function (key) { return !configuredKeys.has(key); }).map(function (key) {
+                    return detailRow(key.replace(/_/g, " ").replace(/\b\w/g, function (letter) { return letter.toUpperCase(); }), customFields[key]);
+                }).join("");
+                const enquiryTypeValue = customFields.enquiry_type_option || enquiry.course_category;
                 body.innerHTML = [
                     applicationActions,
-                    detailRow("Enquiry Number", enquiry.enquiry_number),
                     detailRow("Student Name", enquiry.name),
                     detailRow("Father / Guardian", enquiry.father_guardian_name),
                     detailRow("Mobile", enquiry.phone),
                     detailRow("Mobile Verified", enquiry.mobile_verified ? "Yes" : "No"),
                     detailRow("Alternate Number", enquiry.alternate_phone),
                     detailRow("Email", enquiry.email),
+                    detailRow("Subject", enquiry.subject),
                     detailRow("Date of Birth", enquiry.date_of_birth),
                     detailRow("Gender", enquiry.gender),
                     detailRow("Address", [enquiry.address, enquiry.city, enquiry.state, enquiry.pin_code].filter(Boolean).join(", ")),
                     detailRow("Course Category", enquiry.course_category),
+                    detailRow("Enquiry Type", enquiryTypeValue),
                     detailRow("Selected Course", enquiry.course_name_snapshot),
+                    customFieldRows,
                     detailRow("Preferred Contact Time", enquiry.preferred_contact_time),
                     detailRow("Qualification", enquiry.qualification),
                     detailRow("Learning Mode", enquiry.preferred_learning_mode),
