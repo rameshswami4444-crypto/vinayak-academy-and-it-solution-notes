@@ -3438,7 +3438,12 @@ app.get("/api/admin/emis", async function (request, response) {
         const admin = await requireAdmin(request, response);
         if (!admin) return;
         const client = getSupabaseClient();
-        await syncAllOverdueEmis(client);
+        // Do not block the admin table on the maintenance pass. On production
+        // datasets this pass can update many EMI/student rows and a slow or
+        // temporarily restricted update must not leave the UI stuck loading.
+        syncAllOverdueEmis(client).catch(function (error) {
+            console.error("Background overdue EMI sync failed", error);
+        });
         const pageSettings = getPageSettings(request, { limit: 25, max: 200 });
         let query = client.from("emis").select(EMI_COLUMNS, { count: "exact" });
         if (request.query.student_id) query = query.eq("student_id", String(request.query.student_id));
